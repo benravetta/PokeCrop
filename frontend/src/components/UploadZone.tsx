@@ -30,11 +30,12 @@ export function UploadZone() {
       <div className="w-full max-w-xl">
         <div className="text-center mb-8">
           <h2 className="text-2xl font-semibold text-text-primary mb-2">
-            Upload a card scan
+            Extract a card
           </h2>
-          <p className="text-text-secondary text-sm">
-            Drop an image or PDF scan of a trading card. PokeCrop will detect
-            and extract the frontmost card with transparent background.
+          <p className="text-text-secondary text-sm max-w-md mx-auto">
+            Upload a scan or photo of a trading card. PokeCrop will isolate
+            the frontmost card, preserve its border and corners, and give you
+            a clean transparent PNG.
           </p>
         </div>
 
@@ -71,7 +72,7 @@ export function UploadZone() {
                   : "Drag & drop or click to browse"}
             </p>
             <p className="text-text-muted text-xs mt-1">
-              Up to 100 MB
+              Up to 50 MB
             </p>
           </div>
 

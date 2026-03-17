@@ -82,8 +82,10 @@ async def process_card(
 
         filename = image.filename or "upload.png"
 
+        # Stage 1: Normalise input
         working, original, scale = normalise_input(file_bytes, filename)
 
+        # Stage 2: Detect candidates
         candidates = detect_candidates(working, edge_sensitivity, contour_threshold)
 
         if not candidates:
@@ -95,6 +97,7 @@ async def process_card(
                 },
             )
 
+        # Stage 3: Score candidates
         scored = score_candidates(candidates, working)
         if not scored:
             return JSONResponse(
@@ -105,22 +108,28 @@ async def process_card(
         best_idx, best_score, breakdown = scored[0]
         selected_contour = candidates[best_idx]
 
+        # Stage 3b: Expand contour outward to include the card's coloured border
         expanded_contour = expand_to_card_border(selected_contour, working)
 
-        overlay_png = create_overlay(working, expanded_contour, candidates, best_idx)
-
+        # Stage 4: Refine the expanded contour on the working image
         refined_contour, processed_image, rotation_angle = refine_card(
             expanded_contour, working, rotate_correction
         )
 
+        # Create overlay AFTER refinement so it shows the actual extraction boundary
+        overlay_png = create_overlay(working, refined_contour, candidates, best_idx)
+
+        # Stage 5: Corner handling
         corner_mask, estimated_radius = handle_corners(
             refined_contour, processed_image.shape[:2], corner_radius
         )
 
+        # Stage 5b: Top-edge cleanup
         corner_mask = cleanup_top_edge(
             corner_mask, processed_image, refined_contour, top_edge_cleanup
         )
 
+        # Stage 6: Final output
         if scale > 1.0:
             if rotation_angle != 0.0:
                 h_orig, w_orig = original.shape[:2]

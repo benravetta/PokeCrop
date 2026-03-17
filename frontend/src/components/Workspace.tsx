@@ -27,9 +27,9 @@ export function Workspace() {
 
       {/* Bottom bar */}
       <div className="border-t border-border-subtle bg-surface-raised">
-        <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-4 p-4">
+        <div className="flex flex-col lg:flex-row items-stretch lg:items-start gap-4 p-4">
           <AdjustmentsPanel />
-          <div className="lg:ml-auto">
+          <div className="lg:ml-auto shrink-0">
             <ExportControls />
           </div>
         </div>

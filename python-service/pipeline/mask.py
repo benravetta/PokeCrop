@@ -118,11 +118,11 @@ def _feather_mask(mask: np.ndarray, feather_px: int = 2) -> np.ndarray:
 
 def create_overlay(
     image: np.ndarray,
-    contour: np.ndarray,
+    refined_contour: np.ndarray,
     candidates: list,
     selected_idx: int,
 ) -> bytes:
-    """Draw detection overlay showing all candidates and the selected one."""
+    """Draw detection overlay showing all candidates and the final extraction boundary."""
     overlay = image.copy()
 
     for i, cnt in enumerate(candidates):
@@ -130,15 +130,18 @@ def create_overlay(
             continue
         cv2.drawContours(overlay, [cnt], -1, (180, 180, 180), 1)
 
-    # Selected candidate: green outline
-    cv2.drawContours(overlay, [contour], -1, (0, 220, 100), 2)
+    # Draw the original selected candidate in dim green
+    if 0 <= selected_idx < len(candidates):
+        cv2.drawContours(overlay, [candidates[selected_idx]], -1, (0, 140, 60), 1)
 
-    # Draw the fitted rectangle
-    rect = cv2.minAreaRect(contour)
+    # Draw the refined/final extraction boundary in bright green
+    cv2.drawContours(overlay, [refined_contour], -1, (0, 220, 100), 2)
+
+    # Draw the fitted rectangle from the refined contour
+    rect = cv2.minAreaRect(refined_contour)
     box = cv2.boxPoints(rect).astype(np.int32)
     cv2.drawContours(overlay, [box], -1, (0, 180, 255), 2)
 
-    # Corner dots
     for pt in box:
         cv2.circle(overlay, tuple(pt), 5, (0, 140, 255), -1)
 

@@ -78,11 +78,11 @@ def cleanup_top_edge(
     dist_front = np.minimum(dist_front_border, dist_front_interior)
 
     # Threshold scales with strength: higher strength = more aggressive removal
-    thresh = 35 + (1.0 - strength) * 35
+    thresh = 25 + (1.0 - strength) * 30
 
-    # A pixel is "rear contamination" if it's close to rear colour AND far from
-    # front colour.  This avoids cutting into the front card's own border.
-    is_rear = (dist_rear < thresh) & (dist_front > thresh * 0.6)
+    # A pixel is "rear contamination" if it's close to rear colour AND
+    # significantly farther from front colour.
+    is_rear = (dist_rear < thresh) & (dist_front > thresh * 1.2)
 
     # ── 5. Apply to mask ──
     refined_mask = mask.copy()
@@ -112,10 +112,10 @@ def cleanup_top_edge(
             front_interior_lab, strength * 0.5
         )
 
-    # ── 8. Validate ──
+    # ── 8. Validate: never remove more than 5% of the card area ──
     orig_px = np.count_nonzero(mask)
     new_px = np.count_nonzero(refined_mask)
-    if orig_px > 0 and (orig_px - new_px) / orig_px > 0.12:
+    if orig_px > 0 and (orig_px - new_px) / orig_px > 0.05:
         return mask
 
     return refined_mask
@@ -196,6 +196,9 @@ def _sample_rear_colour_lab(
 
     Samples from regions that are OUTSIDE the current mask but INSIDE the
     general card area — these are the visible strips of the rear card.
+
+    Returns None if no distinct rear card colour is found (e.g. card in a
+    wrapper with no backing card, or background is uniform).
     """
     rx, ry, rw, rh = rect
     h, w = image.shape[:2]
@@ -244,4 +247,13 @@ def _sample_rear_colour_lab(
 
     bgr = dominant_colour(all_px, k=2)
     lab = cv2.cvtColor(bgr.reshape(1, 1, 3), cv2.COLOR_BGR2LAB).flatten().astype(np.float64)
+
+    # Verify this is actually a distinct rear-card colour, not just
+    # background/wrapper.  A rear card has saturated colour (not gray).
+    # If the sampled colour is very neutral (low chromaticity), it's likely
+    # just background/wrapper and there's no rear card to clean up.
+    chroma = np.sqrt((lab[1] - 128) ** 2 + (lab[2] - 128) ** 2)
+    if chroma < 10:
+        return None
+
     return lab

@@ -1,28 +1,41 @@
 # PokeCrop
 
+A [Looky Collectibles](https://getlooky.uk) tool — built with ❤️ in the English Lake District.
+
 Local web application for extracting trading cards from scans and photos. Upload an image or PDF, and PokeCrop detects the frontmost card, preserves its exact border and rounded corners, removes the wrapper/backing card/background, and exports a transparent PNG.
+
+No cloud services. No external APIs. Everything runs locally on your machine.
 
 ---
 
 ## Prerequisites
 
-| Tool       | Minimum version | Check                |
-|------------|-----------------|----------------------|
-| **Node.js**| 18+             | `node --version`     |
-| **npm**    | 9+              | `npm --version`      |
-| **Python** | 3.9+            | `python3 --version`  |
+| Tool        | Minimum version | Check              |
+|-------------|----------------|--------------------|
+| **Node.js** | 18+            | `node --version`   |
+| **npm**     | 9+             | `npm --version`    |
+| **Python**  | 3.9+           | `python3 --version`|
 
-macOS users: if you don't have Python 3.9+, install via `brew install python@3.11`.
+**macOS:** If you don't have Python 3.9+, install via `brew install python@3.11`.
+
+**Windows:** Install Python from [python.org](https://www.python.org/downloads/) and ensure "Add to PATH" is checked during installation.
+
+**Linux (Debian/Ubuntu):**
+```bash
+sudo apt update && sudo apt install python3 python3-venv python3-pip
+```
 
 ---
 
-## Quick start
+## Quick Start
 
 ```bash
-# Clone and enter the project
+# Clone the repo
+git clone https://github.com/benravetta/PokeCrop.git
 cd PokeCrop
 
 # One-command launch (installs deps on first run)
+chmod +x start.sh
 ./start.sh
 ```
 
@@ -35,23 +48,30 @@ Once running, open **http://localhost:5173** in your browser.
 
 ---
 
-## Manual setup (step by step)
+## Manual Setup (step by step)
 
-### 1. Python service
+If `start.sh` doesn't work on your system, or you prefer to run each service separately:
+
+### 1. Python processing service
 
 ```bash
 cd python-service
 
 # Create virtual environment
 python3 -m venv .venv
-source .venv/bin/activate
+
+# Activate it
+source .venv/bin/activate        # macOS / Linux
+# .venv\Scripts\activate          # Windows
 
 # Install dependencies
 pip install -r requirements.txt
 
 # Start the service
-python -m uvicorn app:app --host 0.0.0.0 --port 5001 --reload
+python -m uvicorn app:app --host 127.0.0.1 --port 5001
 ```
+
+Runs on **http://localhost:5001**.
 
 ### 2. Node.js backend
 
@@ -75,9 +95,51 @@ npm run dev
 
 Runs on **http://localhost:5173**. The Vite dev server proxies `/api/*` requests to the Node backend automatically.
 
+### All three must be running
+
+Open three terminal windows/tabs and start each service. The frontend won't work without the backend, and the backend won't process images without the Python service.
+
 ---
 
-## Project structure
+## How It Works
+
+Upload a card scan or photo. PokeCrop automatically:
+
+1. **Detects** card-like shapes using 5 parallel contour-finding passes (adaptive threshold, Canny, colour segmentation, Otsu, hierarchical)
+2. **Scores** each candidate across 10 weighted criteria to identify the frontmost card (not the wrapper, not the backing card)
+3. **Expands** the detected contour outward to include the full card border (not just the artwork)
+4. **Refines** edges by snapping to the nearest strong gradient
+5. **Cleans** the top edge to remove rear-card remnants (when a backing card is present)
+6. **Masks** with curvature-based rounded corners using 8x supersampled anti-aliasing
+7. **Exports** a transparent PNG with distance-transform alpha feathering
+
+Processing typically takes 200-500ms per image.
+
+---
+
+## Usage
+
+1. **Upload** — drag-and-drop or click to browse. Accepts JPG, PNG, WEBP, or PDF.
+2. **Auto-process** — processing starts immediately after upload.
+3. **Review** — three panels show the original, detection overlay, and extracted result on a checkerboard.
+4. **Export** — "Web size" (max 1200px) or "Original size" (full resolution).
+
+### Advanced Tools
+
+Click **"Advanced Tools"** in the bottom bar to expand tuning controls. Most images should work well with defaults — these are for edge cases:
+
+| Control | What it does | When to adjust |
+|---------|-------------|----------------|
+| Edge sensitivity | Controls Canny edge detection thresholds | Card not detected → increase to 0.7-0.9 |
+| Contour threshold | Controls adaptive threshold block size | Too many false candidates → increase |
+| Crop padding | Extra transparent pixels around the card (0-40px) | Tight crop cuts border → add 5-15px |
+| Top-edge cleanup | Aggressiveness of rear-card removal at top edge | Rear card visible at top → increase to 0.8-1.0 |
+| Corner radius | Scale the auto-detected corner radius | Corners too round/sharp → adjust (0.5 = auto) |
+| Rotate correction | Straighten slightly tilted cards | Disable if rotation is unwanted |
+
+---
+
+## Project Structure
 
 ```
 PokeCrop/
@@ -87,37 +149,35 @@ PokeCrop/
 │   │   ├── hooks/             Zustand state store
 │   │   ├── lib/               API client
 │   │   ├── App.tsx            Root component
-│   │   ├── main.tsx           Entry point
-│   │   └── index.css          Tailwind config + custom styles
-│   ├── public/                Static assets
-│   ├── package.json
-│   ├── tsconfig.json
-│   └── vite.config.ts
+│   │   └── index.css          Theme + custom styles
+│   ├── public/                Static assets (favicon, logo)
+│   └── vite.config.ts         Dev server + proxy config
 │
 ├── backend/                   Node.js + Express API gateway
 │   ├── src/
 │   │   ├── index.ts           Server entry
 │   │   ├── routes/process.ts  Upload, process, export endpoints
-│   │   └── services/          Python bridge (forwards to FastAPI)
-│   ├── package.json
-│   └── tsconfig.json
+│   │   └── services/          Python bridge
+│   └── package.json
 │
 ├── python-service/            FastAPI image processing microservice
 │   ├── app.py                 FastAPI entry, pipeline orchestrator
 │   ├── pipeline/
-│   │   ├── normalise.py       Stage 1: input normalisation (image/PDF)
-│   │   ├── detect.py          Stage 2: multi-pass candidate detection
-│   │   ├── score.py           Stage 3: candidate scoring & discrimination
-│   │   ├── refine.py          Stage 4: edge refinement & rotation
-│   │   ├── top_edge.py        Stage 4b: top-edge rear-card cleanup
-│   │   ├── corners.py         Stage 5: rounded-corner detection & mask
-│   │   └── mask.py            Stage 6: alpha compositing & PNG export
+│   │   ├── normalise.py       Input normalisation (image/PDF → BGR array)
+│   │   ├── detect.py          Multi-pass candidate detection
+│   │   ├── score.py           Candidate scoring & front-card discrimination
+│   │   ├── border_expand.py   Gradient-based border expansion
+│   │   ├── refine.py          Edge refinement & rotation correction
+│   │   ├── top_edge.py        Top-edge rear-card cleanup
+│   │   ├── corners.py         Rounded-corner detection & supersampled mask
+│   │   └── mask.py            Alpha compositing, overlay, PNG export
 │   ├── utils/
 │   │   ├── geometry.py        Shape analysis helpers
-│   │   └── colour.py          Colour analysis helpers (LAB, k-means)
+│   │   └── colour.py          Colour analysis (LAB, k-means)
 │   └── requirements.txt
 │
 ├── start.sh                   One-command launcher
+├── .gitignore
 └── README.md
 ```
 
@@ -126,7 +186,7 @@ PokeCrop/
 ## Architecture
 
 ```
-Browser (React)
+Browser (React + Vite)
     │
     │  POST /api/upload    (multipart file)
     │  POST /api/process   (JSON: sessionId + params)
@@ -138,10 +198,11 @@ Node.js backend (:3001)
     ▼
 Python service (:5001)
     │
-    ├─ Stage 1: Normalise (decode image / rasterise PDF)
+    ├─ Stage 1: Normalise (decode image / rasterise PDF at 300 DPI)
     ├─ Stage 2: Detect (5 parallel contour-finding passes)
     ├─ Stage 3: Score (10 weighted criteria, front-card discrimination)
-    ├─ Stage 4: Refine (normal-snap edges, fit minAreaRect, rotate)
+    ├─ Stage 3b: Border expand (gradient-peak outward probing)
+    ├─ Stage 4: Refine (normal-snap to nearest edge, fit minAreaRect)
     ├─ Stage 4b: Top-edge cleanup (LAB colour classification)
     ├─ Stage 5: Corners (curvature-based radius, 8x supersampled mask)
     └─ Stage 6: Mask (distance-transform feathering, pre-multiplied alpha)
@@ -149,37 +210,7 @@ Python service (:5001)
 
 ---
 
-## Usage workflow
-
-1. **Upload** — drag-and-drop or click to browse. Accepts JPG, PNG, WEBP, or PDF.
-2. **Auto-process** — processing starts immediately after upload.
-3. **Review** — three panels show the original, detection overlay (green = selected card, orange = fitted rectangle), and the extracted result on a checkerboard.
-4. **Adjust** — use the bottom panel sliders to tune:
-   - **Edge sensitivity** — lower = more permissive edge detection
-   - **Contour threshold** — controls adaptive threshold block size
-   - **Crop padding** — extra pixels around the card (0-40)
-   - **Top-edge cleanup** — aggressiveness of rear-card removal (0 = off)
-   - **Corner radius** — scale the auto-detected radius (0.5 = auto)
-   - **Rotate correction** — straighten slightly tilted cards
-5. **Reprocess** — click "Reprocess" after changing sliders.
-6. **Export** — "Web size" (max 1200px) or "Original size" (full resolution).
-
----
-
-## Adjustment guide
-
-| Scenario | Recommended adjustments |
-|----------|------------------------|
-| Card not detected | Increase edge sensitivity (0.7-0.9), lower contour threshold |
-| Wrong card selected (wrapper chosen) | Decrease edge sensitivity, the scoring should prefer the inner card |
-| Rear card visible at top | Increase top-edge cleanup (0.8-1.0) |
-| Corners too rounded / not rounded enough | Adjust corner radius (< 0.5 = sharper, > 0.5 = rounder) |
-| Card slightly tilted | Enable rotate correction (on by default) |
-| Tight crop cuts border | Increase crop padding (5-15px) |
-
----
-
-## API reference
+## API Reference
 
 ### `POST /api/upload`
 
@@ -194,8 +225,6 @@ Multipart form with field `file`. Returns:
 ```
 
 ### `POST /api/process`
-
-JSON body:
 
 ```json
 {
@@ -218,14 +247,14 @@ Returns:
   "result_web_png": "base64...",
   "overlay_png": "base64...",
   "metadata": {
-    "bbox": [x, y, w, h],
-    "confidence": 0.85,
-    "estimated_corner_radius_px": 12.5,
-    "rotation_deg": 1.2,
-    "candidates_found": 5,
-    "selected_candidate_index": 2,
-    "pipeline_time_ms": 340,
-    "score_breakdown": { "aspect": 0.95, "rectangularity": 0.92, ... }
+    "bbox": [55, 134, 619, 856],
+    "confidence": 0.897,
+    "estimated_corner_radius_px": 15.5,
+    "rotation_deg": 0.0,
+    "candidates_found": 2,
+    "selected_candidate_index": 0,
+    "pipeline_time_ms": 350,
+    "score_breakdown": { "aspect": 0.99, "rectangularity": 0.96, "..." : "..." }
   }
 }
 ```
@@ -233,6 +262,10 @@ Returns:
 ### `GET /api/export/:sessionId?size=original|web`
 
 Downloads the extracted PNG as a file attachment.
+
+### `DELETE /api/session/:sessionId`
+
+Cleans up server-side resources for a session.
 
 ---
 
@@ -242,7 +275,7 @@ Downloads the extracted PNG as a file attachment.
 
 **`ModuleNotFoundError: No module named 'cv2'`**
 
-The virtual environment wasn't activated or dependencies weren't installed. Run:
+The virtual environment wasn't activated or dependencies weren't installed:
 
 ```bash
 cd python-service
@@ -259,11 +292,31 @@ python3 -m venv .venv
 source .venv/bin/activate
 ```
 
+### Node backend won't start
+
+**`Cannot find module 'get-tsconfig'`**
+
+Run a clean install:
+
+```bash
+cd backend
+rm -rf node_modules package-lock.json
+npm install
+```
+
+**`SyntaxError: The requested module 'express' does not provide an export named 'Router'`**
+
+Same fix — clean install. This can happen with corrupted `node_modules`:
+
+```bash
+cd backend
+rm -rf node_modules package-lock.json
+npm install
+```
+
 ### Frontend can't reach backend
 
-The Vite dev server proxies `/api` to `localhost:3001`. Make sure the Node backend is running. Check the terminal for errors.
-
-If you're running the frontend on a different port or host, update `vite.config.ts`:
+The Vite dev server proxies `/api` to `localhost:3001`. Make sure the Node backend is running. If you're using a different port, update `frontend/vite.config.ts`:
 
 ```typescript
 proxy: {
@@ -276,23 +329,18 @@ proxy: {
 
 ### Processing returns "No card-like shapes detected"
 
-- Try increasing **edge sensitivity** to 0.7-0.9
-- Try lowering **contour threshold** to 0.2-0.3
-- Make sure the card occupies at least 3% of the image area
+- Increase **edge sensitivity** to 0.7-0.9
+- Lower **contour threshold** to 0.2-0.3
+- Ensure the card occupies at least 3% of the image area
 - Very low-contrast images (card colour similar to background) are harder to detect
-
-### Slow processing
-
-Large images (4000px+) are automatically downscaled to 2000px for detection. Processing typically takes 200-800ms. If it's consistently slow:
-
-- Check that `opencv-python-headless` is installed (not the full `opencv-python` which pulls in GUI deps)
-- Ensure you're using Python 3.9+ (older versions have slower NumPy)
 
 ### PDF upload doesn't work
 
 PyMuPDF (`fitz`) is required for PDF rasterisation. Verify it's installed:
 
 ```bash
+cd python-service
+source .venv/bin/activate
 python3 -c "import fitz; print(fitz.version)"
 ```
 
@@ -300,59 +348,36 @@ python3 -c "import fitz; print(fitz.version)"
 
 Default ports: frontend=5173, backend=3001, python=5001. If any are in use:
 
-- Frontend: edit `vite.config.ts` → `server.port`
-- Backend: edit `backend/src/index.ts` → `PORT`
-- Python: change the port in `start.sh` and set `PYTHON_URL` env var for the backend
+- **Frontend:** edit `frontend/vite.config.ts` → `server.port`
+- **Backend:** set `PORT` environment variable or edit `backend/src/index.ts`
+- **Python:** set `PORT` environment variable or change the port in `start.sh`
 
 ---
 
-## Known limitations
+## Known Limitations
 
-1. **Single-card detection only** — the pipeline selects the single best candidate. If multiple cards are visible, only the highest-scoring one is extracted.
-
-2. **Assumes roughly rectangular cards** — non-standard card shapes (circular, die-cut, irregularly shaped promos) may not be detected or may produce poor masks.
-
-3. **Colour-similar cards and backgrounds** — when the card border colour is very close to the background colour, edge detection struggles. The colour segmentation pass helps but isn't perfect.
-
-4. **Heavy occlusion** — if more than ~30% of the front card is covered by another object, the contour won't be complete enough to score well.
-
-5. **Extreme rotation** — rotation correction handles angles up to ~45 degrees. Beyond that, the card may not be detected at all.
-
-6. **Session storage is in-memory** — sessions (including full-resolution base64 results) are stored in the Node process memory. Sessions expire after 30 minutes. For very large images, memory usage can be significant.
-
-7. **No GPU acceleration** — all processing is CPU-based via OpenCV/NumPy. This is fast enough for single images but would need optimization for batch workloads.
+1. **Single-card detection only** — selects the single best candidate. Multiple visible cards → only the highest-scoring one is extracted.
+2. **Assumes roughly rectangular cards** — non-standard shapes (circular, die-cut) may not detect well.
+3. **Colour-similar cards and backgrounds** — when the card border colour is very close to the background, edge detection struggles.
+4. **Heavy occlusion** — if more than ~30% of the front card is covered, the contour won't score well.
+5. **Extreme rotation** — handles up to ~45 degrees. Beyond that, detection may fail.
+6. **In-memory sessions** — sessions expire after 30 minutes. Large images use significant memory.
+7. **CPU only** — all processing is via OpenCV/NumPy. Fast enough for single images but not optimised for batch.
 
 ---
 
-## Future improvements
+## Future Improvements
 
-### Multi-card detection
-Extend the pipeline to return the top N candidates instead of just the best one. The scoring infrastructure already ranks all candidates — the UI would need a card selector to let the user pick which card to extract, or extract all at once.
-
-### Manual correction handles
-Add draggable corner handles on the detection overlay so the user can manually adjust the card boundary after auto-detection. The backend would accept a user-provided 4-point polygon and skip stages 2-4, going straight to corner masking and alpha output.
-
-### Batch export
-Accept multiple files at once (or a multi-page PDF) and process them in sequence. Add a queue UI with progress indicators and a "download all as ZIP" button. The Python service already handles one image at a time, so this is primarily a frontend/backend orchestration change.
-
-### GrabCut refinement
-Add an optional GrabCut pass after initial detection to refine the mask using colour-based foreground/background segmentation. This would help with cases where the contour-based approach misses subtle edges.
-
-### Perspective correction
-For photos taken at an angle, add a homography-based perspective correction step that transforms the card to a perfect rectangle before masking. The 4 detected corners provide the source points; the target points would be a standard card aspect ratio rectangle.
-
-### Template matching
-For known card sets (e.g., standard Pokemon card layouts), use template matching to improve detection confidence. A small library of card border templates could be matched against candidates to boost scoring.
-
-### Drag-and-drop reordering for batch
-When processing multiple cards, allow drag-and-drop reordering of results before export.
-
-### Dark/light card border detection
-Improve the top-edge cleanup by detecting whether the card has a light or dark border, and adjusting the LAB distance thresholds accordingly. Currently the thresholds are tuned for typical card borders.
+- **Multi-card detection** — return top N candidates with a card selector UI
+- **Manual correction handles** — draggable corner handles on the overlay
+- **Batch export** — multiple files or multi-page PDF, download all as ZIP
+- **GrabCut refinement** — colour-based foreground/background segmentation
+- **Perspective correction** — homography-based de-skew for angled photos
+- **Template matching** — boost scoring for known card set layouts
 
 ---
 
-## Tech stack
+## Tech Stack
 
 | Layer | Technology |
 |-------|-----------|
@@ -364,4 +389,4 @@ Improve the top-edge cleanup by detecting whether the card has a light or dark b
 
 ## License
 
-Private project. Not licensed for redistribution.
+MIT — see [LICENSE](LICENSE) for details.

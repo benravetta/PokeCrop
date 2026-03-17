@@ -4,14 +4,19 @@ Problem: contour detection often locks onto the artwork edge (high contrast
 between printed art and the card border) rather than the card's outer edge
 (lower contrast between border and wrapper/background).
 
-Solution: from the detected contour, probe outward along normals.  If we find
-a uniform-colour band (the card border), expand the contour to the outer edge
-of that band — where the card border meets the background/wrapper.
+Strategy: from the detected contour, probe outward along normals looking for
+the card's physical outer edge.  The outer edge is characterised by:
+  - A strong gradient peak (card border → background/wrapper transition)
+  - Located beyond the initial artwork edge
+  - At a consistent distance around the card perimeter
+
+We look for the OUTERMOST strong gradient peak within a reasonable range,
+then use the median distance for uniform expansion.
 """
 
 import cv2
 import numpy as np
-from typing import Optional
+from typing import Optional, List, Tuple
 
 
 def expand_to_card_border(
@@ -20,15 +25,9 @@ def expand_to_card_border(
 ) -> np.ndarray:
     """Expand a contour outward to include the card's coloured border.
 
-    Strategy: from the detected contour (which typically sits on the artwork
-    edge), probe outward along normals.  If a uniform-colour border band
-    exists, find the outermost strong gradient within or just beyond that
-    band — that's the card's physical outer edge.
-
-    Returns the original contour unchanged if no border band is detected.
+    Returns the original contour unchanged if no consistent border is detected.
     """
     h, w = image.shape[:2]
-    lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB).astype(np.float64)
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     mag = _gradient_magnitude(gray)
 
@@ -37,42 +36,50 @@ def expand_to_card_border(
     if n < 8:
         return contour
 
-    border_lab = _sample_border_colour(contour, image, lab)
-    if border_lab is None:
+    rect = cv2.minAreaRect(contour)
+    card_short = min(rect[1][0], rect[1][1])
+    if card_short < 20:
         return contour
 
-    # For each sampled contour point, find the outer card edge by looking
-    # for the outermost gradient peak within the border-colour zone.
-    max_probe = 70
-    expansions = []
+    # Maximum expansion: ~8% of the card's short dimension.
+    # Standard trading card border is ~3-5% of card width.
+    max_expansion = max(int(card_short * 0.10), 15)
+    max_expansion = min(max_expansion, 80)
 
-    for i in range(0, n, max(1, n // 60)):
+    sample_count = max(60, min(n // 2, 120))
+    expansions: List[float] = []
+
+    for i in range(0, n, max(1, n // sample_count)):
         normal = _outward_normal(pts, i, n, contour)
         if normal is None:
             continue
 
-        outer_d = _find_outer_card_edge(
-            pts[i], normal, lab, border_lab, mag, h, w, max_probe
+        outer_d = _find_outer_edge(
+            pts[i], normal, mag, h, w, max_expansion
         )
-        if outer_d is not None and outer_d > 3:
+        if outer_d is not None and outer_d > 2:
             expansions.append(outer_d)
 
-    if len(expansions) < 8:
+    if len(expansions) < 6:
         return contour
 
     dists_arr = np.array(expansions)
     median_dist = np.median(dists_arr)
 
-    if median_dist < 5:
+    if median_dist < 3:
         return contour
 
-    # Filter outliers: remove expansions that deviate too far from median
-    iqr = np.percentile(dists_arr, 75) - np.percentile(dists_arr, 25)
-    lower = median_dist - max(iqr * 1.5, 10)
-    upper = median_dist + max(iqr * 1.5, 10)
+    # Filter outliers using IQR
+    q25, q75 = np.percentile(dists_arr, 25), np.percentile(dists_arr, 75)
+    iqr = q75 - q25
+    lower = max(median_dist - max(iqr * 1.5, 8), 2)
+    upper = median_dist + max(iqr * 1.5, 8)
     filtered = dists_arr[(dists_arr >= lower) & (dists_arr <= upper)]
     if len(filtered) > 4:
         median_dist = np.median(filtered)
+
+    # Sanity check: don't expand more than max_expansion
+    median_dist = min(median_dist, max_expansion)
 
     expanded_pts = pts.copy()
     for i in range(n):
@@ -87,126 +94,71 @@ def expand_to_card_border(
     return expanded_pts.reshape(-1, 1, 2).astype(np.int32)
 
 
-def _sample_border_colour(
-    contour: np.ndarray,
-    image: np.ndarray,
-    lab: np.ndarray,
-) -> Optional[np.ndarray]:
-    """Sample the dominant colour in a thin band just outside the contour."""
-    h, w = image.shape[:2]
-    pts = contour.reshape(-1, 2).astype(np.float64)
-    n = len(pts)
-
-    samples = []
-    for i in range(0, n, max(1, n // 40)):
-        normal = _outward_normal(pts, i, n, contour)
-        if normal is None:
-            continue
-
-        # Sample 5-15px outside the contour
-        for d in range(5, 16, 2):
-            sx = int(round(pts[i][0] + normal[0] * d))
-            sy = int(round(pts[i][1] + normal[1] * d))
-            if 0 <= sx < w and 0 <= sy < h:
-                samples.append(lab[sy, sx])
-
-    if len(samples) < 20:
-        return None
-
-    samples_arr = np.array(samples)
-
-    # Check if the samples are reasonably uniform (a real border band).
-    # Lightness (L) can vary significantly due to wrapper reflections/shadows,
-    # so we're more lenient on L and stricter on chromaticity (a, b).
-    std_l = np.std(samples_arr[:, 0])
-    std_a = np.std(samples_arr[:, 1])
-    std_b = np.std(samples_arr[:, 2])
-
-    if std_a > 25 or std_b > 25:
-        return None
-
-    # Even if L varies a lot, if chromaticity is tight it's a real border
-    if std_l > 50 and (std_a > 15 or std_b > 15):
-        return None
-
-    return np.median(samples_arr, axis=0)
-
-
-def _find_outer_card_edge(
+def _find_outer_edge(
     start: np.ndarray,
     normal: np.ndarray,
-    lab: np.ndarray,
-    border_lab: np.ndarray,
     mag: np.ndarray,
     h: int, w: int,
     max_probe: int,
 ) -> Optional[float]:
-    """Find the outer edge of the card by combining colour and gradient info.
+    """Find the card's outer edge by looking for the outermost strong gradient
+    peak within the probe range.
 
-    Walks outward through the border-colour zone, collecting gradient peaks.
-    Returns the outermost gradient peak that's still within (or at the edge of)
-    the border-colour band.  This is the card's physical outer edge.
+    The gradient profile outward from the artwork edge typically shows:
+    1. The artwork edge itself (d≈0, which we skip)
+    2. The card border (relatively uniform, low gradient)
+    3. The card outer edge (strong gradient — border-to-background transition)
+    4. Background/wrapper (low gradient)
+
+    We want peak #3.
     """
-    gradient_peaks = []
-    in_border_zone = True
-    border_exit_d = None
-
-    for d in range(2, max_probe):
+    # Collect gradient values along the normal
+    profile: List[Tuple[int, float]] = []
+    for d in range(2, max_probe + 1):
         sx = int(round(start[0] + normal[0] * d))
         sy = int(round(start[1] + normal[1] * d))
         if not (0 <= sx < w and 0 <= sy < h):
             break
+        profile.append((d, float(mag[sy, sx])))
 
-        # Check colour match
-        pixel_lab = lab[sy, sx]
-        chroma_dist = np.sqrt(
-            (pixel_lab[1] - border_lab[1]) ** 2 +
-            (pixel_lab[2] - border_lab[2]) ** 2
-        )
+    if len(profile) < 5:
+        return None
 
-        is_border_colour = chroma_dist < 25
+    # Find gradient peaks (local maxima above a threshold)
+    min_strength = 30
+    peaks: List[Tuple[int, float]] = []
 
-        # Track gradient peaks
-        grad_val = mag[sy, sx]
-        if grad_val > 40:
-            gradient_peaks.append((d, grad_val))
+    for idx in range(1, len(profile) - 1):
+        d, val = profile[idx]
+        _, prev_val = profile[idx - 1]
+        _, next_val = profile[idx + 1]
+        if val > min_strength and val >= prev_val and val >= next_val:
+            peaks.append((d, val))
 
-        if not is_border_colour and in_border_zone and d > 5:
-            border_exit_d = float(d)
-            in_border_zone = False
-            # Continue a bit past the border to catch the edge gradient
-            if d > max_probe * 0.8:
-                break
+    if not peaks:
+        # No clear peaks — try the strongest gradient point
+        best_d, best_val = max(profile, key=lambda x: x[1])
+        if best_val > min_strength:
+            return float(best_d)
+        return None
 
-        # Stop searching well past the border zone
-        if border_exit_d is not None and d > border_exit_d + 10:
+    # Prefer the outermost strong peak.  "Strong" means at least 40% of the
+    # maximum peak strength, to avoid noise.
+    max_peak_val = max(p[1] for p in peaks)
+    strong_threshold = max_peak_val * 0.35
+
+    # Take the outermost peak that's strong enough
+    best = None
+    for d, val in reversed(peaks):
+        if val >= strong_threshold:
+            best = d
             break
 
-    if not gradient_peaks:
-        return border_exit_d
+    if best is not None:
+        return float(best)
 
-    if border_exit_d is not None:
-        # Find the gradient peak closest to (and not far past) the border exit
-        best_peak = None
-        best_score = -1
-        for peak_d, peak_val in gradient_peaks:
-            # Prefer peaks near the border exit, penalise peaks far inside
-            proximity = max(0, 1.0 - abs(peak_d - border_exit_d) / 15.0)
-            # Prefer peaks that are outward (positive offset from border exit)
-            outward_bonus = 0.2 if peak_d >= border_exit_d - 3 else 0.0
-            score = (peak_val / 500.0) * 0.3 + proximity * 0.5 + outward_bonus
-            if score > best_score:
-                best_score = score
-                best_peak = peak_d
-        return best_peak
-
-    # No clear border exit found — take the outermost strong gradient
-    # that's within the border zone
-    for peak_d, peak_val in reversed(gradient_peaks):
-        if peak_val > 60:
-            return float(peak_d)
-
-    return None
+    # Fallback: strongest peak
+    return float(max(peaks, key=lambda x: x[1])[0])
 
 
 def _outward_normal(
