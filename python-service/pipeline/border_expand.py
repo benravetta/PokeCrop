@@ -1,22 +1,17 @@
 """Border expansion — detect and include the card's coloured border.
 
 Problem: contour detection often locks onto the artwork edge (high contrast
-between printed art and the card border) rather than the card's outer edge
-(lower contrast between border and wrapper/background).
+between printed art and the card border) rather than the card's outer edge.
 
-Strategy: from the detected contour, probe outward along normals looking for
-the card's physical outer edge.  The outer edge is characterised by:
-  - A strong gradient peak (card border → background/wrapper transition)
-  - Located beyond the initial artwork edge
-  - At a consistent distance around the card perimeter
-
-We look for the OUTERMOST strong gradient peak within a reasonable range,
-then use the median distance for uniform expansion.
+Strategy: from the detected contour, probe outward along normals and find the
+strongest gradient peak — this is the card's physical border-to-background
+transition.  Each contour point is expanded individually to its own peak,
+then smoothed to prevent jagged edges.
 """
 
 import cv2
 import numpy as np
-from typing import Optional, List, Tuple
+from typing import Optional, List
 
 
 def expand_to_card_border(
@@ -25,6 +20,7 @@ def expand_to_card_border(
 ) -> np.ndarray:
     """Expand a contour outward to include the card's coloured border.
 
+    Uses per-point strongest-gradient expansion with smoothing.
     Returns the original contour unchanged if no consistent border is detected.
     """
     h, w = image.shape[:2]
@@ -41,52 +37,58 @@ def expand_to_card_border(
     if card_short < 20:
         return contour
 
-    # Maximum expansion: ~8% of the card's short dimension.
-    # Standard trading card border is ~3-5% of card width.
-    max_expansion = max(int(card_short * 0.10), 15)
-    max_expansion = min(max_expansion, 80)
+    max_probe = max(int(card_short * 0.12), 20)
+    max_probe = min(max_probe, 80)
 
-    sample_count = max(60, min(n // 2, 120))
-    expansions: List[float] = []
+    # Phase 1: find the strongest gradient peak for each sampled point
+    sample_step = max(1, n // 120)
+    raw_distances = np.full(n, np.nan)
 
-    for i in range(0, n, max(1, n // sample_count)):
+    for i in range(0, n, sample_step):
         normal = _outward_normal(pts, i, n, contour)
         if normal is None:
             continue
 
-        outer_d = _find_outer_edge(
-            pts[i], normal, mag, h, w, max_expansion
-        )
-        if outer_d is not None and outer_d > 2:
-            expansions.append(outer_d)
+        peak_d = _find_strongest_edge(pts[i], normal, mag, h, w, max_probe)
+        if peak_d is not None:
+            raw_distances[i] = peak_d
 
-    if len(expansions) < 6:
+    # Count valid samples
+    valid_mask = ~np.isnan(raw_distances)
+    valid_dists = raw_distances[valid_mask]
+    if len(valid_dists) < 8:
         return contour
 
-    dists_arr = np.array(expansions)
-    median_dist = np.median(dists_arr)
-
+    median_dist = np.median(valid_dists)
     if median_dist < 3:
         return contour
 
-    # Filter outliers using IQR
-    q25, q75 = np.percentile(dists_arr, 25), np.percentile(dists_arr, 75)
+    # Phase 2: outlier rejection — remove distances that deviate too far
+    q25, q75 = np.percentile(valid_dists, 25), np.percentile(valid_dists, 75)
     iqr = q75 - q25
-    lower = max(median_dist - max(iqr * 1.5, 8), 2)
-    upper = median_dist + max(iqr * 1.5, 8)
-    filtered = dists_arr[(dists_arr >= lower) & (dists_arr <= upper)]
-    if len(filtered) > 4:
-        median_dist = np.median(filtered)
+    lower = max(median_dist - max(iqr * 2.0, 8), 3)
+    upper = median_dist + max(iqr * 2.0, 8)
 
-    # Sanity check: don't expand more than max_expansion
-    median_dist = min(median_dist, max_expansion)
+    # Replace outliers with NaN so they get interpolated
+    for i in range(n):
+        if not np.isnan(raw_distances[i]):
+            if raw_distances[i] < lower or raw_distances[i] > upper:
+                raw_distances[i] = np.nan
 
+    # Phase 3: interpolate missing values and smooth
+    distances = _interpolate_and_smooth(raw_distances, kernel_size=max(n // 20, 5))
+
+    # Add an offset past the peak centre to reach the outer edge of the
+    # gradient transition (the peak is at the middle of the edge, not the outside)
+    distances = distances + 8
+
+    # Phase 4: expand each point along its normal
     expanded_pts = pts.copy()
     for i in range(n):
         normal = _outward_normal(pts, i, n, contour)
         if normal is None:
             continue
-        expanded_pts[i] = pts[i] + normal * median_dist
+        expanded_pts[i] = pts[i] + normal * distances[i]
 
     expanded_pts[:, 0] = np.clip(expanded_pts[:, 0], 0, w - 1)
     expanded_pts[:, 1] = np.clip(expanded_pts[:, 1], 0, h - 1)
@@ -94,71 +96,79 @@ def expand_to_card_border(
     return expanded_pts.reshape(-1, 1, 2).astype(np.int32)
 
 
-def _find_outer_edge(
+def _find_strongest_edge(
     start: np.ndarray,
     normal: np.ndarray,
     mag: np.ndarray,
     h: int, w: int,
     max_probe: int,
 ) -> Optional[float]:
-    """Find the card's outer edge by looking for the outermost strong gradient
-    peak within the probe range.
+    """Find the strongest gradient peak along the outward normal.
 
-    The gradient profile outward from the artwork edge typically shows:
-    1. The artwork edge itself (d≈0, which we skip)
-    2. The card border (relatively uniform, low gradient)
-    3. The card outer edge (strong gradient — border-to-background transition)
-    4. Background/wrapper (low gradient)
-
-    We want peak #3.
+    Skips the first few pixels (the artwork edge the contour sits on).
     """
-    # Collect gradient values along the normal
-    profile: List[Tuple[int, float]] = []
-    for d in range(2, max_probe + 1):
+    min_d = 5
+    best_d = None
+    best_val = 0.0
+
+    for d in range(min_d, max_probe + 1):
         sx = int(round(start[0] + normal[0] * d))
         sy = int(round(start[1] + normal[1] * d))
         if not (0 <= sx < w and 0 <= sy < h):
             break
-        profile.append((d, float(mag[sy, sx])))
 
-    if len(profile) < 5:
-        return None
+        val = float(mag[sy, sx])
+        if val > best_val:
+            best_val = val
+            best_d = d
 
-    # Find gradient peaks (local maxima above a threshold)
-    min_strength = 30
-    peaks: List[Tuple[int, float]] = []
+    if best_d is not None and best_val > 80:
+        return float(best_d)
 
-    for idx in range(1, len(profile) - 1):
-        d, val = profile[idx]
-        _, prev_val = profile[idx - 1]
-        _, next_val = profile[idx + 1]
-        if val > min_strength and val >= prev_val and val >= next_val:
-            peaks.append((d, val))
+    return None
 
-    if not peaks:
-        # No clear peaks — try the strongest gradient point
-        best_d, best_val = max(profile, key=lambda x: x[1])
-        if best_val > min_strength:
-            return float(best_d)
-        return None
 
-    # Prefer the outermost strong peak.  "Strong" means at least 40% of the
-    # maximum peak strength, to avoid noise.
-    max_peak_val = max(p[1] for p in peaks)
-    strong_threshold = max_peak_val * 0.35
+def _interpolate_and_smooth(
+    distances: np.ndarray,
+    kernel_size: int,
+) -> np.ndarray:
+    """Interpolate NaN values and smooth the distance array.
 
-    # Take the outermost peak that's strong enough
-    best = None
-    for d, val in reversed(peaks):
-        if val >= strong_threshold:
-            best = d
-            break
+    The contour is circular, so we use circular interpolation and smoothing.
+    """
+    n = len(distances)
+    result = distances.copy()
 
-    if best is not None:
-        return float(best)
+    # Interpolate NaN values from nearest valid neighbours
+    valid = ~np.isnan(result)
+    if not np.any(valid):
+        return np.full(n, 0.0)
 
-    # Fallback: strongest peak
-    return float(max(peaks, key=lambda x: x[1])[0])
+    valid_indices = np.where(valid)[0]
+    valid_values = result[valid]
+
+    for i in range(n):
+        if np.isnan(result[i]):
+            # Find nearest valid neighbours (circular)
+            dists_to_valid = np.minimum(
+                np.abs(valid_indices - i),
+                n - np.abs(valid_indices - i)
+            )
+            nearest_idx = np.argmin(dists_to_valid)
+            result[i] = valid_values[nearest_idx]
+
+    # Smooth with a circular moving average
+    if kernel_size < 3:
+        kernel_size = 3
+    if kernel_size % 2 == 0:
+        kernel_size += 1
+
+    padded = np.concatenate([result[-kernel_size:], result, result[:kernel_size]])
+    kernel = np.ones(kernel_size) / kernel_size
+    smoothed = np.convolve(padded, kernel, mode='same')
+    result = smoothed[kernel_size:kernel_size + n]
+
+    return result
 
 
 def _outward_normal(
