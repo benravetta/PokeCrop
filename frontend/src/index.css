@@ -1,0 +1,69 @@
+@import "tailwindcss";
+
+@theme {
+  --color-surface: #0f1117;
+  --color-surface-raised: #181a24;
+  --color-surface-overlay: #1e2130;
+  --color-border-subtle: #2a2d3e;
+  --color-accent: #6c63ff;
+  --color-accent-hover: #7f78ff;
+  --color-text-primary: #e8e9ed;
+  --color-text-secondary: #8b8fa3;
+  --color-text-muted: #5c6078;
+  --color-success: #34d399;
+  --color-error: #f87171;
+}
+
+body {
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    sans-serif;
+  background-color: var(--color-surface);
+  color: var(--color-text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.checkerboard {
+  background-image: linear-gradient(45deg, #1a1c28 25%, transparent 25%),
+    linear-gradient(-45deg, #1a1c28 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #1a1c28 75%),
+    linear-gradient(-45deg, transparent 75%, #1a1c28 75%);
+  background-size: 16px 16px;
+  background-position:
+    0 0,
+    0 8px,
+    8px -8px,
+    -8px 0;
+  background-color: #12141e;
+}
+
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--color-border-subtle);
+  outline: none;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  cursor: pointer;
+  border: 2px solid var(--color-surface);
+  box-shadow: 0 0 0 2px var(--color-accent);
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  cursor: pointer;
+  border: 2px solid var(--color-surface);
+  box-shadow: 0 0 0 2px var(--color-accent);
+}
