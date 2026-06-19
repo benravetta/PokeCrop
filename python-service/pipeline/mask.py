@@ -85,7 +85,7 @@ def create_alpha_output(
 
     pil_img = Image.fromarray(cropped, "RGBA")
     buf = io.BytesIO()
-    pil_img.save(buf, format="PNG", optimize=True)
+    pil_img.save(buf, format="PNG")
 
     return buf.getvalue(), (int(x1), int(y1), int(x2 - x1), int(y2 - y1))
 
@@ -325,25 +325,30 @@ def _draw_rounded_quad_outline(
     cv2.polylines(image, [poly], True, color, thickness, cv2.LINE_AA)
 
 
-def create_web_size(png_bytes: bytes, max_dim: int = 1200) -> bytes:
-    """Create a web-sized version of the result."""
-    img = Image.open(io.BytesIO(png_bytes))
-    w, h = img.size
-
-    if max(w, h) <= max_dim:
-        return png_bytes
-
-    if w > h:
-        new_w = max_dim
-        new_h = int(h * max_dim / w)
-    else:
-        new_h = max_dim
-        new_w = int(w * max_dim / h)
-
-    resized = img.resize((new_w, new_h), Image.LANCZOS)
+def encode_rgba_png(rgba: np.ndarray) -> bytes:
+    """Encode an RGBA numpy array to PNG bytes (no slow optimize pass)."""
     buf = io.BytesIO()
-    resized.save(buf, format="PNG", optimize=True)
+    Image.fromarray(rgba, "RGBA").save(buf, format="PNG")
     return buf.getvalue()
+
+
+def create_web_from_rgba(rgba: np.ndarray, max_dim: int = 1200) -> bytes:
+    """Build a web-sized PNG directly from an RGBA array.
+
+    Avoids the decode->resize->re-encode round-trip: we resize the array once
+    and encode a single time, which is markedly faster than going through an
+    intermediate full-resolution PNG.
+    """
+    h, w = rgba.shape[:2]
+    if max(w, h) > max_dim:
+        if w >= h:
+            new_w = max_dim
+            new_h = max(1, int(round(h * max_dim / w)))
+        else:
+            new_h = max_dim
+            new_w = max(1, int(round(w * max_dim / h)))
+        rgba = cv2.resize(rgba, (new_w, new_h), interpolation=cv2.INTER_AREA)
+    return encode_rgba_png(rgba)
 
 
 def to_base64(png_bytes: bytes) -> str:

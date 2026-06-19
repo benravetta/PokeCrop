@@ -18,22 +18,28 @@ export interface AppState {
   filename: string | null;
   originalBase64: string | null;
   editImageBase64: string | null;
-  overlayBase64: string | null;
   resultBase64: string | null;
   metadata: ProcessResult["metadata"] | null;
   cropCorners: CropCorners | null;
   autoCropCorners: CropCorners | null;
+  // Corners that produced the currently displayed result, used to revert
+  // unapplied edits when the user cancels the crop editor.
+  appliedCropCorners: CropCorners | null;
   editImageSize: [number, number] | null;
   cropDirty: boolean;
   error: string | null;
   uploading: boolean;
   processing: boolean;
   params: ProcessParams;
+  // Snapshot of the params used for the most recent successful process, so the
+  // UI can tell when the current settings differ and surface an "Apply" action.
+  appliedParams: ProcessParams | null;
 
   upload: (file: File) => Promise<void>;
   process: () => Promise<void>;
   setCropCorners: (corners: CropCorners) => void;
   resetCrop: () => void;
+  revertCrop: () => void;
   setParam: <K extends keyof ProcessParams>(key: K, value: ProcessParams[K]) => void;
   resetParams: () => void;
   reset: () => void;
@@ -67,28 +73,29 @@ export const useAppStore = create<AppState>((set, get) => ({
   filename: null,
   originalBase64: null,
   editImageBase64: null,
-  overlayBase64: null,
   resultBase64: null,
   metadata: null,
   cropCorners: null,
   autoCropCorners: null,
+  appliedCropCorners: null,
   editImageSize: null,
   cropDirty: false,
   error: null,
   uploading: false,
   processing: false,
   params: { ...DEFAULT_PARAMS },
+  appliedParams: null,
 
   upload: async (file: File) => {
     set({
       uploading: true,
       error: null,
-      overlayBase64: null,
       editImageBase64: null,
       resultBase64: null,
       metadata: null,
       cropCorners: null,
       autoCropCorners: null,
+      appliedCropCorners: null,
       editImageSize: null,
       cropDirty: false,
     });
@@ -130,14 +137,15 @@ export const useAppStore = create<AppState>((set, get) => ({
 
       set({
         processing: false,
-        overlayBase64: result.overlay_png,
         editImageBase64: result.edit_image_jpeg ?? null,
         resultBase64: result.result_web_png,
         metadata: result.metadata,
         editImageSize: result.metadata.edit_image_size ?? null,
         cropCorners: corners,
         autoCropCorners: get().autoCropCorners ?? corners,
+        appliedCropCorners: corners ? cloneCorners(corners) : null,
         cropDirty: false,
+        appliedParams: { ...params },
       });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Processing failed";
@@ -154,6 +162,15 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (!autoCropCorners) return;
     set({ cropCorners: cloneCorners(autoCropCorners), cropDirty: false });
     void get().process();
+  },
+
+  revertCrop: () => {
+    const { appliedCropCorners } = get();
+    if (!appliedCropCorners) {
+      set({ cropDirty: false });
+      return;
+    }
+    set({ cropCorners: cloneCorners(appliedCropCorners), cropDirty: false });
   },
 
   setParam: (key, value) => {
@@ -174,17 +191,35 @@ export const useAppStore = create<AppState>((set, get) => ({
       filename: null,
       originalBase64: null,
       editImageBase64: null,
-      overlayBase64: null,
       resultBase64: null,
       metadata: null,
       cropCorners: null,
       autoCropCorners: null,
+      appliedCropCorners: null,
       editImageSize: null,
       cropDirty: false,
       error: null,
       uploading: false,
       processing: false,
       params: { ...DEFAULT_PARAMS },
+      appliedParams: null,
     });
   },
 }));
+
+export const PROCESS_PARAM_KEYS: (keyof ProcessParams)[] = [
+  "edge_sensitivity",
+  "contour_threshold",
+  "crop_padding",
+  "top_edge_cleanup",
+  "corner_radius",
+  "rotate_correction",
+];
+
+export function paramsDiffer(
+  a: ProcessParams | null,
+  b: ProcessParams | null
+): boolean {
+  if (!a || !b) return false;
+  return PROCESS_PARAM_KEYS.some((k) => a[k] !== b[k]);
+}

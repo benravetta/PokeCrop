@@ -28,14 +28,14 @@ export function UploadZone() {
   return (
     <div className="flex-1 flex items-center justify-center p-8">
       <div className="w-full max-w-xl">
-        <div className="text-center mb-8">
-          <h2 className="text-2xl font-semibold text-text-primary mb-2">
-            Extract a card
+        <div className="text-center mb-8 anim-rise">
+          <h2 className="text-2xl font-semibold text-text-primary mb-2 tracking-tight">
+            Let&apos;s crop your card
           </h2>
-          <p className="text-text-secondary text-sm max-w-md mx-auto">
-            Upload a scan or photo of a trading card. PokeCrop will isolate
-            the frontmost card, preserve its border and corners, and give you
-            a clean transparent PNG.
+          <p className="text-text-secondary text-sm max-w-md mx-auto leading-relaxed">
+            Drop in a scan or photo and we&apos;ll lift the frontmost card off its
+            background — borders and rounded corners intact — as a clean
+            transparent PNG.
           </p>
         </div>
 
@@ -66,14 +66,12 @@ export function UploadZone() {
           <div className="text-center">
             <p className="text-text-primary font-medium">
               {uploading
-                ? "Uploading..."
+                ? "Uploading…"
                 : isDragActive
-                  ? "Drop file here"
-                  : "Drag & drop or click to browse"}
+                  ? "Drop it right here"
+                  : "Drag & drop, or click to browse"}
             </p>
-            <p className="text-text-muted text-xs mt-1">
-              Up to 50 MB
-            </p>
+            <p className="text-text-muted text-xs mt-1">Up to 50 MB</p>
           </div>
 
           <div className="flex gap-3 mt-2">

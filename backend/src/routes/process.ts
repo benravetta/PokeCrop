@@ -45,10 +45,14 @@ interface Session {
   filename: string;
   createdAt: number;
   processing: boolean;
+  // Params from the most recent /process, reused to regenerate the full-res
+  // PNG lazily at export time (it is not produced during the interactive loop).
+  lastParams?: Record<string, unknown>;
   result?: {
-    result_png: string;
     result_web_png: string;
-    overlay_png: string;
+    // Full-resolution PNG: produced lazily on the first original-size export
+    // and cached thereafter.
+    result_png?: string;
     metadata: Record<string, unknown>;
   };
 }
@@ -186,11 +190,14 @@ router.post("/process", async (req: Request, res: Response) => {
       return;
     }
 
-    session.result = result;
+    session.lastParams = validatedParams;
+    session.result = {
+      result_web_png: result.result_web_png,
+      metadata: result.metadata,
+    };
 
     res.json({
       result_web_png: result.result_web_png,
-      overlay_png: result.overlay_png,
       edit_image_jpeg: result.edit_image_jpeg,
       metadata: result.metadata,
     });
@@ -202,7 +209,7 @@ router.post("/process", async (req: Request, res: Response) => {
   }
 });
 
-router.get("/export/:sessionId", (req: Request, res: Response) => {
+router.get("/export/:sessionId", async (req: Request, res: Response) => {
   const session = sessions.get(req.params.sessionId);
 
   if (!session?.result) {
@@ -210,8 +217,32 @@ router.get("/export/:sessionId", (req: Request, res: Response) => {
     return;
   }
 
-  const size = req.query.size === "web" ? "result_web_png" : "result_png";
-  const base64Data = session.result[size as "result_png" | "result_web_png"];
+  let base64Data: string | undefined;
+
+  if (req.query.size === "web") {
+    base64Data = session.result.result_web_png;
+  } else {
+    // Original size: build the full-resolution PNG lazily (and cache it) since
+    // /process intentionally skips that expensive encode.
+    if (!session.result.result_png) {
+      try {
+        const full = await sendToPython(session.filePath, session.filename, {
+          ...(session.lastParams ?? {}),
+          full_resolution: true,
+        });
+        if (full.error || !full.result_png) {
+          res.status(500).json({ error: "Failed to render full-resolution image" });
+          return;
+        }
+        session.result.result_png = full.result_png;
+      } catch (err) {
+        console.error("Export render error:", err);
+        res.status(500).json({ error: "Failed to render full-resolution image" });
+        return;
+      }
+    }
+    base64Data = session.result.result_png;
+  }
 
   if (!base64Data) {
     res.status(404).json({ error: "Result not found" });

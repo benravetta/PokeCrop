@@ -110,10 +110,13 @@ def _build_rounded_rect_mask_hq(
 ) -> np.ndarray:
     """Build a high-quality anti-aliased rounded rectangle mask.
 
-    Uses 8x supersampling for smooth edges, with floating-point arc geometry.
+    Uses 4x supersampling for smooth edges, with floating-point arc geometry.
+    The arc polygon already uses high angular resolution (32 pts/quarter), so
+    4x supersampling keeps corners visually smooth at a quarter of the memory
+    and compute of 8x.
     """
     h, w = shape[:2]
-    ss = 8
+    ss = 4
     max_ss_pixels = 256_000_000
     while h * ss * w * ss > max_ss_pixels and ss > 1:
         ss //= 2

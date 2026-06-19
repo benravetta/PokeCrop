@@ -1,17 +1,72 @@
 @import "tailwindcss";
 
 @theme {
-  --color-surface: #0f1117;
-  --color-surface-raised: #181a24;
-  --color-surface-overlay: #1e2130;
-  --color-border-subtle: #2a2d3e;
-  --color-accent: #6c63ff;
-  --color-accent-hover: #7f78ff;
-  --color-text-primary: #e8e9ed;
-  --color-text-secondary: #8b8fa3;
-  --color-text-muted: #5c6078;
+  /* Surfaces — deep, calm, slightly cool neutrals */
+  --color-surface: #0b0d13;
+  --color-surface-raised: #13151e;
+  --color-surface-overlay: #1b1e2a;
+  --color-border-subtle: #262a39;
+  --color-border-strong: #353a4e;
+
+  /* Accent — calm indigo-violet, aligned to the Looky brand mark */
+  --color-accent: #7c6cf6;
+  --color-accent-hover: #8f82ff;
+  --color-accent-soft: #7c6cf624;
+
+  /* Text */
+  --color-text-primary: #eceef5;
+  --color-text-secondary: #9aa0b5;
+  --color-text-muted: #5e6379;
+
+  /* Semantic */
   --color-success: #34d399;
   --color-error: #f87171;
+
+  /* Crop editor handles */
+  --color-handle-corner: #7c6cf6;
+  --color-handle-edge: #38bdf8;
+  --color-crop-stroke: #9b8dff;
+
+  --animate-fade-in: fade-in 0.25s ease-out both;
+  --animate-rise: rise 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-scale-in: scale-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
 }
 
 body {
@@ -23,18 +78,51 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+.anim-fade {
+  animation: var(--animate-fade-in);
+}
+
+.anim-rise {
+  animation: var(--animate-rise);
+}
+
+.anim-scale {
+  animation: var(--animate-scale-in);
+}
+
+/* Subtle shimmer placeholder used while a card is being processed. */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--color-surface-overlay);
+}
+
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.05),
+    transparent
+  );
+  animation: shimmer 1.4s infinite;
+}
+
 .checkerboard {
-  background-image: linear-gradient(45deg, #1a1c28 25%, transparent 25%),
-    linear-gradient(-45deg, #1a1c28 25%, transparent 25%),
-    linear-gradient(45deg, transparent 75%, #1a1c28 75%),
-    linear-gradient(-45deg, transparent 75%, #1a1c28 75%);
-  background-size: 16px 16px;
+  background-image: linear-gradient(45deg, #181b26 25%, transparent 25%),
+    linear-gradient(-45deg, #181b26 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #181b26 75%),
+    linear-gradient(-45deg, transparent 75%, #181b26 75%);
+  background-size: 18px 18px;
   background-position:
     0 0,
-    0 8px,
-    8px -8px,
-    -8px 0;
-  background-color: #12141e;
+    0 9px,
+    9px -9px,
+    -9px 0;
+  background-color: #0e1018;
 }
 
 input[type="range"] {

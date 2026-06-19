@@ -392,7 +392,7 @@ Returns:
 ```json
 {
   "result_web_png": "base64...",
-  "overlay_png": "base64...",
+  "edit_image_jpeg": "base64...",
   "metadata": {
     "bbox": [55, 134, 619, 856],
     "confidence": 0.897,

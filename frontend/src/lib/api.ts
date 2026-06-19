@@ -19,7 +19,6 @@ export interface UploadResult {
 
 export interface ProcessResult {
   result_web_png: string;
-  overlay_png: string;
   edit_image_jpeg?: string;
   metadata: {
     bbox: number[];

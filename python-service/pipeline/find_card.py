@@ -1076,10 +1076,11 @@ def _find_all_rectangles(
     h, w = image.shape[:2]
     rects: List[np.ndarray] = []
 
-    # Method 1: Canny at multiple thresholds
+    # Method 1: Canny at multiple thresholds.
+    # The blur is identical across thresholds, so compute it once.
+    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
     for low in [20, 40, 60, 80, 100]:
         high = low * 3
-        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
         edges = cv2.Canny(blurred, low, high)
         k = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
         edges = cv2.dilate(edges, k, iterations=2)

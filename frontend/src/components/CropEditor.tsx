@@ -159,8 +159,8 @@ export function CropEditor({
         >
           <path
             d={path}
-            fill="rgba(0, 220, 100, 0.1)"
-            stroke="rgb(0, 220, 100)"
+            fill="var(--color-accent-soft)"
+            stroke="var(--color-crop-stroke)"
             strokeWidth={2}
           />
         </svg>
@@ -178,7 +178,7 @@ export function CropEditor({
                 width={14}
                 height={14}
                 rx={3}
-                fill="rgb(0, 180, 255)"
+                fill="var(--color-handle-edge)"
                 stroke="white"
                 strokeWidth={1}
                 className="cursor-move pointer-events-auto"
@@ -195,7 +195,7 @@ export function CropEditor({
                 cx={d.x}
                 cy={d.y}
                 r={8}
-                fill="rgb(0, 220, 100)"
+                fill="var(--color-handle-corner)"
                 stroke="white"
                 strokeWidth={1.5}
                 className="cursor-grab active:cursor-grabbing pointer-events-auto"
