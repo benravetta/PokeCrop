@@ -1,12 +1,11 @@
 """Stage 4: Front card refinement.
 
-Key improvements over the naive approach:
-1. Edge snapping searches along the contour NORMAL (outward direction), not in
-   a square patch.  This prevents snapping to interior artwork edges.
-2. After snapping, a tight minAreaRect is fitted and the contour is replaced
-   with the rectangle's 4 box-points — giving a clean rectangular outline
-   that faithfully follows the card border.
-3. Rotation correction uses the minAreaRect angle directly.
+After border expansion, the contour should roughly follow the card's outer edge.
+This stage:
+1. Snaps each point to the nearest strong gradient along its normal (fine-tune)
+2. Fits a clean minAreaRect to get a 4-point box
+3. Optionally rotates the image to straighten the card
+4. Refines each box edge by scanning perpendicular gradient profiles
 """
 
 import cv2
@@ -54,12 +53,7 @@ def refine_card(
 
 def _normal_snap(contour: np.ndarray, image: np.ndarray) -> np.ndarray:
     """Snap each contour point along its outward normal to the nearest
-    significant edge.
-
-    After border expansion, the contour should be near the card's outer edge.
-    This step fine-tunes each point to lock onto the nearest strong gradient,
-    with a small search range to avoid jumping to distant edges.
-    """
+    significant edge, with a moderate search range."""
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     mag = _gradient_magnitude(gray)
 
@@ -70,9 +64,9 @@ def _normal_snap(contour: np.ndarray, image: np.ndarray) -> np.ndarray:
         return contour
 
     result = pts.copy()
-    search_out = 8
-    search_in = 8
-    min_edge_strength = 25
+    search_out = 12
+    search_in = 12
+    min_edge_strength = 20
 
     for i in range(n):
         prev_pt = pts[(i - 3) % n]
@@ -89,11 +83,10 @@ def _normal_snap(contour: np.ndarray, image: np.ndarray) -> np.ndarray:
         if cv2.pointPolygonTest(contour, (float(test_pt[0]), float(test_pt[1])), False) >= 0:
             normal = -normal
 
-        # Find the strongest edge near the current position
         best_offset = 0.0
         best_val = 0.0
 
-        for d in np.linspace(-search_in, search_out, 32):
+        for d in np.linspace(-search_in, search_out, 48):
             sx = int(round(pts[i][0] + normal[0] * d))
             sy = int(round(pts[i][1] + normal[1] * d))
             if 0 <= sx < w and 0 <= sy < h:
@@ -112,10 +105,6 @@ def _normal_snap(contour: np.ndarray, image: np.ndarray) -> np.ndarray:
 def _refine_box_edges(box_contour: np.ndarray, image: np.ndarray) -> np.ndarray:
     """Given a 4-point box, refine each edge by scanning perpendicular strips.
 
-    For each of the 4 edges, sample gradient profiles at multiple points along
-    the edge.  At each sample, find the OUTERMOST edge above threshold (not the
-    strongest), then shift the entire edge to the median of those positions.
-
     Uses per-edge shift accumulation to avoid double-shifting shared corners.
     """
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -128,7 +117,6 @@ def _refine_box_edges(box_contour: np.ndarray, image: np.ndarray) -> np.ndarray:
 
     centre = pts.mean(axis=0)
 
-    # Accumulate shifts per corner (each corner is shared by 2 edges)
     corner_shifts = [np.zeros(2, dtype=np.float64) for _ in range(4)]
     corner_counts = [0 for _ in range(4)]
 
@@ -147,25 +135,24 @@ def _refine_box_edges(box_contour: np.ndarray, image: np.ndarray) -> np.ndarray:
             normal = -normal
 
         offsets = []
-        for t in np.linspace(0.1, 0.9, 15):
+        for t in np.linspace(0.1, 0.9, 20):
             sample_pt = p1 + edge_vec * t
 
-            # Find the strongest edge near the current position (small range)
             best_d = None
             best_val = 0.0
-            for d in np.linspace(-8, 8, 33):
+            for d in np.linspace(-12, 12, 49):
                 sx = int(round(sample_pt[0] + normal[0] * d))
                 sy = int(round(sample_pt[1] + normal[1] * d))
                 if 0 <= sx < w and 0 <= sy < h:
                     val = mag[sy, sx]
-                    if val > 25 and val > best_val:
+                    if val > 20 and val > best_val:
                         best_val = val
                         best_d = d
 
             if best_d is not None:
                 offsets.append(best_d)
 
-        if len(offsets) >= 4:
+        if len(offsets) >= 5:
             median_shift = np.median(offsets)
             shift_vec = normal * median_shift
             i1 = edge_idx
@@ -175,7 +162,6 @@ def _refine_box_edges(box_contour: np.ndarray, image: np.ndarray) -> np.ndarray:
             corner_shifts[i2] += shift_vec
             corner_counts[i2] += 1
 
-    # Average the shifts at each corner
     refined = pts.copy()
     for i in range(4):
         if corner_counts[i] > 0:
@@ -209,9 +195,20 @@ def _rotate_image_and_contour(
     rotated = cv2.warpAffine(image, M, (new_w, new_h), borderValue=(255, 255, 255))
 
     pts = contour.reshape(-1, 2).astype(np.float64)
+
+    # Clamp points to image bounds to avoid overflow in rotation matrix multiply
+    pts[:, 0] = np.clip(pts[:, 0], 0, w - 1)
+    pts[:, 1] = np.clip(pts[:, 1], 0, h - 1)
+
     ones = np.ones((len(pts), 1))
     pts_h = np.hstack([pts, ones])
-    transformed = (M @ pts_h.T).T
+
+    with np.errstate(all='ignore'):
+        transformed = (M @ pts_h.T).T
+
+    if not np.all(np.isfinite(transformed)):
+        return image, contour
+
     new_contour = transformed.reshape(-1, 1, 2).astype(np.int32)
 
     return rotated, new_contour

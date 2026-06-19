@@ -1,0 +1,17 @@
+{
+  "folders": [
+    {
+      "name": "PokeCrop",
+      "path": "."
+    },
+    {
+      "name": "Other Project",
+      "path": "../REPLACE_WITH_OTHER_REPO"
+    }
+  ],
+  "settings": {
+    "terminal.integrated.env.osx": {
+      "PATH": "/opt/homebrew/opt/node@22/bin:${env:PATH}"
+    }
+  }
+}

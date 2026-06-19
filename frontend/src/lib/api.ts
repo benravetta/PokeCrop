@@ -7,6 +7,8 @@ export interface ProcessParams {
   top_edge_cleanup: number;
   corner_radius: number;
   rotate_correction: boolean;
+  manual_corners?: number[][];
+  rotation_deg?: number;
 }
 
 export interface UploadResult {
@@ -18,6 +20,7 @@ export interface UploadResult {
 export interface ProcessResult {
   result_web_png: string;
   overlay_png: string;
+  edit_image_jpeg?: string;
   metadata: {
     bbox: number[];
     confidence: number;
@@ -26,6 +29,8 @@ export interface ProcessResult {
     candidates_found: number;
     selected_candidate_index: number;
     pipeline_time_ms: number;
+    crop_corners?: number[][];
+    edit_image_size?: [number, number];
     score_breakdown: Record<string, number>;
   };
   error?: string;

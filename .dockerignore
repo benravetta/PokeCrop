@@ -1,0 +1,14 @@
+# Build-context excludes for the root (Fly) image build.
+.git
+**/node_modules
+**/dist
+**/.venv
+**/__pycache__
+**/*.pyc
+**/*.pyo
+**/*.log
+**/.vite
+**/*.tsbuildinfo
+**/.DS_Store
+python-service/test_*.png
+python-service/*.png

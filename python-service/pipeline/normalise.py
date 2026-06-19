@@ -75,9 +75,21 @@ def _rasterise_pdf(file_bytes: bytes, dpi: int) -> np.ndarray:
 
 
 def _decode_image(file_bytes: bytes) -> np.ndarray:
-    """Decode an image from bytes."""
-    arr = np.frombuffer(file_bytes, dtype=np.uint8)
-    img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
-    if img is None:
-        raise ValueError("Could not decode image file")
-    return img
+    """Decode an image from bytes, applying EXIF orientation when present."""
+    try:
+        pil = Image.open(io.BytesIO(file_bytes))
+        from PIL import ImageOps
+
+        pil = ImageOps.exif_transpose(pil)
+        if pil.mode not in ("RGB", "RGBA"):
+            pil = pil.convert("RGB")
+        elif pil.mode == "RGBA":
+            pil = pil.convert("RGB")
+        rgb = np.array(pil)
+        return cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
+    except Exception:
+        arr = np.frombuffer(file_bytes, dtype=np.uint8)
+        img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+        if img is None:
+            raise ValueError("Could not decode image file")
+        return img

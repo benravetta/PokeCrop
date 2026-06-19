@@ -12,11 +12,13 @@ No cloud services. No external APIs. Everything runs locally on your machine.
 
 | Tool        | Minimum version | Check              |
 |-------------|----------------|--------------------|
-| **Node.js** | 18+            | `node --version`   |
+| **Node.js** | 20-24          | `node --version`   |
 | **npm**     | 9+             | `npm --version`    |
 | **Python**  | 3.9+           | `python3 --version`|
 
 **macOS:** If you don't have Python 3.9+, install via `brew install python@3.11`.
+
+PokeCrop currently expects an LTS Node runtime. `Node 25` is not supported in this repo right now and can break the Vite/Rollup build. `./start.sh` will automatically try to use a compatible Node from `nvm` (`.nvmrc`) or Homebrew (`node@22` / `node@24`) if your default `node` is too new or too old.
 
 **Windows:** Install Python from [python.org](https://www.python.org/downloads/) and ensure "Add to PATH" is checked during installation.
 
@@ -45,6 +47,135 @@ This will:
 3. Start all three services
 
 Once running, open **http://localhost:5173** in your browser.
+
+---
+
+## Production Deployment (Docker)
+
+For production, PokeCrop ships as three containers orchestrated with Docker Compose:
+
+| Container  | Base image          | Role                                                        |
+|------------|---------------------|-------------------------------------------------------------|
+| `frontend` | `nginx:alpine`      | Serves the built SPA and reverse-proxies `/api` to backend  |
+| `backend`  | `node:22-alpine`    | Express API gateway (bundled to a single self-contained file)|
+| `python`   | `python:3.11-slim`  | FastAPI + OpenCV image-processing service                   |
+
+Only the frontend is published to the host. The backend and Python service are
+reachable only on the internal Docker network.
+
+### Prerequisites
+
+- Docker Engine 24+ and the Docker Compose plugin (`docker compose version`).
+
+### Deploy
+
+```bash
+# 1. Configure (host port + public origin)
+cp .env.example .env
+#   edit .env as needed
+
+# 2. Build and start
+docker compose up -d --build
+
+# 3. Check status / logs
+docker compose ps
+docker compose logs -f
+```
+
+The app is then available at the `PORT` from your `.env` (default
+**http://localhost:8080**). Compose waits for each service's health check
+before starting the next, so the stack is ready once `docker compose ps`
+shows all three as `healthy`.
+
+```bash
+# Stop / remove
+docker compose down
+
+# Rebuild after code changes
+docker compose up -d --build
+```
+
+### Configuration
+
+All runtime config lives in `.env` (see `.env.example`):
+
+| Variable            | Default                  | Purpose                                              |
+|---------------------|--------------------------|------------------------------------------------------|
+| `PORT`              | `8080`                   | Host port the app is published on                    |
+| `PUBLIC_ORIGIN`     | `http://localhost:8080`  | Public origin (used for CORS)                        |
+| `PYTHON_TIMEOUT_MS` | `180000`                 | Backend timeout waiting on the Python service        |
+| `UVICORN_WORKERS`   | `1`                      | Python worker processes (scale with CPU cores / RAM) |
+
+### Behind a domain / TLS
+
+Terminate TLS at a reverse proxy (Caddy, Traefik, nginx, or a cloud load
+balancer) in front of the `frontend` container, then point it at the published
+`PORT`. Set `PUBLIC_ORIGIN=https://your-domain` in `.env`. The upload limit is
+50 MB — if you add another proxy layer, give it a matching `client_max_body_size`
+(or equivalent) and request timeouts of ~180s for the processing endpoint.
+
+---
+
+## Deploy to Fly.io
+
+For a hosted deployment, PokeCrop ships as a **single Fly.io machine** that runs
+all three services (nginx + Node + Python) in one container, supervised by
+`supervisord` and communicating over `localhost`. This keeps the app's in-memory
+sessions coherent (no cross-instance state issues) and makes deploys a single
+command.
+
+The relevant files:
+
+| File                          | Purpose                                            |
+|-------------------------------|----------------------------------------------------|
+| `Dockerfile.fly`              | Combined image (frontend + backend + python)       |
+| `fly.toml`                    | Fly app config (port 8080, auto-HTTPS, 1 GB VM)    |
+| `deploy/fly/nginx.conf`       | Serves the SPA, proxies `/api` to the local backend|
+| `deploy/fly/supervisord.conf` | Runs and supervises the three processes            |
+
+### Prerequisites
+
+- A [Fly.io](https://fly.io) account.
+- The Fly CLI: `brew install flyctl` (macOS) or see the
+  [install docs](https://fly.io/docs/flyctl/install/).
+
+### Deploy
+
+```bash
+# 1. Log in (opens your browser)
+fly auth login
+
+# 2. Build + deploy in one shot (single machine; uses the bundled config)
+fly launch --copy-config --ha=false --now
+```
+
+`fly launch` reads `fly.toml` and `Dockerfile.fly`, builds the image on Fly's
+remote builders (no local Docker required), and deploys. You'll be prompted to
+choose a globally-unique **app name** (e.g. `pokecrop-yourname`) and confirm the
+region. When it finishes it prints your URL, e.g. `https://pokecrop-yourname.fly.dev`.
+
+### Updating
+
+After the first deploy, ship changes with:
+
+```bash
+fly deploy
+```
+
+### Configuration
+
+Settings live in `fly.toml` under `[env]` and `[[vm]]`:
+
+| Setting                 | Default          | Notes                                                  |
+|-------------------------|------------------|--------------------------------------------------------|
+| `UVICORN_WORKERS`       | `1`              | Python workers (CPU-bound — scale with VM size)        |
+| `PYTHON_TIMEOUT_MS`     | `180000`         | Backend timeout waiting on the Python service          |
+| `[[vm]] memory`         | `1gb`            | OpenCV needs headroom; bump for large images           |
+| `min_machines_running`  | `0`              | Scales to zero when idle (cheaper, but cold starts)    |
+
+> **Cold starts:** with `min_machines_running = 0`, the first request after an
+> idle period waits a few seconds while the machine wakes. For an always-warm
+> instance, set `min_machines_running = 1` in `fly.toml` and run `fly deploy`.
 
 ---
 
@@ -176,10 +307,19 @@ PokeCrop/
 │   │   └── colour.py          Colour analysis (LAB, k-means)
 │   └── requirements.txt
 │
-├── start.sh                   One-command launcher
+├── docker-compose.yml         Production 3-container stack
+├── Dockerfile.fly             Single-container image for Fly.io
+├── fly.toml                   Fly.io app config
+├── deploy/fly/                nginx + supervisord config for Fly image
+├── .env.example               Production config template
+├── start.sh                   One-command dev launcher
+├── stop.sh                    Stops dev services / frees ports
 ├── .gitignore
 └── README.md
 ```
+
+Each service also has a `Dockerfile` (and `.dockerignore`); the frontend
+additionally has an `nginx.conf` used by its Compose production image.
 
 ---
 

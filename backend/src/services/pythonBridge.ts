@@ -1,6 +1,7 @@
 import fs from "fs";
 
 const PYTHON_URL = process.env.PYTHON_URL || "http://localhost:5001";
+const PYTHON_TIMEOUT_MS = parseInt(process.env.PYTHON_TIMEOUT_MS || "120000", 10);
 
 if (!/^https?:\/\/localhost[:/]/.test(PYTHON_URL) && !PYTHON_URL.startsWith("http://127.0.0.1")) {
   console.warn(`WARNING: PYTHON_URL (${PYTHON_URL}) is not localhost — ensure this is intentional`);
@@ -21,6 +22,7 @@ export async function sendToPython(
   const response = await fetch(`${PYTHON_URL}/process`, {
     method: "POST",
     body: formData,
+    signal: AbortSignal.timeout(PYTHON_TIMEOUT_MS),
   });
 
   if (!response.ok) {

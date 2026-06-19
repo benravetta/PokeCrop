@@ -93,7 +93,24 @@ function validateParams(raw: unknown): Record<string, unknown> {
     top_edge_cleanup: clamp(p.top_edge_cleanup, 0, 1, 0.7),
     corner_radius: clamp(p.corner_radius, 0, 1, 0.5),
     rotate_correction: p.rotate_correction !== false && p.rotate_correction !== "false",
+    rotation_deg: typeof p.rotation_deg === "number" && Number.isFinite(p.rotation_deg)
+      ? p.rotation_deg
+      : undefined,
+    manual_corners: parseManualCorners(p.manual_corners),
   };
+}
+
+function parseManualCorners(raw: unknown): number[][] | undefined {
+  if (!Array.isArray(raw) || raw.length !== 4) return undefined;
+  const corners: number[][] = [];
+  for (const pt of raw) {
+    if (!Array.isArray(pt) || pt.length !== 2) return undefined;
+    const x = Number(pt[0]);
+    const y = Number(pt[1]);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return undefined;
+    corners.push([x, y]);
+  }
+  return corners;
 }
 
 router.post(
@@ -174,6 +191,7 @@ router.post("/process", async (req: Request, res: Response) => {
     res.json({
       result_web_png: result.result_web_png,
       overlay_png: result.overlay_png,
+      edit_image_jpeg: result.edit_image_jpeg,
       metadata: result.metadata,
     });
   } catch (err: unknown) {

@@ -6,3 +6,12 @@ __pycache__/
 .env
 .DS_Store
 *.log
+
+# Build artifacts
+*.tsbuildinfo
+
+# Dev debug output
+python-service/test_*.png
+
+# Accidental Finder duplicates (e.g. "package-lock 2.json")
+*\ [0-9].json

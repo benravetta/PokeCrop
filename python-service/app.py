@@ -3,21 +3,22 @@
 import time
 import traceback
 import cv2
+import json
+import os
+import io
 import numpy as np
+
 from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-import json
-import os
+from PIL import Image
 
 from pipeline.normalise import normalise_input
-from pipeline.detect import detect_candidates
-from pipeline.score import score_candidates
-from pipeline.border_expand import expand_to_card_border
-from pipeline.refine import refine_card
-from pipeline.top_edge import cleanup_top_edge
-from pipeline.corners import handle_corners
-from pipeline.mask import create_alpha_output, create_overlay, create_web_size, to_base64
+from pipeline.find_card import find_card, straighten_card
+from pipeline.extract import extract_warped_card
+from pipeline.manual_crop import parse_manual_corners, build_edit_frame
+from pipeline.mask import create_overlay, create_web_size, to_base64
+from utils.geometry import order_corners
 
 MAX_UPLOAD_BYTES = 50 * 1024 * 1024
 
@@ -72,6 +73,14 @@ async def process_card(
     else:
         rotate_correction = bool(rotate_correction)
 
+    rotation_override = p.get("rotation_deg")
+    try:
+        rotation_override = float(rotation_override) if rotation_override is not None else None
+    except (TypeError, ValueError):
+        rotation_override = None
+
+    manual_raw = p.get("manual_corners")
+
     try:
         file_bytes = await image.read()
         if len(file_bytes) > MAX_UPLOAD_BYTES:
@@ -82,95 +91,124 @@ async def process_card(
 
         filename = image.filename or "upload.png"
 
-        # Stage 1: Normalise input
         working, original, scale = normalise_input(file_bytes, filename)
 
-        # Stage 2: Detect candidates
-        candidates = detect_candidates(working, edge_sensitivity, contour_threshold)
+        manual_contour = None
+        if manual_raw is not None:
+            edit_preview = build_edit_frame(working, rotation_override or 0.0, rotate_correction)
+            eh, ew = edit_preview.shape[:2]
+            manual_contour = parse_manual_corners(manual_raw, ew, eh)
 
-        if not candidates:
+        card_contour, all_rects, selected_idx = find_card(
+            working, edge_sensitivity, contour_threshold
+        )
+
+        if manual_contour is None and card_contour is None:
             return JSONResponse(
                 status_code=200,
                 content={
-                    "error": "No card-like shapes detected. Try adjusting edge sensitivity or contour threshold.",
-                    "candidates_found": 0,
+                    "error": "No trading card detected. Try adjusting settings.",
+                    "candidates_found": len(all_rects),
                 },
             )
 
-        # Stage 3: Score candidates
-        scored = score_candidates(candidates, working)
-        if not scored:
-            return JSONResponse(
-                status_code=200,
-                content={"error": "Scoring failed — no valid candidates.", "candidates_found": len(candidates)},
+        rotation_angle = 0.0
+        if manual_contour is not None:
+            processed_image = build_edit_frame(
+                working,
+                rotation_override or 0.0,
+                rotate_correction,
             )
-
-        best_idx, best_score, breakdown = scored[0]
-        selected_contour = candidates[best_idx]
-
-        # Stage 3b: Expand contour outward to include the card's coloured border
-        expanded_contour = expand_to_card_border(selected_contour, working)
-
-        # Stage 4: Refine the expanded contour on the working image
-        refined_contour, processed_image, rotation_angle = refine_card(
-            expanded_contour, working, rotate_correction
-        )
-
-        # Create overlay AFTER refinement so it shows the actual extraction boundary
-        overlay_png = create_overlay(working, refined_contour, candidates, best_idx)
-
-        # Stage 5: Corner handling
-        corner_mask, estimated_radius = handle_corners(
-            refined_contour, processed_image.shape[:2], corner_radius
-        )
-
-        # Stage 5b: Top-edge cleanup
-        corner_mask = cleanup_top_edge(
-            corner_mask, processed_image, refined_contour, top_edge_cleanup
-        )
-
-        # Stage 6: Final output
-        if scale > 1.0:
-            if rotation_angle != 0.0:
-                h_orig, w_orig = original.shape[:2]
-                centre = (w_orig / 2, h_orig / 2)
-                M = cv2.getRotationMatrix2D(centre, rotation_angle, 1.0)
-                cos_a = abs(M[0, 0])
-                sin_a = abs(M[0, 1])
-                new_w = int(h_orig * sin_a + w_orig * cos_a)
-                new_h = int(h_orig * cos_a + w_orig * sin_a)
-                M[0, 2] += (new_w - w_orig) / 2
-                M[1, 2] += (new_h - h_orig) / 2
-                result_image = cv2.warpAffine(original, M, (new_w, new_h), borderValue=(255, 255, 255))
-            else:
-                result_image = original
+            refined_contour = manual_contour.astype(np.int32)
+            rotation_angle = float(rotation_override or 0.0)
+        elif rotate_correction:
+            refined_contour, processed_image, rotation_angle = straighten_card(
+                card_contour, working
+            )
         else:
-            result_image = processed_image
+            rect = cv2.minAreaRect(card_contour)
+            box = cv2.boxPoints(rect).astype(np.float64)
+            refined_contour = order_corners(box.astype(np.float32)).reshape(-1, 1, 2).astype(np.int32)
+            processed_image = working
+            rotation_angle = 0.0
 
-        result_png, bbox = create_alpha_output(
-            result_image, corner_mask, scale, crop_padding
+        result_rgba, estimated_radius = extract_warped_card(
+            processed_image,
+            refined_contour,
+            corner_radius,
+            top_edge_cleanup,
+            crop_padding,
         )
+
+        overlay_png = create_overlay(
+            processed_image,
+            refined_contour,
+            all_rects if card_contour is not None else [],
+            selected_idx,
+            estimated_radius,
+        )
+
+        edit_h, edit_w = processed_image.shape[:2]
+        edit_buf = io.BytesIO()
+        Image.fromarray(cv2.cvtColor(processed_image, cv2.COLOR_BGR2RGB)).save(
+            edit_buf, format="JPEG", quality=88, optimize=True
+        )
+        edit_image_jpeg = to_base64(edit_buf.getvalue())
+
+        crop_corners = order_corners(
+            refined_contour.reshape(4, 2).astype(np.float32)
+        ).tolist()
+
+        # Upscale extracted card for original-size export when input was downscaled.
+        if scale > 1.0:
+            target_h = min(int(round(result_rgba.shape[0] * scale)), original.shape[0])
+            target_w = min(int(round(result_rgba.shape[1] * scale)), original.shape[1])
+            if target_h > result_rgba.shape[0] and target_w > result_rgba.shape[1]:
+                result_rgba = cv2.resize(
+                    result_rgba,
+                    (target_w, target_h),
+                    interpolation=cv2.INTER_CUBIC,
+                )
+
+        pil_result = Image.fromarray(result_rgba, "RGBA")
+        buf = io.BytesIO()
+        pil_result.save(buf, format="PNG", optimize=True)
+        result_png = buf.getvalue()
+        bbox = (0, 0, result_rgba.shape[1], result_rgba.shape[0])
         web_png = create_web_size(result_png)
 
         elapsed = int((time.time() - start) * 1000)
+
+        card_rect = cv2.minAreaRect(
+            card_contour if card_contour is not None else refined_contour
+        )
+        rw, rh = card_rect[1]
+        short, long = sorted([rw, rh])
+        ratio = short / long if long > 0 else 0
 
         return JSONResponse(content={
             "result_png": to_base64(result_png),
             "result_web_png": to_base64(web_png),
             "overlay_png": to_base64(overlay_png),
+            "edit_image_jpeg": edit_image_jpeg,
             "metadata": {
                 "bbox": list(bbox),
-                "confidence": round(best_score, 3),
+                "confidence": round(1.0 - abs(ratio - 0.716) * 5, 3),
                 "estimated_corner_radius_px": round(estimated_radius, 1),
                 "rotation_deg": round(rotation_angle, 2),
-                "candidates_found": len(candidates),
-                "selected_candidate_index": best_idx,
+                "candidates_found": len(all_rects),
+                "selected_candidate_index": selected_idx,
                 "pipeline_time_ms": elapsed,
-                "score_breakdown": {k: round(v, 3) for k, v in breakdown.items()},
+                "crop_corners": crop_corners,
+                "edit_image_size": [int(edit_w), int(edit_h)],
+                "score_breakdown": {
+                    "aspect_ratio": round(ratio, 4),
+                    "card_target": 0.716,
+                },
             },
         })
 
-    except Exception as e:
+    except Exception:
         traceback.print_exc()
         return JSONResponse(
             status_code=500,
@@ -180,6 +218,7 @@ async def process_card(
 
 if __name__ == "__main__":
     import uvicorn
+
     host = os.environ.get("HOST", "127.0.0.1")
     port = int(os.environ.get("PORT", "5001"))
     uvicorn.run(app, host=host, port=port)

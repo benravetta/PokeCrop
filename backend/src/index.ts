@@ -37,9 +37,9 @@ const server = app.listen(PORT, () => {
 });
 
 function shutdown() {
-  console.log("\nShutting down...");
   server.close(() => process.exit(0));
-  setTimeout(() => process.exit(1), 5000);
+  // tsx watch sends SIGTERM on reload; exit promptly so the dev server can restart.
+  setTimeout(() => process.exit(0), 500);
 }
 
 process.on("SIGINT", shutdown);

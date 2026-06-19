@@ -14,6 +14,8 @@ from PIL import Image
 import io
 import base64
 
+from utils.geometry import order_corners
+
 
 def create_alpha_output(
     original: np.ndarray,
@@ -72,12 +74,114 @@ def create_alpha_output(
     y2 = min(y + bh + pad, h_orig)
 
     cropped = rgba[y1:y2, x1:x2]
+    cropped = _remove_edge_connected_white_background(cropped)
+
+    # Re-crop after cleanup so removed white spill does not leave empty margins.
+    cropped, trim = _recrop_to_alpha_bounds(cropped)
+    x1 += trim[0]
+    y1 += trim[1]
+    x2 -= trim[2]
+    y2 -= trim[3]
 
     pil_img = Image.fromarray(cropped, "RGBA")
     buf = io.BytesIO()
     pil_img.save(buf, format="PNG", optimize=True)
 
     return buf.getvalue(), (int(x1), int(y1), int(x2 - x1), int(y2 - y1))
+
+
+def _remove_edge_connected_white_background(cropped: np.ndarray) -> np.ndarray:
+    """Remove near-white regions connected to the crop edge.
+
+    This targets scan background that leaked into the mask. Because we only
+    remove white components touching the crop border, actual card interior is
+    preserved unless the contour is catastrophically wrong.
+    """
+    if cropped.size == 0:
+        return cropped
+
+    rgba = cropped.copy()
+    rgb = rgba[:, :, :3]
+    alpha = rgba[:, :, 3]
+
+    opaque = alpha > 20
+    if np.count_nonzero(opaque) == 0:
+        return rgba
+
+    hsv = cv2.cvtColor(rgb, cv2.COLOR_RGB2HSV)
+    value = hsv[:, :, 2].astype(np.int16)
+    sat = hsv[:, :, 1].astype(np.int16)
+    gray = cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY).astype(np.int16)
+    rgb_i = rgb.astype(np.int16)
+    channel_spread = np.max(rgb_i, axis=2) - np.min(rgb_i, axis=2)
+
+    # Broad "scan background" classifier:
+    # - fairly bright
+    # - low saturation / near-neutral
+    # - only remove regions touching the crop edge
+    background_candidate = (
+        opaque
+        & (
+            ((gray >= 176) & (sat <= 92) & (channel_spread <= 58))
+            | ((value >= 190) & (sat <= 78) & (channel_spread <= 48))
+            | ((gray >= 205) & (channel_spread <= 70))
+        )
+    )
+
+    if np.count_nonzero(background_candidate) == 0:
+        return rgba
+
+    candidate_u8 = background_candidate.astype(np.uint8) * 255
+    candidate_u8 = cv2.morphologyEx(
+        candidate_u8,
+        cv2.MORPH_CLOSE,
+        cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3)),
+        iterations=1,
+    )
+
+    num_labels, labels = cv2.connectedComponents(candidate_u8, connectivity=4)
+    if num_labels <= 1:
+        return rgba
+
+    border_labels = set(np.unique(labels[0, :]).tolist())
+    border_labels.update(np.unique(labels[-1, :]).tolist())
+    border_labels.update(np.unique(labels[:, 0]).tolist())
+    border_labels.update(np.unique(labels[:, -1]).tolist())
+    border_labels.discard(0)
+    if not border_labels:
+        return rgba
+
+    removable = np.isin(labels, list(border_labels))
+    if np.count_nonzero(removable) == 0:
+        return rgba
+
+    removable = cv2.dilate(
+        removable.astype(np.uint8),
+        cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3)),
+        iterations=1,
+    ) > 0
+
+    rgba[removable, 3] = 0
+    rgba[removable, 0] = 0
+    rgba[removable, 1] = 0
+    rgba[removable, 2] = 0
+    return rgba
+
+
+def _recrop_to_alpha_bounds(cropped: np.ndarray) -> tuple:
+    """Crop an RGBA image down to the tight bounds of its alpha."""
+    if cropped.size == 0:
+        return cropped, (0, 0, 0, 0)
+
+    alpha = cropped[:, :, 3]
+    coords = cv2.findNonZero((alpha > 0).astype(np.uint8) * 255)
+    if coords is None:
+        return cropped, (0, 0, 0, 0)
+
+    x, y, w, h = cv2.boundingRect(coords)
+    x2 = x + w
+    y2 = y + h
+    return cropped[y:y2, x:x2], (x, y, cropped.shape[1] - x2, cropped.shape[0] - y2)
 
 
 def _feather_mask(mask: np.ndarray, feather_px: int = 2) -> np.ndarray:
@@ -121,6 +225,7 @@ def create_overlay(
     refined_contour: np.ndarray,
     candidates: list,
     selected_idx: int,
+    corner_radius_px: float = 0.0,
 ) -> bytes:
     """Draw detection overlay showing all candidates and the final extraction boundary."""
     overlay = image.copy()
@@ -130,25 +235,94 @@ def create_overlay(
             continue
         cv2.drawContours(overlay, [cnt], -1, (180, 180, 180), 1)
 
-    # Draw the original selected candidate in dim green
     if 0 <= selected_idx < len(candidates):
         cv2.drawContours(overlay, [candidates[selected_idx]], -1, (0, 140, 60), 1)
 
-    # Draw the refined/final extraction boundary in bright green
-    cv2.drawContours(overlay, [refined_contour], -1, (0, 220, 100), 2)
+    corners = order_corners(refined_contour.reshape(4, 2).astype(np.float32))
+    if corner_radius_px > 1.5:
+        _draw_rounded_quad_outline(overlay, corners, corner_radius_px, (0, 220, 100), 2)
+    else:
+        cv2.drawContours(
+            overlay,
+            [corners.astype(np.int32).reshape(-1, 1, 2)],
+            -1,
+            (0, 220, 100),
+            2,
+        )
 
-    # Draw the fitted rectangle from the refined contour
-    rect = cv2.minAreaRect(refined_contour)
-    box = cv2.boxPoints(rect).astype(np.int32)
-    cv2.drawContours(overlay, [box], -1, (0, 180, 255), 2)
-
-    for pt in box:
-        cv2.circle(overlay, tuple(pt), 5, (0, 140, 255), -1)
+    for pt in corners:
+        cv2.circle(overlay, tuple(np.round(pt).astype(int)), 5, (0, 220, 100), -1)
 
     pil_img = Image.fromarray(cv2.cvtColor(overlay, cv2.COLOR_BGR2RGB))
     buf = io.BytesIO()
     pil_img.save(buf, format="PNG")
     return buf.getvalue()
+
+
+def _draw_rounded_quad_outline(
+    image: np.ndarray,
+    corners: np.ndarray,
+    radius: float,
+    color: tuple,
+    thickness: int,
+) -> None:
+    """Draw a rounded quadrilateral following the physical card corner radius."""
+    tl, tr, br, bl = corners.astype(np.float64)
+    short = min(
+        np.linalg.norm(tr - tl),
+        np.linalg.norm(br - tr),
+        np.linalg.norm(bl - br),
+        np.linalg.norm(tl - bl),
+    )
+    r = float(np.clip(radius, 0.0, short * 0.12))
+    if r < 1.5:
+        cv2.polylines(
+            image,
+            [corners.astype(np.int32).reshape(-1, 1, 2)],
+            True,
+            color,
+            thickness,
+        )
+        return
+
+    arc_pts = 12
+    pts = []
+
+    def corner_arc(p_prev: np.ndarray, p_corner: np.ndarray, p_next: np.ndarray) -> None:
+        v1 = p_prev - p_corner
+        v2 = p_next - p_corner
+        l1 = np.linalg.norm(v1)
+        l2 = np.linalg.norm(v2)
+        if l1 < 1 or l2 < 1:
+            pts.append(p_corner)
+            return
+        u1 = v1 / l1
+        u2 = v2 / l2
+        inset = min(r, l1 * 0.45, l2 * 0.45)
+        p1 = p_corner + u1 * inset
+        p2 = p_corner + u2 * inset
+        bis = u1 + u2
+        bn = np.linalg.norm(bis)
+        if bn < 1e-3:
+            pts.extend([p1, p2])
+            return
+        bis = bis / bn
+        cos_half = np.clip(np.dot(u1, bis), 0.05, 1.0)
+        centre = p_corner + bis * (inset / cos_half)
+        a1 = np.arctan2(p1[1] - centre[1], p1[0] - centre[0])
+        a2 = np.arctan2(p2[1] - centre[1], p2[0] - centre[0])
+        if a2 < a1:
+            a2 += 2 * np.pi
+        for a in np.linspace(a1, a2, arc_pts):
+            pts.append([centre[0] + inset * np.cos(a), centre[1] + inset * np.sin(a)])
+
+    corner_arc(bl, tl, tr)
+    corner_arc(tl, tr, br)
+    corner_arc(tr, br, bl)
+    corner_arc(br, bl, tl)
+
+    poly = np.array(pts, dtype=np.int32).reshape(-1, 1, 2)
+    cv2.polylines(image, [poly], True, color, thickness, cv2.LINE_AA)
 
 
 def create_web_size(png_bytes: bytes, max_dim: int = 1200) -> bytes:

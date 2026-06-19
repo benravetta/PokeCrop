@@ -1,0 +1,61 @@
+# Single-container PokeCrop image for Fly.io.
+#
+# Runs all three services (nginx + Node backend + Python service) in one machine,
+# supervised by supervisord and talking to each other over localhost. This keeps
+# the app's in-memory session state coherent (no cross-instance issues) and makes
+# deployment a single `fly deploy`.
+
+# ---- 1. Build the frontend (static SPA) ----
+FROM node:22-alpine AS frontend
+WORKDIR /fe
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci
+COPY frontend/ ./
+RUN npm run build
+
+# ---- 2. Build the backend (single self-contained bundle) ----
+FROM node:22-alpine AS backend
+WORKDIR /be
+COPY backend/package.json backend/package-lock.json ./
+RUN npm ci
+COPY backend/tsconfig.json ./
+COPY backend/src ./src
+RUN npm run build
+
+# ---- 3. Runtime: Node + Python + nginx + supervisor in one image ----
+FROM node:22-bookworm-slim AS runtime
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    VIRTUAL_ENV=/opt/venv \
+    PATH=/opt/venv/bin:$PATH \
+    UVICORN_WORKERS=1 \
+    PYTHON_TIMEOUT_MS=180000 \
+    CORS_ORIGIN=*
+
+# Python 3.11 (bookworm default), nginx, supervisor, and the OpenCV/scikit-image libs.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      python3 python3-venv \
+      nginx supervisor \
+      libglib2.0-0 libgomp1 \
+ && rm -rf /var/lib/apt/lists/* \
+ && python3 -m venv /opt/venv
+
+COPY python-service/requirements.txt /tmp/requirements.txt
+RUN /opt/venv/bin/pip install --no-cache-dir -r /tmp/requirements.txt
+
+WORKDIR /app
+COPY python-service/ /app/python-service/
+COPY --from=backend /be/dist/server.cjs /app/backend/server.cjs
+COPY --from=frontend /fe/dist /usr/share/nginx/html
+
+# nginx serves the SPA on 8080 and proxies /api to the local backend.
+RUN rm -f /etc/nginx/sites-enabled/default
+COPY deploy/fly/nginx.conf /etc/nginx/conf.d/pokecrop.conf
+COPY deploy/fly/supervisord.conf /etc/supervisor/conf.d/pokecrop.conf
+
+EXPOSE 8080
+
+CMD ["/usr/bin/supervisord", "-n", "-c", "/etc/supervisor/supervisord.conf"]

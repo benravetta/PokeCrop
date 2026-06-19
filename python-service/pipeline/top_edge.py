@@ -10,7 +10,7 @@ Approach:
    - background colour          → remove
 4. Use the classification to carve the mask, then smooth the result with
    morphological ops to avoid jagged edges.
-5. Validate: never remove more than 12% of the card area.
+5. Validate: never remove more than 10% of the card area.
 
 All colour comparisons use CIE LAB ΔE for perceptual uniformity.
 """
@@ -112,10 +112,13 @@ def cleanup_top_edge(
             front_interior_lab, strength * 0.5
         )
 
-    # ── 8. Validate: never remove more than 5% of the card area ──
+    # ── 8. Validate: never remove more than 10% of the card area ──
+    # Rear-card bleed can be significant (especially at the top), so we allow
+    # up to 10% removal.  If more than that is being removed, something is
+    # wrong and we bail out to prevent destroying the card.
     orig_px = np.count_nonzero(mask)
     new_px = np.count_nonzero(refined_mask)
-    if orig_px > 0 and (orig_px - new_px) / orig_px > 0.05:
+    if orig_px > 0 and (orig_px - new_px) / orig_px > 0.10:
         return mask
 
     return refined_mask
