@@ -1,28 +1,30 @@
-# Fly.io config for PokeCrop (single-container, all services).
-# `fly launch` will set/replace `app` with your chosen name on first deploy.
+# fly.toml app configuration file generated for pokecrop on 2026-06-19T07:54:39Z
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
 
-app = "pokecrop"
-primary_region = "lhr"
+app = 'pokecrop'
+primary_region = 'lhr'
 
 [build]
-  dockerfile = "Dockerfile.fly"
+  dockerfile = 'Dockerfile.fly'
 
 [env]
-  UVICORN_WORKERS = "1"
-  PYTHON_TIMEOUT_MS = "180000"
+  PYTHON_TIMEOUT_MS = '180000'
+  UVICORN_WORKERS = '1'
 
 [http_service]
   internal_port = 8080
   force_https = true
-  auto_stop_machines = "stop"
+  auto_stop_machines = 'stop'
   auto_start_machines = true
   min_machines_running = 0
 
   [http_service.concurrency]
-    type = "requests"
-    soft_limit = 20
+    type = 'requests'
     hard_limit = 25
+    soft_limit = 20
 
 [[vm]]
-  size = "shared-cpu-1x"
-  memory = "1gb"
+  size = 'shared-cpu-1x'
+  memory = '1gb'
