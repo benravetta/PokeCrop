@@ -154,9 +154,16 @@ remote builders (no local Docker required), and deploys. You'll be prompted to
 choose a globally-unique **app name** (e.g. `pokecrop-yourname`) and confirm the
 region. When it finishes it prints your URL, e.g. `https://pokecrop-yourname.fly.dev`.
 
-### Updating
+### Updating / Continuous deployment
 
-After the first deploy, ship changes with:
+This app uses Fly's GitHub integration: **every push to `main` auto-deploys**
+to Fly.io. So the normal workflow is just:
+
+```bash
+git push origin main
+```
+
+To deploy manually (e.g. without a commit), you can still run:
 
 ```bash
 fly deploy
