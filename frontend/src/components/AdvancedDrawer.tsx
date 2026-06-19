@@ -100,6 +100,29 @@ export function AdvancedDrawer({
             />
           </label>
 
+          <div className="flex flex-col gap-5 pt-1">
+            <p className="text-[11px] font-medium uppercase tracking-wider text-text-muted">
+              Edge clean-up
+            </p>
+            <Slider
+              label="Background removal"
+              hint="Erase leftover table or scan colour bleeding in from the edges."
+              value={params.bg_removal}
+              onChange={(v) => setParam("bg_removal", v)}
+            />
+            <Slider
+              label="Edge trim"
+              hint="Shave the outer edge inward to remove a thin background ring."
+              value={params.edge_trim}
+              onChange={(v) => setParam("edge_trim", v)}
+              min={0}
+              max={40}
+              step={1}
+            />
+          </div>
+
+          <div className="border-t border-border-subtle" />
+
           <Slider
             label="Edge detection"
             hint="Higher finds faint edges; lower ignores busy backgrounds."

@@ -20,6 +20,8 @@ def extract_warped_card(
     corner_radius_param: float,
     top_edge_cleanup: float,
     crop_padding: int = 0,
+    edge_trim: int = 0,
+    bg_removal: float = 0.0,
 ) -> Tuple[np.ndarray, float]:
     """Warp to portrait, fix orientation once, mask, and return a tight RGBA crop."""
     warped = _warp_card_view(image, contour)
@@ -55,6 +57,15 @@ def extract_warped_card(
     rgba[transparent, 0:3] = 0
 
     rgba = _cleanup_scan_background(rgba)
+
+    # User-controlled clean-up tools (both default to no-op):
+    #  - bg_removal: colour-based removal of background bleeding in from edges.
+    #  - edge_trim: shave the outer edge inward to eat a residual background ring.
+    if bg_removal > 0:
+        rgba = _remove_edge_background_color(rgba, bg_removal)
+    if edge_trim > 0:
+        rgba = _trim_alpha_edges(rgba, edge_trim)
+
     rgba, _ = _recrop_to_alpha_bounds(rgba)
 
     pad = max(crop_padding, 0)
@@ -273,6 +284,105 @@ def _suppress_background_alpha(warped: np.ndarray, alpha: np.ndarray) -> np.ndar
 
     out = alpha.copy()
     out[spill] = 0
+    return out
+
+
+def _trim_alpha_edges(rgba: np.ndarray, px: int) -> np.ndarray:
+    """Erode the alpha inward by ``px`` pixels to remove a thin background ring."""
+    if px <= 0 or rgba.size == 0:
+        return rgba
+    alpha = rgba[:, :, 3]
+    k = 2 * int(px) + 1
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k, k))
+    # Treat the image border as background so the outer ring is shaved even
+    # when the card alpha reaches the edge of the frame.
+    eroded = cv2.erode(
+        alpha, kernel, borderType=cv2.BORDER_CONSTANT, borderValue=0
+    )
+    out = rgba.copy()
+    out[:, :, 3] = eroded
+    out[eroded == 0, 0:3] = 0
+    return out
+
+
+def _remove_edge_background_color(rgba: np.ndarray, strength: float) -> np.ndarray:
+    """Erase background-coloured pixels bleeding in from the edges.
+
+    Samples the colour around the crop border, then removes pixels of a similar
+    colour that are connected to the border, limited to a band near the edge so
+    interior artwork of the same colour is never touched. ``strength`` (0..1)
+    widens both the colour tolerance and the protected band.
+    """
+    h, w = rgba.shape[:2]
+    if h < 20 or w < 20 or strength <= 0:
+        return rgba
+
+    alpha = rgba[:, :, 3]
+    opaque = alpha > 0
+    if np.count_nonzero(opaque) == 0:
+        return rgba
+
+    lab = cv2.cvtColor(rgba[:, :, :3], cv2.COLOR_RGB2LAB).astype(np.float32)
+    ring = max(int(min(w, h) * 0.04), 3)
+    border = np.vstack(
+        [
+            lab[:ring, :].reshape(-1, 3),
+            lab[-ring:, :].reshape(-1, 3),
+            lab[:, :ring].reshape(-1, 3),
+            lab[:, -ring:].reshape(-1, 3),
+        ]
+    )
+    border_a = np.concatenate(
+        [
+            alpha[:ring, :].reshape(-1),
+            alpha[-ring:, :].reshape(-1),
+            alpha[:, :ring].reshape(-1),
+            alpha[:, -ring:].reshape(-1),
+        ]
+    )
+    # Sample only opaque border pixels so the zeroed transparent corners (from
+    # the rounded mask) don't skew the background colour toward black.
+    visible = border_a > 0
+    if np.count_nonzero(visible) < 8:
+        return rgba
+    bg_lab = np.median(border[visible], axis=0)
+    dist = np.linalg.norm(lab - bg_lab, axis=2)
+
+    tol = 8.0 + float(strength) * 52.0
+    bg_like = ((dist <= tol) & opaque).astype(np.uint8) * 255
+    if np.count_nonzero(bg_like) == 0:
+        return rgba
+
+    flood = bg_like.copy()
+    flood_mask = np.zeros((h + 2, w + 2), np.uint8)
+    for sx, sy in (
+        (0, 0),
+        (w - 1, 0),
+        (0, h - 1),
+        (w - 1, h - 1),
+        (w // 2, 0),
+        (w // 2, h - 1),
+        (0, h // 2),
+        (w - 1, h // 2),
+    ):
+        if flood[sy, sx] > 0:
+            cv2.floodFill(flood, flood_mask, (sx, sy), 128)
+
+    spill = flood == 128
+    band = max(int(min(w, h) * (0.10 + strength * 0.22)), 10)
+    # Distance from the outer image border inward. Leftover background sits at
+    # the crop edge, so only pixels within this band are eligible for removal —
+    # central artwork of a similar colour is always protected.
+    yy, xx = np.indices((h, w))
+    edge_dist = np.minimum.reduce([xx, yy, w - 1 - xx, h - 1 - yy])
+    spill &= edge_dist <= band
+
+    if np.count_nonzero(spill) == 0:
+        return rgba
+
+    out = rgba.copy()
+    out[spill, 3] = 0
+    out[spill, 0:3] = 0
     return out
 
 

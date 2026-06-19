@@ -4,6 +4,8 @@ export interface ProcessParams {
   edge_sensitivity: number;
   contour_threshold: number;
   crop_padding: number;
+  edge_trim: number;
+  bg_removal: number;
   top_edge_cleanup: number;
   corner_radius: number;
   rotate_correction: boolean;

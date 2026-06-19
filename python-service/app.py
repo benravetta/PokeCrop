@@ -65,6 +65,8 @@ async def process_card(
     edge_sensitivity = _clamp(p.get("edge_sensitivity", 0.5), 0, 1, 0.5)
     contour_threshold = _clamp(p.get("contour_threshold", 0.5), 0, 1, 0.5)
     crop_padding = int(_clamp(p.get("crop_padding", 0), 0, 100, 0))
+    edge_trim = int(_clamp(p.get("edge_trim", 0), 0, 40, 0))
+    bg_removal = _clamp(p.get("bg_removal", 0.0), 0, 1, 0.0)
     top_edge_cleanup = _clamp(p.get("top_edge_cleanup", 0.7), 0, 1, 0.7)
     corner_radius = _clamp(p.get("corner_radius", 0.5), 0, 1, 0.5)
     rotate_correction = p.get("rotate_correction", True)
@@ -156,6 +158,8 @@ async def process_card(
             corner_radius,
             top_edge_cleanup,
             crop_padding,
+            edge_trim,
+            bg_removal,
         )
         _stage("extract", t)
 

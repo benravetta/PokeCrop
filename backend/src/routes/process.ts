@@ -94,6 +94,8 @@ function validateParams(raw: unknown): Record<string, unknown> {
     edge_sensitivity: clamp(p.edge_sensitivity, 0, 1, 0.5),
     contour_threshold: clamp(p.contour_threshold, 0, 1, 0.5),
     crop_padding: Math.round(clamp(p.crop_padding, 0, 100, 0)),
+    edge_trim: Math.round(clamp(p.edge_trim, 0, 40, 0)),
+    bg_removal: clamp(p.bg_removal, 0, 1, 0),
     top_edge_cleanup: clamp(p.top_edge_cleanup, 0, 1, 0.7),
     corner_radius: clamp(p.corner_radius, 0, 1, 0.5),
     rotate_correction: p.rotate_correction !== false && p.rotate_correction !== "false",
