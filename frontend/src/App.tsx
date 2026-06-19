@@ -7,7 +7,7 @@ export default function App() {
   const { sessionId } = useAppStore();
 
   return (
-    <div className="min-h-screen bg-surface flex flex-col">
+    <div className="h-screen overflow-hidden bg-surface flex flex-col">
       <header className="border-b border-border-subtle px-6 py-3.5 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-accent/15 flex items-center justify-center">
@@ -37,7 +37,7 @@ export default function App() {
         </a>
       </header>
 
-      <main className="flex-1 flex flex-col">
+      <main className="flex-1 flex flex-col min-h-0">
         {!sessionId ? <UploadZone /> : <Workspace />}
       </main>
 

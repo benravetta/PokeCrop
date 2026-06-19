@@ -12,7 +12,7 @@ export function ResultStage() {
   const isPdf = mime === "application/pdf";
 
   return (
-    <div className="relative w-full h-full flex flex-col">
+    <div className="relative flex-1 min-h-0 w-full flex flex-col">
       {/* Before / After toggle */}
       <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10">
         <div className="inline-flex items-center gap-0.5 p-0.5 rounded-full bg-surface-overlay/90 border border-border-subtle backdrop-blur-sm shadow-lg">

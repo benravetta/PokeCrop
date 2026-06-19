@@ -2,7 +2,7 @@ import { Loader2 } from "lucide-react";
 
 export function ProcessingStage({ label }: { label?: string }) {
   return (
-    <div className="w-full h-full rounded-2xl bg-surface-overlay flex flex-col items-center justify-center gap-5 anim-fade">
+    <div className="flex-1 min-h-0 w-full rounded-2xl bg-surface-overlay flex flex-col items-center justify-center gap-5 anim-fade">
       {/* Card-shaped skeleton placeholder (standard 63:88 trading-card ratio) */}
       <div
         className="skeleton rounded-xl border border-border-subtle"
