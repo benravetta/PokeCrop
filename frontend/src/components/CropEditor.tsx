@@ -6,10 +6,13 @@ import {
   edgeMidpoint,
   EdgeId,
   moveEdge,
+  Point,
   roundedCropPath,
 } from "../lib/cropGeometry";
 
-type HandleKind = { type: "corner"; index: number } | { type: "edge"; edge: EdgeId };
+type HandleKind =
+  | { type: "corner"; index: number }
+  | { type: "edge"; edge: EdgeId };
 
 interface CropEditorProps {
   imageSrc: string;
@@ -19,6 +22,9 @@ interface CropEditorProps {
   cornerRadiusPx: number;
   onChange: (corners: CropCorners) => void;
 }
+
+const LOUPE_SIZE = 148;
+const LOUPE_ZOOM = 4.5;
 
 function fitContain(
   containerW: number,
@@ -41,6 +47,20 @@ function fitContain(
   };
 }
 
+function unit(from: Point, to: Point): Point {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const len = Math.hypot(dx, dy) || 1;
+  return { x: dx / len, y: dy / len };
+}
+
+function sameHandle(a: HandleKind | null, b: HandleKind | null): boolean {
+  if (!a || !b || a.type !== b.type) return false;
+  if (a.type === "corner" && b.type === "corner") return a.index === b.index;
+  if (a.type === "edge" && b.type === "edge") return a.edge === b.edge;
+  return false;
+}
+
 export function CropEditor({
   imageSrc,
   imageWidth,
@@ -51,6 +71,8 @@ export function CropEditor({
 }: CropEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [box, setBox] = useState({ width: 0, height: 0 });
+  const [activeHandle, setActiveHandle] = useState<HandleKind | null>(null);
+  const [hoverHandle, setHoverHandle] = useState<HandleKind | null>(null);
   const dragRef = useRef<{
     kind: HandleKind;
     startCorners: CropCorners;
@@ -73,7 +95,7 @@ export function CropEditor({
   const fit = fitContain(box.width, box.height, imageWidth, imageHeight);
 
   const toDisplay = useCallback(
-    (p: { x: number; y: number }) => ({
+    (p: Point) => ({
       x: fit.x + p.x * fit.scale,
       y: fit.y + p.y * fit.scale,
     }),
@@ -101,6 +123,7 @@ export function CropEditor({
       startCorners: cloneCorners(corners),
       startClient: { x: event.clientX, y: event.clientY },
     };
+    setActiveHandle(kind);
   };
 
   const onPointerMove = (event: React.PointerEvent) => {
@@ -128,11 +151,26 @@ export function CropEditor({
 
   const onPointerUp = () => {
     dragRef.current = null;
+    setActiveHandle(null);
   };
 
   const displayCorners = corners.map(toDisplay) as CropCorners;
   const path = roundedCropPath(displayCorners, cornerRadiusPx * fit.scale);
   const edges: EdgeId[] = ["top", "right", "bottom", "left"];
+
+  // The handle currently in focus (being dragged, or hovered) drives the loupe.
+  const focus = activeHandle ?? hoverHandle;
+  const focusImagePoint: Point | null = focus
+    ? focus.type === "corner"
+      ? corners[focus.index]
+      : edgeMidpoint(corners, focus.edge)
+    : null;
+  const focusDisplay = focusImagePoint ? toDisplay(focusImagePoint) : null;
+
+  // Place the loupe in the corner of the stage away from the active handle so
+  // it never sits under the cursor/finger.
+  const loupeOnRight = focusDisplay ? focusDisplay.x < box.width / 2 : true;
+  const loupeOnBottom = focusDisplay ? focusDisplay.y < box.height * 0.4 : false;
 
   return (
     <div
@@ -170,41 +208,156 @@ export function CropEditor({
         <svg className="absolute inset-0 w-full h-full">
           {edges.map((edge) => {
             const mid = toDisplay(edgeMidpoint(corners, edge));
+            const isFocus = sameHandle(focus, { type: "edge", edge });
+            const s = isFocus ? 9 : 7;
             return (
               <rect
                 key={edge}
-                x={mid.x - 7}
-                y={mid.y - 7}
-                width={14}
-                height={14}
+                x={mid.x - s}
+                y={mid.y - s}
+                width={s * 2}
+                height={s * 2}
                 rx={3}
                 fill="var(--color-handle-edge)"
                 stroke="white"
-                strokeWidth={1}
+                strokeWidth={isFocus ? 2 : 1}
                 className="cursor-move pointer-events-auto"
                 onPointerDown={onPointerDown({ type: "edge", edge })}
+                onPointerEnter={() => setHoverHandle({ type: "edge", edge })}
+                onPointerLeave={() =>
+                  setHoverHandle((h) =>
+                    sameHandle(h, { type: "edge", edge }) ? null : h
+                  )
+                }
               />
             );
           })}
 
-          {corners.map((pt, index) => {
-            const d = toDisplay(pt);
+          {displayCorners.map((d, index) => {
+            const prev = displayCorners[(index + 3) % 4];
+            const next = displayCorners[(index + 1) % 4];
+            const u1 = unit(d, prev);
+            const u2 = unit(d, next);
+            const arm = 18;
+            const a1 = { x: d.x + u1.x * arm, y: d.y + u1.y * arm };
+            const a2 = { x: d.x + u2.x * arm, y: d.y + u2.y * arm };
+            const isFocus = sameHandle(focus, { type: "corner", index });
             return (
-              <circle
-                key={index}
-                cx={d.x}
-                cy={d.y}
-                r={8}
-                fill="var(--color-handle-corner)"
-                stroke="white"
-                strokeWidth={1.5}
-                className="cursor-grab active:cursor-grabbing pointer-events-auto"
-                onPointerDown={onPointerDown({ type: "corner", index })}
-              />
+              <g key={index}>
+                {/* Right-angle bracket following the two card edges */}
+                <polyline
+                  points={`${a1.x},${a1.y} ${d.x},${d.y} ${a2.x},${a2.y}`}
+                  fill="none"
+                  stroke={isFocus ? "white" : "var(--color-handle-corner)"}
+                  strokeWidth={isFocus ? 4 : 3}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="pointer-events-none"
+                />
+                <circle
+                  cx={d.x}
+                  cy={d.y}
+                  r={3}
+                  fill="white"
+                  className="pointer-events-none"
+                />
+                {/* Generous transparent grab target */}
+                <circle
+                  cx={d.x}
+                  cy={d.y}
+                  r={16}
+                  fill="transparent"
+                  className="cursor-grab active:cursor-grabbing pointer-events-auto"
+                  onPointerDown={onPointerDown({ type: "corner", index })}
+                  onPointerEnter={() =>
+                    setHoverHandle({ type: "corner", index })
+                  }
+                  onPointerLeave={() =>
+                    setHoverHandle((h) =>
+                      sameHandle(h, { type: "corner", index }) ? null : h
+                    )
+                  }
+                />
+              </g>
             );
           })}
         </svg>
       )}
+
+      {focusImagePoint && fit.scale > 0 && (
+        <Loupe
+          imageSrc={imageSrc}
+          imageWidth={imageWidth}
+          imageHeight={imageHeight}
+          corners={corners}
+          cornerRadiusPx={cornerRadiusPx}
+          focus={focusImagePoint}
+          onRight={loupeOnRight}
+          onBottom={loupeOnBottom}
+        />
+      )}
+    </div>
+  );
+}
+
+function Loupe({
+  imageSrc,
+  imageWidth,
+  imageHeight,
+  corners,
+  cornerRadiusPx,
+  focus,
+  onRight,
+  onBottom,
+}: {
+  imageSrc: string;
+  imageWidth: number;
+  imageHeight: number;
+  corners: CropCorners;
+  cornerRadiusPx: number;
+  focus: Point;
+  onRight: boolean;
+  onBottom: boolean;
+}) {
+  // Map an image-space point into the loupe's local coordinates.
+  const toLoupe = (p: Point): Point => ({
+    x: LOUPE_SIZE / 2 + (p.x - focus.x) * LOUPE_ZOOM,
+    y: LOUPE_SIZE / 2 + (p.y - focus.y) * LOUPE_ZOOM,
+  });
+
+  const loupeCorners = corners.map(toLoupe) as CropCorners;
+  const path = roundedCropPath(loupeCorners, cornerRadiusPx * LOUPE_ZOOM);
+  const c = LOUPE_SIZE / 2;
+
+  return (
+    <div
+      className="absolute z-20 rounded-xl border border-border-strong shadow-2xl overflow-hidden pointer-events-none"
+      style={{
+        width: LOUPE_SIZE,
+        height: LOUPE_SIZE,
+        top: onBottom ? undefined : 12,
+        bottom: onBottom ? 12 : undefined,
+        left: onRight ? undefined : 12,
+        right: onRight ? 12 : undefined,
+        backgroundColor: "#0e1018",
+        backgroundImage: `url(${imageSrc})`,
+        backgroundRepeat: "no-repeat",
+        backgroundSize: `${imageWidth * LOUPE_ZOOM}px ${imageHeight * LOUPE_ZOOM}px`,
+        backgroundPosition: `${c - focus.x * LOUPE_ZOOM}px ${c - focus.y * LOUPE_ZOOM}px`,
+      }}
+    >
+      <svg width={LOUPE_SIZE} height={LOUPE_SIZE} className="absolute inset-0">
+        <path
+          d={path}
+          fill="var(--color-accent-soft)"
+          stroke="var(--color-crop-stroke)"
+          strokeWidth={1.5}
+        />
+        {/* Crosshair marking the exact handle position */}
+        <line x1={c} y1={c - 12} x2={c} y2={c + 12} stroke="white" strokeWidth={1} opacity={0.9} />
+        <line x1={c - 12} y1={c} x2={c + 12} y2={c} stroke="white" strokeWidth={1} opacity={0.9} />
+        <circle cx={c} cy={c} r={2.5} fill="none" stroke="white" strokeWidth={1} />
+      </svg>
     </div>
   );
 }

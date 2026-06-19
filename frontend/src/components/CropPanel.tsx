@@ -37,12 +37,12 @@ export function CropPanel() {
           <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 max-w-[90%]">
             <p className="text-[11px] text-text-secondary bg-surface-overlay/90 border border-border-subtle backdrop-blur-sm rounded-full px-3 py-1 text-center shadow-lg">
               Drag the{" "}
-              <span className="text-accent font-medium">round</span> handles to the
-              corners, or the{" "}
+              <span className="text-accent font-medium">corner brackets</span> onto each
+              card corner — a magnifier appears for precision — or the{" "}
               <span style={{ color: "var(--color-handle-edge)" }} className="font-medium">
                 square
               </span>{" "}
-              handles to nudge each edge.
+              handles to nudge an edge.
             </p>
           </div>
         </>
