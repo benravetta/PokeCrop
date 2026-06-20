@@ -1,4 +1,4 @@
-# PokeCrop Node/Express API gateway.
+# CardCrop Node/Express API gateway.
 # The backend is bundled into a single self-contained file with esbuild, so the
 # runtime image needs no node_modules at all — just node + the bundle.
 

@@ -34,15 +34,15 @@ export function CropPanel() {
             cornerRadiusPx={metadata?.estimated_corner_radius_px ?? 8}
             onChange={setCropCorners}
           />
-          <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 max-w-[90%]">
-            <p className="text-[11px] text-text-secondary bg-surface-overlay/90 border border-border-subtle backdrop-blur-sm rounded-full px-3 py-1 text-center shadow-lg">
-              Drag the{" "}
-              <span className="text-accent font-medium">corner brackets</span> onto each
-              card corner — a magnifier appears for precision — or the{" "}
+          <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 max-w-[94%] sm:max-w-[90%]">
+            <p className="text-[10.5px] sm:text-[11px] text-text-secondary bg-surface-overlay/90 border border-border-subtle backdrop-blur-sm rounded-full px-3 py-1 text-center shadow-lg">
+              Drag a{" "}
+              <span className="text-accent font-medium">corner bracket</span> onto each
+              card corner — it snaps to the real corner when you let go — or nudge a{" "}
               <span style={{ color: "var(--color-handle-edge)" }} className="font-medium">
                 square
               </span>{" "}
-              handles to nudge an edge.
+              edge handle.
             </p>
           </div>
         </>

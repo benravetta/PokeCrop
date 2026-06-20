@@ -1,4 +1,4 @@
-# PokeCrop Python processing service (FastAPI + OpenCV).
+# CardCrop Python processing service (FastAPI + OpenCV).
 FROM python:3.11-slim AS runtime
 
 ENV PYTHONUNBUFFERED=1 \

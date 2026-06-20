@@ -1,4 +1,4 @@
-# PokeCrop frontend: build the static SPA, then serve it with nginx.
+# CardCrop frontend: build the static SPA, then serve it with nginx.
 FROM node:22-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json ./

@@ -1,9 +1,9 @@
 import { useCallback } from "react";
 import { useDropzone } from "react-dropzone";
 import { useAppStore } from "../hooks/useProcessing";
-import { Upload, FileImage, FileText, Loader2 } from "lucide-react";
+import { Upload, FileImage, FileText, Loader2, HelpCircle } from "lucide-react";
 
-export function UploadZone() {
+export function UploadZone({ onHelp }: { onHelp?: () => void }) {
   const { upload, uploading, error } = useAppStore();
 
   const onDrop = useCallback(
@@ -26,7 +26,7 @@ export function UploadZone() {
   });
 
   return (
-    <div className="flex-1 flex items-center justify-center p-8">
+    <div className="flex-1 flex items-center justify-center p-6 sm:p-8">
       <div className="w-full max-w-xl">
         <div className="text-center mb-8 anim-rise">
           <h2 className="text-2xl font-semibold text-text-primary mb-2 tracking-tight">
@@ -89,6 +89,18 @@ export function UploadZone() {
         {error && (
           <div className="mt-4 p-3 rounded-lg bg-error/10 border border-error/20 text-error text-sm text-center">
             {error}
+          </div>
+        )}
+
+        {onHelp && (
+          <div className="mt-5 text-center">
+            <button
+              onClick={onHelp}
+              className="inline-flex items-center gap-1.5 text-xs text-text-muted hover:text-text-secondary transition-colors"
+            >
+              <HelpCircle className="w-3.5 h-3.5" />
+              New here? See how it works
+            </button>
           </div>
         )}
       </div>

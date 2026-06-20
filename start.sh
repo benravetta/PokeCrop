@@ -36,7 +36,7 @@ ensure_node() {
     fi
   done
 
-  echo "Error: PokeCrop requires Node.js 20-24."
+  echo "Error: CardCrop requires Node.js 20-24."
   echo "Install one with: brew install node@22"
   echo "Or, if you use nvm: nvm install 22 && nvm use"
   exit 1
@@ -59,7 +59,7 @@ wait_for_url() {
   return 1
 }
 
-echo "=== PokeCrop — Starting all services ==="
+echo "=== CardCrop — Starting all services ==="
 echo ""
 
 # Always stop stale processes from previous runs (main cause of "Address already in use"

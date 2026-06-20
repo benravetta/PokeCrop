@@ -1,4 +1,4 @@
-# PokeCrop production stack.
+# CardCrop production stack.
 #
 #   docker compose up -d --build
 #

@@ -1,4 +1,4 @@
-# Single-container PokeCrop image for Fly.io.
+# Single-container CardCrop image for Fly.io.
 #
 # Runs all three services (nginx + Node backend + Python service) in one machine,
 # supervised by supervisord and talking to each other over localhost. This keeps
@@ -11,6 +11,13 @@ WORKDIR /fe
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
 COPY frontend/ ./
+# Public Supabase config is baked in at build time (the publishable key is safe
+# to ship to the browser; RLS protects the data). Pass via:
+#   fly deploy --build-arg VITE_SUPABASE_URL=... --build-arg VITE_SUPABASE_PUBLISHABLE_KEY=...
+ARG VITE_SUPABASE_URL
+ARG VITE_SUPABASE_PUBLISHABLE_KEY
+ENV VITE_SUPABASE_URL=$VITE_SUPABASE_URL \
+    VITE_SUPABASE_PUBLISHABLE_KEY=$VITE_SUPABASE_PUBLISHABLE_KEY
 RUN npm run build
 
 # ---- 2. Build the backend (single self-contained bundle) ----

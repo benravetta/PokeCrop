@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   clampCorners,
   cloneCorners,
@@ -9,6 +9,7 @@ import {
   Point,
   roundedCropPath,
 } from "../lib/cropGeometry";
+import { loadLuminance, refineCorner } from "../lib/cornerSnap";
 
 type HandleKind =
   | { type: "corner"; index: number }
@@ -23,7 +24,6 @@ interface CropEditorProps {
   onChange: (corners: CropCorners) => void;
 }
 
-const LOUPE_SIZE = 148;
 const LOUPE_ZOOM = 4.5;
 
 function fitContain(
@@ -73,11 +73,22 @@ export function CropEditor({
   const [box, setBox] = useState({ width: 0, height: 0 });
   const [activeHandle, setActiveHandle] = useState<HandleKind | null>(null);
   const [hoverHandle, setHoverHandle] = useState<HandleKind | null>(null);
+  const [snapFlash, setSnapFlash] = useState<number | null>(null);
+  const grayRef = useRef<Float32Array | null>(null);
   const dragRef = useRef<{
     kind: HandleKind;
     startCorners: CropCorners;
     startClient: { x: number; y: number };
   } | null>(null);
+
+  // Touch devices need larger grab targets than a mouse pointer.
+  const coarsePointer = useMemo(
+    () =>
+      typeof window !== "undefined" &&
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(pointer: coarse)").matches,
+    []
+  );
 
   useEffect(() => {
     const el = containerRef.current;
@@ -91,6 +102,19 @@ export function CropEditor({
     observer.observe(el);
     return () => observer.disconnect();
   }, [imageSrc]);
+
+  // Decode the editing image into a luminance buffer so dropped corners can snap
+  // onto the nearest real corner via sub-pixel refinement.
+  useEffect(() => {
+    let cancelled = false;
+    grayRef.current = null;
+    loadLuminance(imageSrc, imageWidth, imageHeight).then((gray) => {
+      if (!cancelled) grayRef.current = gray;
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [imageSrc, imageWidth, imageHeight]);
 
   const fit = fitContain(box.width, box.height, imageWidth, imageHeight);
 
@@ -150,8 +174,30 @@ export function CropEditor({
   };
 
   const onPointerUp = () => {
+    const drag = dragRef.current;
     dragRef.current = null;
     setActiveHandle(null);
+
+    // Corner snap: refine the dropped corner onto the nearest real card corner.
+    if (drag && drag.kind.type === "corner") {
+      const gray = grayRef.current;
+      const index = drag.kind.index;
+      if (gray) {
+        const snapped = refineCorner(
+          gray,
+          imageWidth,
+          imageHeight,
+          corners[index]
+        );
+        if (snapped) {
+          const next = cloneCorners(corners);
+          next[index] = snapped;
+          onChange(clampCorners(next, imageWidth, imageHeight));
+          setSnapFlash(index);
+          window.setTimeout(() => setSnapFlash((v) => (v === index ? null : v)), 450);
+        }
+      }
+    }
   };
 
   const displayCorners = corners.map(toDisplay) as CropCorners;
@@ -167,10 +213,17 @@ export function CropEditor({
     : null;
   const focusDisplay = focusImagePoint ? toDisplay(focusImagePoint) : null;
 
-  // Place the loupe in the corner of the stage away from the active handle so
-  // it never sits under the cursor/finger.
-  const loupeOnRight = focusDisplay ? focusDisplay.x < box.width / 2 : true;
-  const loupeOnBottom = focusDisplay ? focusDisplay.y < box.height * 0.4 : false;
+  // Loupe lives on the SAME side as the focused handle, so your eye stays on the
+  // corner you're adjusting. It is sized to fit comfortably on small screens.
+  const loupeSize = Math.max(
+    110,
+    Math.min(160, Math.round(Math.min(box.width, box.height) * 0.42))
+  );
+  const loupeOnRight = focusDisplay ? focusDisplay.x >= box.width / 2 : false;
+  const loupeOnBottom = focusDisplay ? focusDisplay.y >= box.height / 2 : false;
+
+  const grabRadius = coarsePointer ? 24 : 16;
+  const edgeBase = coarsePointer ? 9 : 7;
 
   return (
     <div
@@ -209,7 +262,7 @@ export function CropEditor({
           {edges.map((edge) => {
             const mid = toDisplay(edgeMidpoint(corners, edge));
             const isFocus = sameHandle(focus, { type: "edge", edge });
-            const s = isFocus ? 9 : 7;
+            const s = isFocus ? edgeBase + 2 : edgeBase;
             return (
               <rect
                 key={edge}
@@ -242,8 +295,21 @@ export function CropEditor({
             const a1 = { x: d.x + u1.x * arm, y: d.y + u1.y * arm };
             const a2 = { x: d.x + u2.x * arm, y: d.y + u2.y * arm };
             const isFocus = sameHandle(focus, { type: "corner", index });
+            const flashing = snapFlash === index;
             return (
               <g key={index}>
+                {/* Snap confirmation pulse */}
+                {flashing && (
+                  <circle
+                    cx={d.x}
+                    cy={d.y}
+                    r={20}
+                    fill="none"
+                    stroke="var(--color-handle-corner)"
+                    strokeWidth={2}
+                    className="anim-snap pointer-events-none"
+                  />
+                )}
                 {/* Right-angle bracket following the two card edges */}
                 <polyline
                   points={`${a1.x},${a1.y} ${d.x},${d.y} ${a2.x},${a2.y}`}
@@ -265,7 +331,7 @@ export function CropEditor({
                 <circle
                   cx={d.x}
                   cy={d.y}
-                  r={16}
+                  r={grabRadius}
                   fill="transparent"
                   className="cursor-grab active:cursor-grabbing pointer-events-auto"
                   onPointerDown={onPointerDown({ type: "corner", index })}
@@ -292,6 +358,7 @@ export function CropEditor({
           corners={corners}
           cornerRadiusPx={cornerRadiusPx}
           focus={focusImagePoint}
+          size={loupeSize}
           onRight={loupeOnRight}
           onBottom={loupeOnBottom}
         />
@@ -307,6 +374,7 @@ function Loupe({
   corners,
   cornerRadiusPx,
   focus,
+  size,
   onRight,
   onBottom,
 }: {
@@ -316,25 +384,27 @@ function Loupe({
   corners: CropCorners;
   cornerRadiusPx: number;
   focus: Point;
+  size: number;
   onRight: boolean;
   onBottom: boolean;
 }) {
+  const c = size / 2;
   // Map an image-space point into the loupe's local coordinates.
   const toLoupe = (p: Point): Point => ({
-    x: LOUPE_SIZE / 2 + (p.x - focus.x) * LOUPE_ZOOM,
-    y: LOUPE_SIZE / 2 + (p.y - focus.y) * LOUPE_ZOOM,
+    x: c + (p.x - focus.x) * LOUPE_ZOOM,
+    y: c + (p.y - focus.y) * LOUPE_ZOOM,
   });
 
   const loupeCorners = corners.map(toLoupe) as CropCorners;
   const path = roundedCropPath(loupeCorners, cornerRadiusPx * LOUPE_ZOOM);
-  const c = LOUPE_SIZE / 2;
+  const cross = Math.round(size * 0.08);
 
   return (
     <div
-      className="absolute z-20 rounded-xl border border-border-strong shadow-2xl overflow-hidden pointer-events-none"
+      className="absolute z-20 rounded-xl border border-border-strong shadow-2xl overflow-hidden pointer-events-none anim-fade"
       style={{
-        width: LOUPE_SIZE,
-        height: LOUPE_SIZE,
+        width: size,
+        height: size,
         top: onBottom ? undefined : 12,
         bottom: onBottom ? 12 : undefined,
         left: onRight ? undefined : 12,
@@ -346,7 +416,7 @@ function Loupe({
         backgroundPosition: `${c - focus.x * LOUPE_ZOOM}px ${c - focus.y * LOUPE_ZOOM}px`,
       }}
     >
-      <svg width={LOUPE_SIZE} height={LOUPE_SIZE} className="absolute inset-0">
+      <svg width={size} height={size} className="absolute inset-0">
         <path
           d={path}
           fill="var(--color-accent-soft)"
@@ -354,8 +424,8 @@ function Loupe({
           strokeWidth={1.5}
         />
         {/* Crosshair marking the exact handle position */}
-        <line x1={c} y1={c - 12} x2={c} y2={c + 12} stroke="white" strokeWidth={1} opacity={0.9} />
-        <line x1={c - 12} y1={c} x2={c + 12} y2={c} stroke="white" strokeWidth={1} opacity={0.9} />
+        <line x1={c} y1={c - cross} x2={c} y2={c + cross} stroke="white" strokeWidth={1} opacity={0.9} />
+        <line x1={c - cross} y1={c} x2={c + cross} y2={c} stroke="white" strokeWidth={1} opacity={0.9} />
         <circle cx={c} cy={c} r={2.5} fill="none" stroke="white" strokeWidth={1} />
       </svg>
     </div>

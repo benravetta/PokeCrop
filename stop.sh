@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Stop anything listening on PokeCrop's dev ports AND orphan dev processes
+# Stop anything listening on CardCrop's dev ports AND orphan dev processes
 # (tsx watch often never binds a port — port-only cleanup leaves zombies).
 
 set -e
@@ -7,7 +7,7 @@ set -e
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 PORTS=(5001 3001 5173)
 
-echo "Stopping PokeCrop services..."
+echo "Stopping CardCrop services..."
 
 # Orphan Node dev servers (tsx watch, vite, etc.) from prior ./start.sh runs.
 for pattern in \

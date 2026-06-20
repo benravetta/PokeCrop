@@ -1,5 +1,7 @@
 # Build-context excludes for the root (Fly) image build.
 .git
+**/.env
+**/.env.*
 **/node_modules
 **/dist
 **/.venv

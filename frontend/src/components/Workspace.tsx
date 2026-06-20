@@ -50,7 +50,7 @@ export function Workspace() {
   return (
     <div className="flex-1 flex flex-col min-h-0">
       {/* Stage header */}
-      <div className="flex items-center gap-3 px-5 pt-4 pb-3">
+      <div className="flex items-center gap-3 px-4 sm:px-5 pt-3 sm:pt-4 pb-2.5 sm:pb-3">
         <h2 className="text-sm font-semibold text-text-primary">
           {mode === "crop" ? "Adjust the crop" : "Your card"}
         </h2>
@@ -64,7 +64,7 @@ export function Workspace() {
       </div>
 
       {/* Main stage */}
-      <div className="flex-1 min-h-0 px-5 flex flex-col">
+      <div className="flex-1 min-h-0 px-4 sm:px-5 flex flex-col">
         {busy ? (
           <ProcessingStage label={uploading ? "Reading your file…" : "Finding your card…"} />
         ) : mode === "crop" ? (
@@ -79,39 +79,42 @@ export function Workspace() {
       )}
 
       {/* Action bar */}
-      <div className="border-t border-border-subtle bg-surface-raised mt-4">
-        <div className="flex items-center gap-2 px-5 py-3 flex-wrap">
+      <div className="border-t border-border-subtle bg-surface-raised mt-3 sm:mt-4">
+        <div className="flex items-center gap-2 px-4 sm:px-5 py-2.5 sm:py-3">
           {mode === "view" ? (
             <>
               <button
                 onClick={reset}
+                title="Start over with a new file"
                 className="inline-flex items-center gap-1.5 px-3 py-2 text-sm text-text-secondary
                            bg-surface-overlay rounded-lg hover:bg-border-subtle transition-colors"
               >
                 <ArrowLeft className="w-4 h-4" />
-                New file
+                <span className="hidden sm:inline">New file</span>
               </button>
 
               <button
                 onClick={enterCrop}
                 disabled={busy || !resultBase64}
+                title="Fine-tune the crop by hand"
                 className="inline-flex items-center gap-1.5 px-3 py-2 text-sm text-text-primary
                            bg-surface-overlay rounded-lg hover:bg-border-subtle transition-colors
                            disabled:opacity-40"
               >
                 <Crop className="w-4 h-4" />
-                Adjust crop
+                <span className="hidden sm:inline">Adjust crop</span>
               </button>
 
               <button
                 onClick={() => setDrawerOpen(true)}
                 disabled={busy}
+                title="Advanced clean-up settings"
                 className="inline-flex items-center gap-1.5 px-3 py-2 text-sm text-text-secondary
                            bg-surface-overlay rounded-lg hover:bg-border-subtle transition-colors
                            disabled:opacity-40"
               >
                 <SlidersHorizontal className="w-4 h-4" />
-                Advanced
+                <span className="hidden sm:inline">Advanced</span>
               </button>
 
               <div className="ml-auto flex items-center gap-2">
@@ -136,22 +139,24 @@ export function Workspace() {
               <button
                 onClick={cancelCrop}
                 disabled={busy}
+                title="Discard manual edits"
                 className="inline-flex items-center gap-1.5 px-3 py-2 text-sm text-text-secondary
                            bg-surface-overlay rounded-lg hover:bg-border-subtle transition-colors
                            disabled:opacity-40"
               >
                 <X className="w-4 h-4" />
-                Cancel
+                <span className="hidden sm:inline">Cancel</span>
               </button>
               <button
                 onClick={resetCrop}
                 disabled={busy}
+                title="Restore the auto-detected crop"
                 className="inline-flex items-center gap-1.5 px-3 py-2 text-sm text-text-secondary
                            bg-surface-overlay rounded-lg hover:bg-border-subtle transition-colors
                            disabled:opacity-40"
               >
                 <RotateCcw className="w-4 h-4" />
-                Reset to auto
+                <span className="hidden sm:inline">Reset to auto</span>
               </button>
 
               <button

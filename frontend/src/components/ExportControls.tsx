@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useAppStore } from "../hooks/useProcessing";
-import { exportUrl } from "../lib/api";
+import { fetchExport } from "../lib/api";
 import { baseName } from "../lib/mime";
 import { Download, ChevronDown } from "lucide-react";
 
@@ -27,9 +27,7 @@ export function ExportControls() {
     setMenuOpen(false);
     setDownloading(size);
     try {
-      const res = await fetch(exportUrl(sessionId, size));
-      if (!res.ok) return;
-      const blob = await res.blob();
+      const blob = await fetchExport(sessionId, size);
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -38,6 +36,8 @@ export function ExportControls() {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Export failed:", err);
     } finally {
       setDownloading(null);
     }

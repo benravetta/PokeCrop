@@ -1,63 +1,90 @@
-import { useAppStore } from "./hooks/useProcessing";
-import { UploadZone } from "./components/UploadZone";
-import { Workspace } from "./components/Workspace";
-import { Crop } from "lucide-react";
+import { useEffect, type ReactNode } from "react";
+import { Routes, Route, Navigate } from "react-router-dom";
+import { Loader2 } from "lucide-react";
+import { useAuth } from "./hooks/useAuth";
+import { Layout } from "./components/Layout";
+import { ProtectedRoute } from "./components/ProtectedRoute";
+import { AdminRoute } from "./components/AdminRoute";
+import { ToolPage } from "./pages/ToolPage";
+import { AccountPage } from "./pages/AccountPage";
+import { PricingPage } from "./pages/PricingPage";
+import { AdminPage } from "./pages/AdminPage";
+import { LoginPage } from "./pages/LoginPage";
+import { RegisterPage } from "./pages/RegisterPage";
+import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
+import { ResetPasswordPage } from "./pages/ResetPasswordPage";
+
+function FullScreenLoader() {
+  return (
+    <div className="min-h-[100dvh] bg-surface flex items-center justify-center">
+      <Loader2 className="w-6 h-6 text-accent animate-spin" />
+    </div>
+  );
+}
+
+// Routes only an unauthenticated visitor should see (login/register/forgot).
+function PublicOnly({ children }: { children: ReactNode }) {
+  const { session, initializing } = useAuth();
+  if (initializing) return <FullScreenLoader />;
+  if (session) return <Navigate to="/" replace />;
+  return <>{children}</>;
+}
 
 export default function App() {
-  const { sessionId } = useAppStore();
+  const init = useAuth((s) => s.init);
+
+  useEffect(() => init(), [init]);
 
   return (
-    <div className="h-screen overflow-hidden bg-surface flex flex-col">
-      <header className="border-b border-border-subtle px-6 py-3.5 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-accent/15 flex items-center justify-center">
-            <Crop className="w-[18px] h-[18px] text-accent" />
-          </div>
-          <div className="flex items-baseline gap-2">
-            <h1 className="text-[17px] font-semibold text-text-primary tracking-tight">
-              PokeCrop
-            </h1>
-            <span className="hidden sm:inline text-[11px] text-text-muted font-medium tracking-wide uppercase">
-              Card Extraction
-            </span>
-          </div>
-        </div>
+    <Routes>
+      <Route
+        path="/login"
+        element={
+          <PublicOnly>
+            <LoginPage />
+          </PublicOnly>
+        }
+      />
+      <Route
+        path="/register"
+        element={
+          <PublicOnly>
+            <RegisterPage />
+          </PublicOnly>
+        }
+      />
+      <Route
+        path="/forgot-password"
+        element={
+          <PublicOnly>
+            <ForgotPasswordPage />
+          </PublicOnly>
+        }
+      />
+      {/* Reset must stay reachable while a recovery session is active. */}
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
 
-        <a
-          href="https://getlooky.uk"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="opacity-70 hover:opacity-100 transition-opacity"
-        >
-          <img
-            src="/looky-logo.png"
-            alt="Looky Collectibles"
-            className="h-5"
-          />
-        </a>
-      </header>
+      <Route
+        element={
+          <ProtectedRoute>
+            <Layout />
+          </ProtectedRoute>
+        }
+      >
+        <Route path="/" element={<ToolPage />} />
+        <Route path="/account" element={<AccountPage />} />
+        <Route path="/pricing" element={<PricingPage />} />
+        <Route
+          path="/admin"
+          element={
+            <AdminRoute>
+              <AdminPage />
+            </AdminRoute>
+          }
+        />
+      </Route>
 
-      <main className="flex-1 flex flex-col min-h-0">
-        {!sessionId ? <UploadZone /> : <Workspace />}
-      </main>
-
-      <footer className="border-t border-border-subtle px-6 py-3 flex flex-col sm:flex-row items-center justify-between gap-1.5">
-        <p className="text-[11px] text-text-muted">
-          A{" "}
-          <a
-            href="https://getlooky.uk"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-text-secondary hover:text-text-primary transition-colors"
-          >
-            Looky Collectibles
-          </a>{" "}
-          Tool
-        </p>
-        <p className="text-[11px] text-text-muted">
-          Built with ❤️ in the English Lake District
-        </p>
-      </footer>
-    </div>
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   );
 }

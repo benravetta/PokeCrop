@@ -3,6 +3,7 @@ import {
   uploadFile,
   processImage,
   deleteSession,
+  ApiError,
   ProcessParams,
   ProcessResult,
 } from "../lib/api";
@@ -12,6 +13,7 @@ import {
   fromCornerArrays,
   toCornerArrays,
 } from "../lib/cropGeometry";
+import { useMe } from "./useMe";
 
 export interface AppState {
   sessionId: string | null;
@@ -28,6 +30,8 @@ export interface AppState {
   editImageSize: [number, number] | null;
   cropDirty: boolean;
   error: string | null;
+  // Set when the daily free-crop limit is hit (drives the upgrade prompt).
+  limitReached: boolean;
   uploading: boolean;
   processing: boolean;
   params: ProcessParams;
@@ -42,6 +46,7 @@ export interface AppState {
   revertCrop: () => void;
   setParam: <K extends keyof ProcessParams>(key: K, value: ProcessParams[K]) => void;
   resetParams: () => void;
+  clearLimit: () => void;
   reset: () => void;
 }
 
@@ -83,6 +88,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   editImageSize: null,
   cropDirty: false,
   error: null,
+  limitReached: false,
   uploading: false,
   processing: false,
   params: { ...DEFAULT_PARAMS },
@@ -149,7 +155,19 @@ export const useAppStore = create<AppState>((set, get) => ({
         cropDirty: false,
         appliedParams: { ...params },
       });
+
+      // Keep the remaining-crops indicator fresh after a metered crop.
+      void useMe.getState().refresh();
     } catch (err: unknown) {
+      if (err instanceof ApiError && err.status === 402) {
+        set({
+          processing: false,
+          limitReached: true,
+          error: err.message,
+        });
+        void useMe.getState().refresh();
+        return;
+      }
       const msg = err instanceof Error ? err.message : "Processing failed";
       set({ processing: false, error: msg });
     }
@@ -183,6 +201,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ params: { ...DEFAULT_PARAMS } });
   },
 
+  clearLimit: () => set({ limitReached: false }),
+
   reset: () => {
     const { sessionId } = get();
     if (sessionId) {
@@ -201,6 +221,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       editImageSize: null,
       cropDirty: false,
       error: null,
+      limitReached: false,
       uploading: false,
       processing: false,
       params: { ...DEFAULT_PARAMS },

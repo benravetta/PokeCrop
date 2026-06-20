@@ -1,10 +1,10 @@
-# PokeCrop
+# CardCrop
 
-A [Looky Collectibles](https://getlooky.uk) tool — built with ❤️ in the English Lake District.
+A [Looky Collectibles](https://getlooky.uk) tool — built with ❤️ in the English Lake District. Live at [cardcrop.uk](https://cardcrop.uk).
 
-Local web application for extracting trading cards from scans and photos. Upload an image or PDF, and PokeCrop detects the frontmost card, preserves its exact border and rounded corners, removes the wrapper/backing card/background, and exports a transparent PNG.
+Web application for extracting trading cards from scans and photos. Upload an image or PDF, and CardCrop detects the frontmost card, preserves its exact border and rounded corners, removes the wrapper/backing card/background, and exports a transparent PNG.
 
-No cloud services. No external APIs. Everything runs locally on your machine.
+Image processing runs entirely on your own server — no third-party image APIs. Accounts, login, usage limits and subscriptions are powered by [Supabase](https://supabase.com) (auth + Postgres) and [Stripe](https://stripe.com) (billing). See [Accounts, Billing & Admin](#accounts-billing--admin) for setup.
 
 ---
 
@@ -18,7 +18,7 @@ No cloud services. No external APIs. Everything runs locally on your machine.
 
 **macOS:** If you don't have Python 3.9+, install via `brew install python@3.11`.
 
-PokeCrop currently expects an LTS Node runtime. `Node 25` is not supported in this repo right now and can break the Vite/Rollup build. `./start.sh` will automatically try to use a compatible Node from `nvm` (`.nvmrc`) or Homebrew (`node@22` / `node@24`) if your default `node` is too new or too old.
+CardCrop currently expects an LTS Node runtime. `Node 25` is not supported in this repo right now and can break the Vite/Rollup build. `./start.sh` will automatically try to use a compatible Node from `nvm` (`.nvmrc`) or Homebrew (`node@22` / `node@24`) if your default `node` is too new or too old.
 
 **Windows:** Install Python from [python.org](https://www.python.org/downloads/) and ensure "Add to PATH" is checked during installation.
 
@@ -52,7 +52,7 @@ Once running, open **http://localhost:5173** in your browser.
 
 ## Production Deployment (Docker)
 
-For production, PokeCrop ships as three containers orchestrated with Docker Compose:
+For production, CardCrop ships as three containers orchestrated with Docker Compose:
 
 | Container  | Base image          | Role                                                        |
 |------------|---------------------|-------------------------------------------------------------|
@@ -118,7 +118,7 @@ balancer) in front of the `frontend` container, then point it at the published
 
 ## Deploy to Fly.io
 
-For a hosted deployment, PokeCrop ships as a **single Fly.io machine** that runs
+For a hosted deployment, CardCrop ships as a **single Fly.io machine** that runs
 all three services (nginx + Node + Python) in one container, supervised by
 `supervisord` and communicating over `localhost`. This keeps the app's in-memory
 sessions coherent (no cross-instance state issues) and makes deploys a single
@@ -151,8 +151,19 @@ fly launch --copy-config --ha=false --now
 
 `fly launch` reads `fly.toml` and `Dockerfile.fly`, builds the image on Fly's
 remote builders (no local Docker required), and deploys. You'll be prompted to
-choose a globally-unique **app name** (e.g. `pokecrop-yourname`) and confirm the
-region. When it finishes it prints your URL, e.g. `https://pokecrop-yourname.fly.dev`.
+choose a globally-unique **app name** and confirm the region. When it finishes
+it prints your `*.fly.dev` URL.
+
+**Custom domain.** The production app is served at **[cardcrop.uk](https://cardcrop.uk)**.
+To attach a custom domain to the Fly app, point your DNS at Fly and run:
+
+```bash
+fly certs add cardcrop.uk
+fly certs add www.cardcrop.uk
+```
+
+Then use `https://cardcrop.uk` as the public origin everywhere below (Supabase
+redirect URLs, the Stripe webhook endpoint, etc.).
 
 ### Updating / Continuous deployment
 
@@ -183,6 +194,129 @@ Settings live in `fly.toml` under `[env]` and `[[vm]]`:
 > **Cold starts:** with `min_machines_running = 0`, the first request after an
 > idle period waits a few seconds while the machine wakes. For an always-warm
 > instance, set `min_machines_running = 1` in `fly.toml` and run `fly deploy`.
+
+---
+
+## Accounts, Billing & Admin
+
+CardCrop gates cropping behind a login. Free accounts get **3 crops/day**; paid
+plans are unlimited. Auth + data live in **Supabase**; subscriptions are billed
+in **GBP** via **Stripe**.
+
+- **Free** — 3 crops/day
+- **Unlimited** — £7.99/mo, unlimited crops
+- **API access** — £19.99/mo, unlimited crops + API keys (public API is a later phase; this tier reserves access and manages keys now)
+
+A "crop" is the first successful extraction of an uploaded image — re-cropping
+and slider tweaks on the same upload are free.
+
+### Architecture
+
+```
+Browser (React SPA + supabase-js)
+   │  signup / login / reset ───────────────► Supabase Auth + Postgres (RLS)
+   │  /api/* with Bearer JWT
+   ▼
+Node backend  ── verifies JWT (JWKS) ───────► Supabase (plan + usage, service role)
+   │  meters usage_days, gates free tier
+   │  Stripe Checkout / Portal ─────────────► Stripe
+   ◄── /api/webhooks/stripe (subscription sync)
+```
+
+- Backend verifies the Supabase access token locally against the project JWKS
+  (`backend/src/middleware/auth.ts`), with a `getUser` fallback.
+- Durable state (users, usage, subscriptions, API keys) lives in Supabase, so
+  metering/billing stay correct even though crop sessions are in-memory.
+
+### Environment variables
+
+| Variable | Where | Purpose |
+|----------|-------|---------|
+| `SUPABASE_URL` | backend (secret) | Supabase project URL |
+| `SUPABASE_SERVICE_ROLE_KEY` | backend (secret) | Service-role/secret key — server-only, bypasses RLS |
+| `VITE_SUPABASE_URL` | frontend (build arg) | Same project URL, baked into the SPA |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | frontend (build arg) | Publishable key — safe in the browser |
+| `STRIPE_SECRET_KEY` | backend (secret) | Stripe API key |
+| `STRIPE_WEBHOOK_SECRET` | backend (secret) | Verifies Stripe webhook signatures |
+| `STRIPE_PRICE_UNLIMITED` | backend (secret) | Stripe price id for the £7.99 plan |
+| `STRIPE_PRICE_API` | backend (secret) | Stripe price id for the £19.99 plan |
+
+For **local dev**, `frontend/.env` holds the public `VITE_SUPABASE_*` values
+(gitignored). The backend reads `SUPABASE_*` / `STRIPE_*` from its environment.
+
+### Supabase setup
+
+1. **Project + schema** — a dedicated Supabase project is provisioned and the
+   schema (`profiles`, `subscriptions`, `usage_days`, `api_keys`) plus RLS,
+   the new-user trigger, and `increment_daily_crop()` are applied as migrations.
+2. **Auth redirect URLs** — in the Supabase dashboard under
+   **Authentication → URL Configuration**, set the **Site URL** and add
+   **Redirect URLs** for each environment:
+   - `http://localhost:5173` and `http://localhost:5173/reset-password` (dev)
+   - `https://YOUR_APP.fly.dev` and `https://YOUR_APP.fly.dev/reset-password` (prod)
+3. **Email** — email confirmation is on by default. For production volume,
+   configure custom SMTP under **Authentication → Emails**.
+
+### Stripe setup
+
+1. Create two **recurring GBP prices** in the Stripe dashboard:
+   - Unlimited — £7.99/month → copy its price id to `STRIPE_PRICE_UNLIMITED`
+   - API access — £19.99/month → copy its price id to `STRIPE_PRICE_API`
+2. Add a **webhook endpoint** → `https://YOUR_APP.fly.dev/api/webhooks/stripe`
+   subscribed to `customer.subscription.created/updated/deleted`. Copy the
+   signing secret to `STRIPE_WEBHOOK_SECRET`.
+3. Enable the **Customer Portal** (Settings → Billing → Customer portal) so the
+   "Manage billing" button works.
+
+### Fly secrets
+
+```bash
+fly secrets set \
+  SUPABASE_URL=https://YOUR_REF.supabase.co \
+  SUPABASE_SERVICE_ROLE_KEY=sb_secret_xxx \
+  STRIPE_SECRET_KEY=sk_live_xxx \
+  STRIPE_WEBHOOK_SECRET=whsec_xxx \
+  STRIPE_PRICE_UNLIMITED=price_xxx \
+  STRIPE_PRICE_API=price_xxx
+
+# Public Supabase values are baked into the SPA at build time:
+fly deploy \
+  --build-arg VITE_SUPABASE_URL=https://YOUR_REF.supabase.co \
+  --build-arg VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxx
+```
+
+### Make yourself an admin
+
+The admin console lives at `/admin` and is gated on
+`auth.users.app_metadata.role = 'admin'`. After signing up, set your role once
+(via the Supabase MCP `execute_sql`, the SQL editor, or the Admin API):
+
+```sql
+update auth.users
+set raw_app_meta_data = raw_app_meta_data || '{"role":"admin"}'
+where email = 'you@example.com';
+```
+
+Sign out and back in so a fresh token carries the role.
+
+### Account API endpoints
+
+| Endpoint | Auth | Purpose |
+|----------|------|---------|
+| `GET /api/me` | user | Plan, crops used/remaining today, admin flag |
+| `POST /api/billing/checkout` | user | Start Stripe Checkout (`{ plan }`) |
+| `POST /api/billing/portal` | user | Open the Stripe Customer Portal |
+| `POST /api/webhooks/stripe` | Stripe sig | Subscription sync (raw body) |
+| `GET /api/admin/users` | admin | List/search users with plan + usage |
+| `POST /api/admin/users/:id/role` | admin | Promote/demote admin |
+| `POST /api/admin/users/:id/plan` | admin | Manual plan override |
+| `POST /api/admin/users/:id/suspend` | admin | Ban/reinstate |
+| `GET/POST /api/admin/users/:id/api-keys` | admin | List / issue API keys |
+| `DELETE /api/admin/api-keys/:id` | admin | Revoke an API key |
+
+> All crop endpoints (`/api/upload`, `/api/process`, `/api/export`,
+> `/api/session`) now require a `Authorization: Bearer <token>` header and are
+> scoped to the owning user.
 
 ---
 
@@ -241,7 +375,7 @@ Open three terminal windows/tabs and start each service. The frontend won't work
 
 ## How It Works
 
-Upload a card scan or photo. PokeCrop automatically:
+Upload a card scan or photo. CardCrop automatically:
 
 1. **Detects** card-like shapes using 5 parallel contour-finding passes (adaptive threshold, Canny, colour segmentation, Otsu, hierarchical)
 2. **Scores** each candidate across 10 weighted criteria to identify the frontmost card (not the wrapper, not the backing card)

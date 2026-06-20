@@ -5,6 +5,13 @@ import fs from "fs";
 import os from "os";
 import { v4 as uuid } from "uuid";
 import { sendToPython } from "../services/pythonBridge.js";
+import { requireAuth } from "../middleware/auth.js";
+import {
+  FREE_DAILY_LIMIT,
+  getPlan,
+  getUsageToday,
+  incrementUsage,
+} from "../lib/usage.js";
 
 const router = Router();
 
@@ -41,10 +48,14 @@ const upload = multer({
 
 interface Session {
   id: string;
+  userId: string;
   filePath: string;
   filename: string;
   createdAt: number;
   processing: boolean;
+  // True once a successful extraction has been metered against the user's daily
+  // quota, so re-processing the same upload (crop tweaks) does not double-count.
+  counted?: boolean;
   // Params from the most recent /process, reused to regenerate the full-res
   // PNG lazily at export time (it is not produced during the interactive loop).
   lastParams?: Record<string, unknown>;
@@ -80,6 +91,15 @@ process.on("SIGTERM", () => clearInterval(cleanupInterval));
 function sanitizeFilename(name: string): string {
   const base = path.basename(name, path.extname(name));
   return base.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 100);
+}
+
+// Resolve a session that belongs to the authenticated user. Returns null (and
+// nothing else) when the session is missing or owned by someone else — callers
+// respond with 404 so a session id can't be probed across accounts.
+function getOwnedSession(req: Request, sessionId: string): Session | null {
+  const session = sessions.get(sessionId);
+  if (!session || session.userId !== req.user?.id) return null;
+  return session;
 }
 
 function validateParams(raw: unknown): Record<string, unknown> {
@@ -121,6 +141,7 @@ function parseManualCorners(raw: unknown): number[][] | undefined {
 
 router.post(
   "/upload",
+  requireAuth,
   upload.single("file"),
   async (req: Request, res: Response) => {
     if (!req.file) {
@@ -137,6 +158,7 @@ router.post(
     const sessionId = uuid();
     sessions.set(sessionId, {
       id: sessionId,
+      userId: req.user!.id,
       filePath: req.file.path,
       filename: req.file.originalname,
       createdAt: Date.now(),
@@ -159,19 +181,52 @@ router.post(
   }
 );
 
-router.post("/process", async (req: Request, res: Response) => {
+router.post("/process", requireAuth, async (req: Request, res: Response) => {
   const { sessionId, params } = req.body;
 
-  if (!sessionId || typeof sessionId !== "string" || !sessions.has(sessionId)) {
+  if (!sessionId || typeof sessionId !== "string") {
     res.status(400).json({ error: "Invalid session" });
     return;
   }
 
-  const session = sessions.get(sessionId)!;
+  const session = getOwnedSession(req, sessionId);
+  if (!session) {
+    res.status(404).json({ error: "Session not found" });
+    return;
+  }
 
   if (session.processing) {
     res.status(409).json({ error: "Processing already in progress" });
     return;
+  }
+
+  const userId = req.user!.id;
+
+  // This crop only counts against the quota the first time a given upload is
+  // successfully extracted; re-processing (crop tweaks, slider changes) is free.
+  const willCount = !session.counted;
+
+  if (willCount) {
+    try {
+      const plan = await getPlan(userId);
+      if (plan === "free") {
+        const used = await getUsageToday(userId);
+        if (used >= FREE_DAILY_LIMIT) {
+          res.status(402).json({
+            error: `You've used all ${FREE_DAILY_LIMIT} free crops today. Upgrade for unlimited crops.`,
+            reason: "limit",
+            plan,
+            remaining: 0,
+            limit: FREE_DAILY_LIMIT,
+          });
+          return;
+        }
+      }
+    } catch (err) {
+      console.error("Quota check failed:", err);
+      res.status(503).json({ error: "Could not verify your plan. Try again shortly." });
+      return;
+    }
   }
 
   const validatedParams = validateParams(params);
@@ -198,6 +253,16 @@ router.post("/process", async (req: Request, res: Response) => {
       metadata: result.metadata,
     };
 
+    // Meter the successful crop exactly once per upload.
+    if (willCount) {
+      try {
+        await incrementUsage(userId);
+        session.counted = true;
+      } catch (err) {
+        console.error("Usage increment failed:", err);
+      }
+    }
+
     res.json({
       result_web_png: result.result_web_png,
       edit_image_jpeg: result.edit_image_jpeg,
@@ -211,8 +276,8 @@ router.post("/process", async (req: Request, res: Response) => {
   }
 });
 
-router.get("/export/:sessionId", async (req: Request, res: Response) => {
-  const session = sessions.get(req.params.sessionId);
+router.get("/export/:sessionId", requireAuth, async (req: Request, res: Response) => {
+  const session = getOwnedSession(req, req.params.sessionId);
 
   if (!session?.result) {
     res.status(404).json({ error: "No result available" });
@@ -262,8 +327,8 @@ router.get("/export/:sessionId", async (req: Request, res: Response) => {
   res.send(buffer);
 });
 
-router.delete("/session/:sessionId", (req: Request, res: Response) => {
-  const session = sessions.get(req.params.sessionId);
+router.delete("/session/:sessionId", requireAuth, (req: Request, res: Response) => {
+  const session = getOwnedSession(req, req.params.sessionId);
   if (session) {
     fs.unlink(session.filePath, () => {});
     sessions.delete(req.params.sessionId);

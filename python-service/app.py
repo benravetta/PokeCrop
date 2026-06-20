@@ -1,4 +1,4 @@
-"""PokeCrop Python processing service — FastAPI entry point."""
+"""CardCrop Python processing service — FastAPI entry point."""
 
 import time
 import traceback
@@ -22,7 +22,7 @@ from utils.geometry import order_corners
 
 MAX_UPLOAD_BYTES = 50 * 1024 * 1024
 
-app = FastAPI(title="PokeCrop Processing Service")
+app = FastAPI(title="CardCrop Processing Service")
 
 app.add_middleware(
     CORSMiddleware,

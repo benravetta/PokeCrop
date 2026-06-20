@@ -9,6 +9,13 @@ primary_region = 'lhr'
 [build]
   dockerfile = 'Dockerfile.fly'
 
+  # Public Supabase config baked into the SPA at build time. The publishable key
+  # is safe to expose to the browser (RLS protects the data), so it lives here
+  # rather than in secrets — this lets the GitHub auto-deploy build correctly.
+  [build.args]
+    VITE_SUPABASE_URL = 'https://wymzhmbjlfaoahlhzhgd.supabase.co'
+    VITE_SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_vBGh2FSPsMRgB0YSZpyWeQ_thadWbd0'
+
 [env]
   PYTHON_TIMEOUT_MS = '180000'
   UVICORN_WORKERS = '1'
