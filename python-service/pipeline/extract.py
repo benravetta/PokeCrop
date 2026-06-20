@@ -112,10 +112,54 @@ def orient_warped_card(warped: np.ndarray) -> np.ndarray:
     return warped
 
 
+# The four 90-degree orientations and the cv2 transform that produces each.
+# The key is the clockwise rotation (degrees) that must be applied to make the
+# card upright, matching the mapping in ``orient_warped_card``.
+_OCR_ROTATIONS = (
+    (0, None),
+    (90, cv2.ROTATE_90_CLOCKWISE),
+    (180, cv2.ROTATE_180),
+    (270, cv2.ROTATE_90_COUNTERCLOCKWISE),
+)
+
+
+def _ocr_text_score(gray: np.ndarray) -> Tuple[float, int]:
+    """Confidence-weighted amount of readable text in a grayscale image.
+
+    Returns (sum of confidences for confident multi-char words, word count).
+    The upright orientation yields the most and strongest words.
+    """
+    try:
+        data = pytesseract.image_to_data(
+            gray, config="--psm 11", output_type=_TESS_OUTPUT.DICT
+        )
+    except Exception:
+        return 0.0, 0
+
+    score = 0.0
+    words = 0
+    for conf_s, text in zip(data.get("conf", []), data.get("text", [])):
+        if len((text or "").strip()) < 2:
+            continue
+        try:
+            conf = float(conf_s)
+        except (TypeError, ValueError):
+            continue
+        if conf >= 50.0:
+            score += conf
+            words += 1
+    return score, words
+
+
 def _ocr_orientation(card: np.ndarray) -> Optional[int]:
     """Clockwise rotation (one of {0, 90, 180, 270}) needed to make the card's
-    text upright, via Tesseract OSD. Returns None when OCR is unavailable or not
-    confident, so the caller can fall back to the heuristic.
+    text upright.
+
+    Tries all four orientations and keeps the one Tesseract reads the most
+    confident text in. This is far more robust than OSD's ``orientation_conf``,
+    which is unreliable when text sits over busy card art (and which mislabels
+    landscape cards entirely). Returns None when no orientation has enough
+    readable text, so the caller can fall back to the layout heuristic.
     """
     if pytesseract is None or card is None or card.size == 0:
         return None
@@ -123,30 +167,36 @@ def _ocr_orientation(card: np.ndarray) -> Optional[int]:
     if h < 60 or w < 40:
         return None
 
-    # OSD is most reliable on a moderately sized grayscale image with a light
-    # margin. Downscale tall crops to bound latency.
-    scale = 900.0 / float(h)
+    # Downscale to bound the cost of four OCR passes; ~1000px on the long side
+    # keeps small rules/flavour text legible to Tesseract.
+    scale = 1000.0 / float(max(h, w))
+    base = card
     if scale < 1.0:
-        card = cv2.resize(
-            card, (max(1, int(w * scale)), 900), interpolation=cv2.INTER_AREA
+        base = cv2.resize(
+            card,
+            (max(1, int(w * scale)), max(1, int(h * scale))),
+            interpolation=cv2.INTER_AREA,
         )
-    gray = cv2.cvtColor(card, cv2.COLOR_BGR2GRAY)
-    gray = cv2.copyMakeBorder(gray, 24, 24, 24, 24, cv2.BORDER_CONSTANT, value=255)
 
-    try:
-        osd = pytesseract.image_to_osd(gray, output_type=_TESS_OUTPUT.DICT)
-    except Exception:
-        return None
+    best_rot, best_score, best_words = 0, -1.0, 0
+    upright_score = 0.0
+    for rot, transform in _OCR_ROTATIONS:
+        probe = base if transform is None else cv2.rotate(base, transform)
+        gray = cv2.cvtColor(probe, cv2.COLOR_BGR2GRAY)
+        score, words = _ocr_text_score(gray)
+        if rot == 0:
+            upright_score = score
+        if score > best_score:
+            best_rot, best_score, best_words = rot, score, words
 
-    try:
-        rotate = int(osd.get("rotate", 0)) % 360
-        conf = float(osd.get("orientation_conf", 0.0))
-    except (TypeError, ValueError):
+    # Too little confident text anywhere → not an OCR-decidable card.
+    if best_score < 200.0 or best_words < 2:
         return None
-
-    if conf < 1.0 or rotate not in (0, 90, 180, 270):
-        return None
-    return rotate
+    # Don't rotate unless another orientation is clearly better than as-is,
+    # so an already-upright card with a close runner-up is left untouched.
+    if best_rot != 0 and upright_score >= best_score * 0.85:
+        return 0
+    return best_rot
 
 
 def _red_band_coverage(img: np.ndarray) -> Tuple[float, float]:
