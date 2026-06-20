@@ -163,6 +163,17 @@ async def process_card(
         )
         _stage("extract", t)
 
+        # Manual orientation override (in 90-degree steps), applied on top of the
+        # automatic upright detection so the user can always correct it.
+        output_rotation = int(_clamp(p.get("output_rotation", 0), 0, 270, 0))
+        manual_rot = (round(output_rotation / 90) * 90) % 360
+        if manual_rot == 90:
+            result_rgba = cv2.rotate(result_rgba, cv2.ROTATE_90_CLOCKWISE)
+        elif manual_rot == 180:
+            result_rgba = cv2.rotate(result_rgba, cv2.ROTATE_180)
+        elif manual_rot == 270:
+            result_rgba = cv2.rotate(result_rgba, cv2.ROTATE_90_COUNTERCLOCKWISE)
+
         t_encode = time.time()
         edit_h, edit_w = processed_image.shape[:2]
         edit_buf = io.BytesIO()
@@ -221,6 +232,7 @@ async def process_card(
                 "confidence": round(1.0 - abs(ratio - 0.716) * 5, 3),
                 "estimated_corner_radius_px": round(estimated_radius, 1),
                 "rotation_deg": round(rotation_angle, 2),
+                "output_rotation": manual_rot,
                 "candidates_found": len(all_rects),
                 "selected_candidate_index": selected_idx,
                 "pipeline_time_ms": elapsed,

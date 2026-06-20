@@ -41,6 +41,9 @@ export interface ProcessParams {
   top_edge_cleanup: number;
   corner_radius: number;
   rotate_correction: boolean;
+  // Manual orientation override in 90-degree steps (0|90|180|270), applied on
+  // top of the automatic upright detection.
+  output_rotation: number;
   manual_corners?: number[][];
   rotation_deg?: number;
 }

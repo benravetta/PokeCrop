@@ -45,6 +45,7 @@ export interface AppState {
   resetCrop: () => void;
   revertCrop: () => void;
   setParam: <K extends keyof ProcessParams>(key: K, value: ProcessParams[K]) => void;
+  rotateOutput: (deltaDeg: number) => void;
   resetParams: () => void;
   clearLimit: () => void;
   reset: () => void;
@@ -59,6 +60,7 @@ const DEFAULT_PARAMS: ProcessParams = {
   top_edge_cleanup: 0.7,
   corner_radius: 0.5,
   rotate_correction: true,
+  output_rotation: 0,
 };
 
 function buildProcessParams(
@@ -197,6 +199,15 @@ export const useAppStore = create<AppState>((set, get) => ({
     set((s) => ({ params: { ...s.params, [key]: value } }));
   },
 
+  // Manual orientation nudge in 90-degree steps. Applies on top of auto-orient
+  // and re-processes immediately (re-processing a session never costs a crop).
+  rotateOutput: (deltaDeg) => {
+    const cur = get().params.output_rotation ?? 0;
+    const next = (((cur + deltaDeg) % 360) + 360) % 360;
+    set((s) => ({ params: { ...s.params, output_rotation: next } }));
+    void get().process();
+  },
+
   resetParams: () => {
     set({ params: { ...DEFAULT_PARAMS } });
   },
@@ -239,6 +250,7 @@ export const PROCESS_PARAM_KEYS: (keyof ProcessParams)[] = [
   "top_edge_cleanup",
   "corner_radius",
   "rotate_correction",
+  "output_rotation",
 ];
 
 export function paramsDiffer(

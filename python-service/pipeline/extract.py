@@ -2,9 +2,16 @@
 
 import cv2
 import numpy as np
-from typing import Tuple
+from typing import Tuple, Optional
 
-from pipeline.find_card import _warp_card_view, CARD_RATIO
+from pipeline.find_card import _warp_card_view, CARD_RATIO, _upright_score
+
+try:  # OCR-based orientation (Tesseract OSD). Optional: handled gracefully if absent.
+    import pytesseract
+    from pytesseract import Output as _TESS_OUTPUT
+except Exception:  # pragma: no cover
+    pytesseract = None
+    _TESS_OUTPUT = None
 from pipeline.corners import handle_corners
 from pipeline.top_edge import cleanup_top_edge
 from pipeline.mask import (
@@ -78,11 +85,68 @@ def extract_warped_card(
 
 
 def orient_warped_card(warped: np.ndarray) -> np.ndarray:
-    """Pick upright orientation — works for Pokémon (title top) and One Piece (name bottom)."""
-    flipped = cv2.rotate(warped, cv2.ROTATE_180)
-    if _orientation_score(flipped) > _orientation_score(warped):
-        return flipped
+    """Pick the upright orientation for a portrait card crop.
+
+    Primary method is OCR: Tesseract's OSD reads the actual text direction and
+    reports how far the card is rotated, which works across every card type.
+    When OCR is unavailable or not confident we fall back to a card-type-agnostic
+    heuristic — rules/stat/flavour text and fine print cluster toward the bottom
+    of virtually every trading and sports card, reinforced by specific cues for
+    Pokémon (title strip at top) and One Piece (cost marker top-left). The manual
+    rotate controls in the editor can always correct either result.
+    """
+    rotate = _ocr_orientation(warped)
+    if rotate == 90:
+        return cv2.rotate(warped, cv2.ROTATE_90_CLOCKWISE)
+    if rotate == 180:
+        return cv2.rotate(warped, cv2.ROTATE_180)
+    if rotate == 270:
+        return cv2.rotate(warped, cv2.ROTATE_90_COUNTERCLOCKWISE)
+    if rotate == 0:
+        return warped
+
+    # OCR unavailable or unsure — fall back to the detail/text heuristic.
+    flipped_img = cv2.rotate(warped, cv2.ROTATE_180)
+    if _orientation_score(flipped_img) > _orientation_score(warped):
+        return flipped_img
     return warped
+
+
+def _ocr_orientation(card: np.ndarray) -> Optional[int]:
+    """Clockwise rotation (one of {0, 90, 180, 270}) needed to make the card's
+    text upright, via Tesseract OSD. Returns None when OCR is unavailable or not
+    confident, so the caller can fall back to the heuristic.
+    """
+    if pytesseract is None or card is None or card.size == 0:
+        return None
+    h, w = card.shape[:2]
+    if h < 60 or w < 40:
+        return None
+
+    # OSD is most reliable on a moderately sized grayscale image with a light
+    # margin. Downscale tall crops to bound latency.
+    scale = 900.0 / float(h)
+    if scale < 1.0:
+        card = cv2.resize(
+            card, (max(1, int(w * scale)), 900), interpolation=cv2.INTER_AREA
+        )
+    gray = cv2.cvtColor(card, cv2.COLOR_BGR2GRAY)
+    gray = cv2.copyMakeBorder(gray, 24, 24, 24, 24, cv2.BORDER_CONSTANT, value=255)
+
+    try:
+        osd = pytesseract.image_to_osd(gray, output_type=_TESS_OUTPUT.DICT)
+    except Exception:
+        return None
+
+    try:
+        rotate = int(osd.get("rotate", 0)) % 360
+        conf = float(osd.get("orientation_conf", 0.0))
+    except (TypeError, ValueError):
+        return None
+
+    if conf < 1.0 or rotate not in (0, 90, 180, 270):
+        return None
+    return rotate
 
 
 def _red_band_coverage(img: np.ndarray) -> Tuple[float, float]:
@@ -105,32 +169,42 @@ def _red_band_coverage(img: np.ndarray) -> Tuple[float, float]:
     return top, bottom
 
 
-def _orientation_score(card: np.ndarray) -> float:
-    """Higher score = more likely upright. Handles OP (cost TL, name bottom) and Pokémon (name top)."""
-    if card.shape[0] < 40 or card.shape[1] < 20:
-        return 0.0
-
-    top_red, bot_red = _red_band_coverage(card)
-    op_band = bot_red - top_red
-    poke_band = top_red - bot_red
-
+def _cost_marker(card: np.ndarray) -> float:
+    """Detail concentrated in the top-left vs bottom-right (One Piece cost circle)."""
     h, w = card.shape[:2]
     gray = cv2.cvtColor(card, cv2.COLOR_BGR2GRAY)
     lap = np.abs(cv2.Laplacian(gray, cv2.CV_32F))
     mh, mw = max(int(h * 0.12), 8), max(int(w * 0.18), 8)
     tl_detail = float(np.mean(lap[:mh, :mw]))
     br_detail = float(np.mean(lap[-mh:, -mw:]))
-    cost_marker = tl_detail - br_detail
+    return tl_detail - br_detail
 
-    # One Piece: red cost circle in top-left + name banner at bottom when upright.
+
+def _orientation_score(card: np.ndarray) -> float:
+    """Higher score = more likely upright.
+
+    The base score is the general, card-type-agnostic upright score (bottom-heavy
+    fine print / text bands), which alone resolves most cards. Specific cues for
+    Pokémon (red title strip at top) and One Piece (cost marker top-left, name
+    banner at bottom) are added as confidence boosters, not as overrides.
+    """
+    if card.shape[0] < 40 or card.shape[1] < 20:
+        return 0.0
+
+    base = _upright_score(card)
+
+    top_red, bot_red = _red_band_coverage(card)
+    cost_marker = _cost_marker(card)
+
+    bonus = 0.0
     if cost_marker > 2.0:
-        return cost_marker + op_band * 4.0
+        # One Piece: cost circle top-left and name banner at the bottom.
+        bonus += cost_marker + (bot_red - top_red) * 6.0
+    elif (top_red - bot_red) > 0.10:
+        # Pokémon and similar top-title cards: title strip at the top.
+        bonus += (top_red - bot_red) * 8.0
 
-    # Pokémon / top-title cards: title strip at top when upright.
-    if poke_band > 0.08:
-        return poke_band * 2.0
-
-    return op_band * 2.0
+    return base + bonus
 
 
 def _has_colored_table_margin(warped: np.ndarray) -> bool:

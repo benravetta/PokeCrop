@@ -33,12 +33,20 @@ export function validateParams(raw: unknown): Record<string, unknown> {
     corner_radius: clamp(p.corner_radius, 0, 1, 0.5),
     rotate_correction:
       p.rotate_correction !== false && p.rotate_correction !== "false",
+    output_rotation: normalizeRotation(p.output_rotation),
     rotation_deg:
       typeof p.rotation_deg === "number" && Number.isFinite(p.rotation_deg)
         ? p.rotation_deg
         : undefined,
     manual_corners: parseManualCorners(p.manual_corners),
   };
+}
+
+// Normalise a manual output rotation to one of {0, 90, 180, 270} degrees.
+function normalizeRotation(v: unknown): number {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return 0;
+  return (((Math.round(n / 90) * 90) % 360) + 360) % 360;
 }
 
 function defaults(): Record<string, unknown> {

@@ -1,5 +1,5 @@
 import { useAppStore } from "../hooks/useProcessing";
-import { RotateCcw, X, Check } from "lucide-react";
+import { RotateCcw, RotateCw, X, Check } from "lucide-react";
 
 function Slider({
   label,
@@ -51,7 +51,8 @@ export function AdvancedDrawer({
   dirty: boolean;
   onApply: () => void;
 }) {
-  const { params, setParam, resetParams, processing } = useAppStore();
+  const { params, setParam, rotateOutput, resetParams, processing } = useAppStore();
+  const rotation = params.output_rotation ?? 0;
 
   return (
     <>
@@ -87,6 +88,42 @@ export function AdvancedDrawer({
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-5 flex flex-col gap-5">
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-sm text-text-primary">Orientation</span>
+                <p className="text-[11px] text-text-muted">
+                  Auto-detected. Rotate if it came out the wrong way up.
+                </p>
+              </div>
+              <span className="text-xs text-text-muted tabular-nums">{rotation}&deg;</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => rotateOutput(-90)}
+                disabled={processing}
+                className="inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs text-text-primary
+                           bg-surface-overlay rounded-lg hover:bg-border-subtle transition-colors
+                           disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                Rotate left
+              </button>
+              <button
+                onClick={() => rotateOutput(90)}
+                disabled={processing}
+                className="inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs text-text-primary
+                           bg-surface-overlay rounded-lg hover:bg-border-subtle transition-colors
+                           disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <RotateCw className="w-3.5 h-3.5" />
+                Rotate right
+              </button>
+            </div>
+          </div>
+
+          <div className="border-t border-border-subtle" />
+
           <label className="flex items-center justify-between gap-3 cursor-pointer">
             <div>
               <span className="text-sm text-text-primary">Auto-straighten</span>
