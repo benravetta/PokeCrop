@@ -13,6 +13,7 @@ import { LoginPage } from "./pages/LoginPage";
 import { RegisterPage } from "./pages/RegisterPage";
 import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
+import { DocsPage } from "./pages/DocsPage";
 
 function FullScreenLoader() {
   return (
@@ -63,6 +64,9 @@ export default function App() {
       />
       {/* Reset must stay reachable while a recovery session is active. */}
       <Route path="/reset-password" element={<ResetPasswordPage />} />
+
+      {/* Public API documentation (no auth required). */}
+      <Route path="/docs" element={<DocsPage />} />
 
       <Route
         element={

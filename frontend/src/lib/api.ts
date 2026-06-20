@@ -148,6 +148,44 @@ export async function openBillingPortal(): Promise<string> {
   return data.url;
 }
 
+// ---- API keys (self-serve, API plan) ----
+
+export interface ApiKeySummary {
+  id: string;
+  label: string | null;
+  key_prefix: string;
+  created_at: string;
+  last_used_at: string | null;
+  revoked_at: string | null;
+}
+
+export async function listApiKeys(): Promise<ApiKeySummary[]> {
+  const res = await fetch(`${BASE}/keys`, { headers: await authHeaders() });
+  if (!res.ok) await fail(res, "Failed to load API keys");
+  const data = (await res.json()) as { keys: ApiKeySummary[] };
+  return data.keys;
+}
+
+export async function createApiKey(
+  label?: string
+): Promise<{ key: ApiKeySummary; secret: string }> {
+  const res = await fetch(`${BASE}/keys`, {
+    method: "POST",
+    headers: await authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ label: label ?? null }),
+  });
+  if (!res.ok) await fail(res, "Failed to create API key");
+  return res.json();
+}
+
+export async function revokeApiKey(id: string): Promise<void> {
+  const res = await fetch(`${BASE}/keys/${id}`, {
+    method: "DELETE",
+    headers: await authHeaders(),
+  });
+  if (!res.ok) await fail(res, "Failed to revoke API key");
+}
+
 // ---- Admin ----
 
 export interface AdminUser {

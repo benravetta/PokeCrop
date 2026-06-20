@@ -205,7 +205,7 @@ in **GBP** via **Stripe**.
 
 - **Free** — 3 crops/day
 - **Unlimited** — £7.99/mo, unlimited crops
-- **API access** — £19.99/mo, unlimited crops + API keys (public API is a later phase; this tier reserves access and manages keys now)
+- **API access** — £19.99/mo, unlimited crops + a public REST API with self-serve keys (see [Public API](#public-api))
 
 A "crop" is the first successful extraction of an uploaded image — re-cropping
 and slider tweaks on the same upload are free.
@@ -365,11 +365,71 @@ npm install
 npm run dev
 ```
 
-Runs on **http://localhost:5173**. The Vite dev server proxies `/api/*` requests to the Node backend automatically.
+Runs on **http://localhost:5173**. The Vite dev server proxies `/api/*` and `/v1/*` requests to the Node backend automatically.
 
 ### All three must be running
 
 Open three terminal windows/tabs and start each service. The frontend won't work without the backend, and the backend won't process images without the Python service.
+
+---
+
+## Public API
+
+API-plan users get a versioned REST API for cropping cards programmatically.
+Interactive docs (rendered from the live OpenAPI spec) are at **`/docs`**; the
+raw spec is at **`/v1/openapi.json`**.
+
+### Authentication
+
+Create keys on the **Account** page (visible on the API plan). Keys are shown
+once; only a SHA-256 hash and a short prefix are stored. Send the key as a
+Bearer token (or `X-API-Key`):
+
+```
+Authorization: Bearer pk_live_xxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+### Endpoints
+
+| Method | Path              | Description                              |
+|--------|-------------------|------------------------------------------|
+| POST   | `/v1/crop`        | Crop a card from an image                |
+| GET    | `/v1/crop/limits` | Current rate-limit window + daily usage  |
+| GET    | `/v1/health`      | Health check (no auth)                   |
+| GET    | `/v1/version`     | API version (no auth)                    |
+| GET    | `/v1/openapi.json`| OpenAPI 3.1 spec                         |
+
+### `POST /v1/crop`
+
+Provide the image one of three ways: multipart `image` file, JSON `image_url`
+(public http/https URL, SSRF-guarded), or JSON `image_base64`. Optional `params`
+mirror the web tool (`crop_padding`, `edge_trim`, `bg_removal`, `corner_radius`,
+etc.). Returns JSON `{ image_base64, metadata }` by default, or a raw PNG when
+the request sends `Accept: image/png`.
+
+```bash
+# File upload, save the PNG directly
+curl -X POST https://cardcrop.uk/v1/crop \
+  -H "Authorization: Bearer $CARDCROP_API_KEY" \
+  -H "Accept: image/png" \
+  -F "image=@card.jpg" \
+  -o cropped.png
+
+# From a URL, get JSON + metadata
+curl -X POST https://cardcrop.uk/v1/crop \
+  -H "Authorization: Bearer $CARDCROP_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"image_url":"https://example.com/card.jpg"}'
+```
+
+Errors use a structured envelope: `{ "error": { "code", "message" } }`.
+
+### Rate limits
+
+Per-key limits are enforced in-memory (single Fly machine). Each response
+carries `X-RateLimit-Limit/Remaining/Reset`; a `429` includes `Retry-After`.
+Defaults: `API_RATE_PER_MIN=60`, `API_DAILY_SOFT_CAP=5000` (override via env).
+Per-key daily crop counts are metered in the `api_usage` table.
 
 ---
 

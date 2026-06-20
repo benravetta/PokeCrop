@@ -1,7 +1,7 @@
 import { Router, Request, Response } from "express";
-import crypto from "crypto";
 import { requireAdmin } from "../middleware/auth.js";
 import { getServiceClient } from "../lib/supabase.js";
+import { generateApiKey } from "../lib/apiKeys.js";
 
 const router = Router();
 
@@ -153,6 +153,16 @@ router.post("/admin/users/:id/suspend", requireAdmin, async (req: Request, res: 
       ban_duration: suspended ? "876000h" : "none",
     });
     if (error) throw error;
+    // Revoke the user's API keys on suspend so access stops immediately, even
+    // within the lifetime of an already-issued JWT. Keys are not auto-restored.
+    if (suspended) {
+      const { error: revokeErr } = await sb
+        .from("api_keys")
+        .update({ revoked_at: new Date().toISOString() })
+        .eq("user_id", req.params.id)
+        .is("revoked_at", null);
+      if (revokeErr) throw revokeErr;
+    }
     res.json({ ok: true });
   } catch (err) {
     console.error("admin suspend failed:", err);
@@ -181,10 +191,7 @@ router.get("/admin/users/:id/api-keys", requireAdmin, async (req: Request, res: 
 router.post("/admin/users/:id/api-keys", requireAdmin, async (req: Request, res: Response) => {
   const label = typeof req.body?.label === "string" ? req.body.label.slice(0, 80) : null;
   try {
-    const secret = crypto.randomBytes(24).toString("base64url");
-    const fullKey = `pk_live_${secret}`;
-    const keyPrefix = fullKey.slice(0, 12);
-    const keyHash = crypto.createHash("sha256").update(fullKey).digest("hex");
+    const { fullKey, keyPrefix, keyHash } = generateApiKey();
 
     const { data, error } = await getServiceClient()
       .from("api_keys")

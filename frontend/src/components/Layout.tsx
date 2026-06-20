@@ -73,9 +73,17 @@ export function Layout() {
           </a>{" "}
           Tool
         </p>
-        <p className="hidden sm:block text-[11px] text-text-muted">
-          Built with ❤️ in the English Lake District
-        </p>
+        <div className="flex items-center gap-3">
+          <Link
+            to="/docs"
+            className="text-[11px] text-text-muted hover:text-text-primary transition-colors"
+          >
+            API docs
+          </Link>
+          <span className="hidden sm:block text-[11px] text-text-muted">
+            Built with ❤️ in the English Lake District
+          </span>
+        </div>
       </footer>
 
       <HelpDrawer open={helpOpen} onClose={() => setHelpOpen(false)} />

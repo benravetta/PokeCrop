@@ -28,6 +28,22 @@ export async function getPlan(userId: string): Promise<Plan> {
   return "free";
 }
 
+// Whether an account is currently suspended (Supabase native ban). Fail-open on
+// transient errors so a Supabase blip can't take down all API traffic; the
+// admin suspend action also revokes keys for immediate, durable effect.
+export async function isSuspended(userId: string): Promise<boolean> {
+  try {
+    const { data, error } = await getServiceClient().auth.admin.getUserById(userId);
+    if (error || !data?.user) return false;
+    const bannedUntil = (data.user as unknown as { banned_until?: string | null })
+      .banned_until;
+    return Boolean(bannedUntil && new Date(bannedUntil) > new Date());
+  } catch (err) {
+    console.error("suspension check failed:", err);
+    return false;
+  }
+}
+
 export async function getUsageToday(userId: string): Promise<number> {
   const { data } = await getServiceClient()
     .from("usage_days")

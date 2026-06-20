@@ -1,11 +1,12 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { User as UserIcon, CreditCard, Lock, Check, Loader2, Sparkles } from "lucide-react";
+import { User as UserIcon, CreditCard, Lock, Check, Loader2, Sparkles, KeyRound } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { useMe } from "../hooks/useMe";
 import { supabase } from "../lib/supabase";
 import { openBillingPortal } from "../lib/api";
 import { Field } from "../components/auth/AuthLayout";
+import { ApiKeysPanel } from "../components/ApiKeysPanel";
 
 function Section({
   icon,
@@ -213,6 +214,12 @@ export function AccountPage() {
             )}
           </div>
         </Section>
+
+        {plan === "api" && (
+          <Section icon={<KeyRound className="w-4 h-4" />} title="API keys">
+            <ApiKeysPanel />
+          </Section>
+        )}
 
         <Section icon={<Lock className="w-4 h-4" />} title="Change password">
           <form onSubmit={savePassword} className="flex flex-col gap-4">

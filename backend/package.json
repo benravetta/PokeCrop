@@ -1,5 +1,5 @@
 {
-  "name": "pokecrop-backend",
+  "name": "cardcrop-backend",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -16,6 +16,7 @@
     "cors": "^2.8.5",
     "express": "^4.21.0",
     "get-tsconfig": "^4.13.6",
+    "ipaddr.js": "^2.4.0",
     "jose": "^6.2.3",
     "multer": "^1.4.5-lts.1",
     "stripe": "^22.2.2",
