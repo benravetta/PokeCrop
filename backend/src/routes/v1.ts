@@ -10,6 +10,7 @@ import { validateParams } from "../lib/cropParams.js";
 import { sendApiError } from "../lib/apiError.js";
 import { incrementApiUsage, getApiUsageToday } from "../lib/apiKeys.js";
 import { logActivity } from "../lib/activity.js";
+import { archiveCropAsync } from "../lib/catalog.js";
 import { fetchRemoteImage, RemoteFetchError, MAX_REMOTE_BYTES } from "../lib/ssrf.js";
 import { rateLimit, rateLimitHeaders, DAILY_SOFT_CAP } from "../lib/rateLimit.js";
 import { openApiSpec } from "../openapi.js";
@@ -209,6 +210,7 @@ router.post(
         result = await sendToPython(tempPath, filename, {
           ...params,
           full_resolution: true,
+          identify: true,
         });
       } catch (err) {
         console.error("v1 crop processing error:", err);
@@ -237,6 +239,18 @@ router.post(
       incrementApiUsage(req.apiUser!.keyId).catch((err) =>
         console.error("api usage increment failed:", err)
       );
+
+      // Archive the full-resolution crop to the R2 catalog (no-op if R2 is not
+      // configured; de-duplicated by content hash; never blocks the response).
+      const size = readPngSize(pngBuffer);
+      const idImageB64 = result.id_image_jpeg as string | undefined;
+      archiveCropAsync({
+        png: pngBuffer,
+        idImage: idImageB64 ? Buffer.from(idImageB64, "base64") : undefined,
+        source: "api",
+        width: size?.width,
+        height: size?.height,
+      });
 
       const wantsPng = req.accepts(["json", "image/png"]) === "image/png";
       logActivity({

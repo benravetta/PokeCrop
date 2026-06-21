@@ -14,6 +14,7 @@ import {
   incrementUsage,
 } from "../lib/usage.js";
 import { logActivity } from "../lib/activity.js";
+import { archiveCropAsync, pngDimensions } from "../lib/catalog.js";
 
 const router = Router();
 
@@ -270,12 +271,26 @@ router.get("/export/:sessionId", requireAuth, async (req: Request, res: Response
         const full = await sendToPython(session.filePath, session.filename, {
           ...(session.lastParams ?? {}),
           full_resolution: true,
+          identify: true,
         });
         if (full.error || !full.result_png) {
           res.status(500).json({ error: "Failed to render full-resolution image" });
           return;
         }
         session.result.result_png = full.result_png;
+
+        // Archive this full-resolution crop to the R2 catalog. Fire-and-forget,
+        // de-duplicated by content hash, and a no-op when R2 is unconfigured.
+        const fullBuf = Buffer.from(full.result_png, "base64");
+        const dims = pngDimensions(fullBuf);
+        const idImageB64 = full.id_image_jpeg as string | undefined;
+        archiveCropAsync({
+          png: fullBuf,
+          idImage: idImageB64 ? Buffer.from(idImageB64, "base64") : undefined,
+          source: "web",
+          width: dims?.width,
+          height: dims?.height,
+        });
       } catch (err) {
         console.error("Export render error:", err);
         res.status(500).json({ error: "Failed to render full-resolution image" });

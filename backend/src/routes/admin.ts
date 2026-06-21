@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import { requireAdmin } from "../middleware/auth.js";
 import { getServiceClient } from "../lib/supabase.js";
 import { generateApiKey } from "../lib/apiKeys.js";
+import { signedGetUrl } from "../lib/r2.js";
 import {
   logActivity,
   recentActivity,
@@ -459,6 +460,64 @@ router.delete("/admin/api-keys/:keyId", requireAdmin, async (req: Request, res: 
   } catch (err) {
     console.error("admin revoke api key failed:", err);
     res.status(500).json({ error: "Failed to revoke API key." });
+  }
+});
+
+// ----------------------------------------------------------------------------
+// Catalog browser (R2-backed archive of crops, organised by TCG/set/number).
+// ----------------------------------------------------------------------------
+
+// GET /admin/catalog/facets?tcg=&set= — grouped counts for tree navigation.
+router.get("/admin/catalog/facets", requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const tcg = typeof req.query.tcg === "string" && req.query.tcg ? req.query.tcg : null;
+    const set = typeof req.query.set === "string" && req.query.set ? req.query.set : null;
+    const { data, error } = await getServiceClient().rpc("catalog_facets", {
+      p_tcg: tcg,
+      p_set: set,
+    });
+    if (error) throw error;
+    res.json({ facets: data ?? [] });
+  } catch (err) {
+    console.error("admin catalog facets failed:", err);
+    res.status(500).json({ error: "Failed to load catalog facets." });
+  }
+});
+
+// GET /admin/catalog/items?tcg=&set=&number=&limit=&offset= — paginated items.
+router.get("/admin/catalog/items", requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const limit = Math.min(Math.max(parseInt(String(req.query.limit ?? "60"), 10) || 60, 1), 200);
+    const offset = Math.max(parseInt(String(req.query.offset ?? "0"), 10) || 0, 0);
+    let q = getServiceClient()
+      .from("catalog_items")
+      .select(
+        "id, r2_key, tcg, card_set, number, name, confidence, source, width, height, created_at",
+        { count: "exact" }
+      )
+      .order("created_at", { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (typeof req.query.tcg === "string" && req.query.tcg) q = q.eq("tcg", req.query.tcg);
+    if (typeof req.query.set === "string" && req.query.set) q = q.eq("card_set", req.query.set);
+    if (typeof req.query.number === "string" && req.query.number)
+      q = q.eq("number", req.query.number);
+
+    const { data, error, count } = await q;
+    if (error) throw error;
+
+    // Attach short-lived presigned URLs so the browser can load thumbnails
+    // directly from the private R2 bucket without proxying bytes through Fly.
+    const items = await Promise.all(
+      (data ?? []).map(async (row) => ({
+        ...row,
+        url: await signedGetUrl(row.r2_key, 900).catch(() => null),
+      }))
+    );
+    res.json({ items, total: count ?? 0, limit, offset });
+  } catch (err) {
+    console.error("admin catalog items failed:", err);
+    res.status(500).json({ error: "Failed to load catalog items." });
   }
 });
 

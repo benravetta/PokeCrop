@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { LogOut, Settings, Shield, ChevronDown } from "lucide-react";
+import { LogOut, Settings, Shield, ChevronDown, Layers } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 
 export function UserMenu() {
@@ -68,6 +68,16 @@ export function UserMenu() {
             >
               <Shield className="w-4 h-4" />
               Admin
+            </Link>
+          )}
+          {isAdmin && (
+            <Link
+              to="/admin/catalog"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-text-secondary hover:bg-border-subtle hover:text-text-primary transition-colors"
+            >
+              <Layers className="w-4 h-4" />
+              Catalog
             </Link>
           )}
           <button

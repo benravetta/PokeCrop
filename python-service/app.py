@@ -91,6 +91,14 @@ async def process_card(
     else:
         full_resolution = bool(full_resolution)
 
+    # Card identification (TCG/set/number) is OCR-based and only needed when a
+    # crop is being archived to the catalog, so it's opt-in per request.
+    identify = p.get("identify", False)
+    if isinstance(identify, str):
+        identify = identify.lower() in ("true", "1", "yes")
+    else:
+        identify = bool(identify)
+
     try:
         file_bytes = await image.read()
         if len(file_bytes) > MAX_UPLOAD_BYTES:
@@ -247,6 +255,33 @@ async def process_card(
         }
         if result_png_b64 is not None:
             response_content["result_png"] = result_png_b64
+
+        # For catalog identification (opt-in), emit a small, white-flattened JPEG
+        # of the final upright crop. The backend feeds this to the vision model —
+        # it's far cheaper to send than the full-resolution PNG and ample for
+        # reading a card's name/set/number.
+        if identify:
+            try:
+                rgba = result_rgba
+                h2, w2 = rgba.shape[:2]
+                longest = max(h2, w2)
+                if longest > 900:
+                    sc = 900.0 / longest
+                    rgba = cv2.resize(
+                        rgba, (max(1, int(w2 * sc)), max(1, int(h2 * sc))),
+                        interpolation=cv2.INTER_AREA,
+                    )
+                if rgba.ndim == 3 and rgba.shape[2] == 4:
+                    alpha = rgba[:, :, 3:4].astype(np.float32) / 255.0
+                    rgb = rgba[:, :, :3].astype(np.float32)
+                    flat = (rgb * alpha + 255.0 * (1.0 - alpha)).astype(np.uint8)
+                else:
+                    flat = rgba[:, :, :3]
+                id_buf = io.BytesIO()
+                Image.fromarray(flat).save(id_buf, format="JPEG", quality=85)
+                response_content["id_image_jpeg"] = to_base64(id_buf.getvalue())
+            except Exception:
+                traceback.print_exc()
 
         return JSONResponse(content=response_content)
 

@@ -9,6 +9,7 @@ import { ToolPage } from "./pages/ToolPage";
 import { AccountPage } from "./pages/AccountPage";
 import { PricingPage } from "./pages/PricingPage";
 import { AdminPage } from "./pages/AdminPage";
+import { CatalogPage } from "./pages/CatalogPage";
 import { LoginPage } from "./pages/LoginPage";
 import { RegisterPage } from "./pages/RegisterPage";
 import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
@@ -83,6 +84,14 @@ export default function App() {
           element={
             <AdminRoute>
               <AdminPage />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/admin/catalog"
+          element={
+            <AdminRoute>
+              <CatalogPage />
             </AdminRoute>
           }
         />

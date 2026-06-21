@@ -380,3 +380,59 @@ export async function adminRevokeApiKey(keyId: string): Promise<void> {
   });
   if (!res.ok) await fail(res, "Failed to revoke API key");
 }
+
+// ---- Catalog (R2-backed archive of crops) ----
+
+export interface CatalogFacet {
+  label: string;
+  count: number;
+}
+
+export interface CatalogItem {
+  id: number;
+  r2_key: string;
+  tcg: string;
+  card_set: string;
+  number: string;
+  name: string | null;
+  confidence: number | null;
+  source: string | null;
+  width: number | null;
+  height: number | null;
+  created_at: string;
+  url: string | null;
+}
+
+export async function adminCatalogFacets(opts: {
+  tcg?: string;
+  set?: string;
+}): Promise<{ facets: CatalogFacet[] }> {
+  const q = new URLSearchParams();
+  if (opts.tcg) q.set("tcg", opts.tcg);
+  if (opts.set) q.set("set", opts.set);
+  const res = await fetch(`${BASE}/admin/catalog/facets?${q.toString()}`, {
+    headers: await authHeaders(),
+  });
+  if (!res.ok) await fail(res, "Failed to load catalog facets");
+  return res.json();
+}
+
+export async function adminCatalogItems(opts: {
+  tcg?: string;
+  set?: string;
+  number?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<{ items: CatalogItem[]; total: number; limit: number; offset: number }> {
+  const q = new URLSearchParams();
+  if (opts.tcg) q.set("tcg", opts.tcg);
+  if (opts.set) q.set("set", opts.set);
+  if (opts.number) q.set("number", opts.number);
+  if (opts.limit) q.set("limit", String(opts.limit));
+  if (opts.offset) q.set("offset", String(opts.offset));
+  const res = await fetch(`${BASE}/admin/catalog/items?${q.toString()}`, {
+    headers: await authHeaders(),
+  });
+  if (!res.ok) await fail(res, "Failed to load catalog items");
+  return res.json();
+}
