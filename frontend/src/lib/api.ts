@@ -212,6 +212,48 @@ export interface AdminApiKey {
   revoked_at: string | null;
 }
 
+export interface ActivityEvent {
+  id: number;
+  user_id: string;
+  actor_id: string | null;
+  actor_email: string | null;
+  action: string;
+  detail: Record<string, unknown> | null;
+  created_at: string;
+}
+
+export interface AdminUserDetail {
+  id: string;
+  email?: string;
+  role: "user" | "admin";
+  created_at: string;
+  last_sign_in_at: string | null;
+  email_confirmed_at: string | null;
+  suspended: boolean;
+  plan: string;
+  status: string | null;
+  current_period_end: string | null;
+  has_stripe: boolean;
+  max_api_keys: number | null;
+  key_limit: number;
+  cropsUsedToday: number;
+  activeKeys: number;
+  totalKeys: number;
+  activity: ActivityEvent[];
+}
+
+export interface AdminStats {
+  users_total: number;
+  unlimited_active: number;
+  api_active: number;
+  suspended: number;
+  crops_web_today: number;
+  crops_api_today: number;
+  active_keys: number;
+}
+
+export type PlanStatus = "active" | "trialing" | "canceled";
+
 export async function adminListUsers(opts: {
   query?: string;
   page?: number;
@@ -237,14 +279,68 @@ export async function adminSetRole(id: string, role: "user" | "admin"): Promise<
 
 export async function adminSetPlan(
   id: string,
-  plan: "free" | "unlimited" | "api"
+  plan: "free" | "unlimited" | "api",
+  status?: PlanStatus
 ): Promise<void> {
   const res = await fetch(`${BASE}/admin/users/${id}/plan`, {
     method: "POST",
     headers: await authHeaders({ "Content-Type": "application/json" }),
-    body: JSON.stringify({ plan }),
+    body: JSON.stringify(status ? { plan, status } : { plan }),
   });
   if (!res.ok) await fail(res, "Failed to update plan");
+}
+
+export async function adminGetUser(id: string): Promise<{ user: AdminUserDetail }> {
+  const res = await fetch(`${BASE}/admin/users/${id}`, {
+    headers: await authHeaders(),
+  });
+  if (!res.ok) await fail(res, "Failed to load user");
+  return res.json();
+}
+
+export async function adminGetStats(): Promise<{ stats: AdminStats }> {
+  const res = await fetch(`${BASE}/admin/stats`, {
+    headers: await authHeaders(),
+  });
+  if (!res.ok) await fail(res, "Failed to load stats");
+  return res.json();
+}
+
+export async function adminGetActivity(
+  id: string,
+  limit = 10
+): Promise<{ activity: ActivityEvent[] }> {
+  const res = await fetch(`${BASE}/admin/users/${id}/activity?limit=${limit}`, {
+    headers: await authHeaders(),
+  });
+  if (!res.ok) await fail(res, "Failed to load activity");
+  return res.json();
+}
+
+// Download the full (2-day) activity log for a user as a CSV file.
+export async function adminDownloadActivity(id: string, email?: string): Promise<void> {
+  const res = await fetch(`${BASE}/admin/users/${id}/activity?download=csv`, {
+    headers: await authHeaders(),
+  });
+  if (!res.ok) await fail(res, "Failed to download activity");
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `activity-${email || id}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+export async function adminSetKeyLimit(id: string, limit: number | null): Promise<void> {
+  const res = await fetch(`${BASE}/admin/users/${id}/key-limit`, {
+    method: "POST",
+    headers: await authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ limit }),
+  });
+  if (!res.ok) await fail(res, "Failed to update key limit");
 }
 
 export async function adminSuspend(id: string, suspended: boolean): Promise<void> {

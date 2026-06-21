@@ -13,6 +13,7 @@ import {
   getUsageToday,
   incrementUsage,
 } from "../lib/usage.js";
+import { logActivity } from "../lib/activity.js";
 
 const router = Router();
 
@@ -225,6 +226,15 @@ router.post("/process", requireAuth, async (req: Request, res: Response) => {
       } catch (err) {
         console.error("Usage increment failed:", err);
       }
+      // Audit the first successful extraction of this upload (re-processing for
+      // crop tweaks is intentionally not logged, to mirror the metering).
+      logActivity({
+        userId,
+        action: "crop.web",
+        actorId: userId,
+        actorEmail: req.user!.email ?? null,
+        detail: { filename: sanitizeFilename(session.filename) },
+      });
     }
 
     res.json({

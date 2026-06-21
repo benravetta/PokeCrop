@@ -1,6 +1,22 @@
-import { useCallback, useEffect, useState } from "react";
-import { Search, Loader2, ChevronLeft, ChevronRight, ShieldCheck } from "lucide-react";
-import { adminListUsers, type AdminUser } from "../lib/api";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  Search,
+  Loader2,
+  ChevronLeft,
+  ChevronRight,
+  ShieldCheck,
+  Users,
+  Infinity as InfinityIcon,
+  KeyRound,
+  Ban,
+  Scissors,
+} from "lucide-react";
+import {
+  adminListUsers,
+  adminGetStats,
+  type AdminUser,
+  type AdminStats,
+} from "../lib/api";
 import { AdminUserDrawer } from "../components/AdminUserDrawer";
 
 const PLAN_STYLES: Record<string, string> = {
@@ -8,6 +24,9 @@ const PLAN_STYLES: Record<string, string> = {
   unlimited: "bg-accent/15 text-accent border-accent/30",
   api: "bg-purple-500/15 text-purple-300 border-purple-500/30",
 };
+
+type Filter = "all" | "free" | "unlimited" | "api" | "admin" | "suspended";
+const FILTERS: Filter[] = ["all", "free", "unlimited", "api", "admin", "suspended"];
 
 export function AdminPage() {
   const [query, setQuery] = useState("");
@@ -17,6 +36,8 @@ export function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<AdminUser | null>(null);
+  const [stats, setStats] = useState<AdminStats | null>(null);
+  const [filter, setFilter] = useState<Filter>("all");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -32,15 +53,37 @@ export function AdminPage() {
     }
   }, [query, page]);
 
+  const loadStats = useCallback(() => {
+    adminGetStats()
+      .then((r) => setStats(r.stats))
+      .catch(() => setStats(null));
+  }, []);
+
   useEffect(() => {
     const t = window.setTimeout(load, 250);
     return () => window.clearTimeout(t);
   }, [load]);
 
+  useEffect(() => {
+    loadStats();
+  }, [loadStats]);
+
   // Keep the open detail drawer in sync with refreshed list data.
   useEffect(() => {
     setSelected((cur) => (cur ? users.find((u) => u.id === cur.id) ?? cur : cur));
   }, [users]);
+
+  const visible = useMemo(() => {
+    if (filter === "all") return users;
+    if (filter === "admin") return users.filter((u) => u.role === "admin");
+    if (filter === "suspended") return users.filter((u) => u.suspended);
+    return users.filter((u) => u.plan === filter);
+  }, [users, filter]);
+
+  const onChanged = useCallback(() => {
+    load();
+    loadStats();
+  }, [load, loadStats]);
 
   return (
     <div className="flex-1 min-h-0 overflow-y-auto">
@@ -50,10 +93,20 @@ export function AdminPage() {
           <h1 className="text-xl font-semibold text-text-primary">Admin</h1>
         </div>
         <p className="text-[13px] text-text-secondary mb-5">
-          Manage users, plans and API keys.
+          Manage users, roles, plans, API keys and activity.
         </p>
 
-        <div className="relative mb-4">
+        {/* Stats */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+          <StatCard icon={<Users className="w-4 h-4" />} label="Users" value={stats?.users_total} />
+          <StatCard icon={<InfinityIcon className="w-4 h-4" />} label="Unlimited" value={stats?.unlimited_active} />
+          <StatCard icon={<KeyRound className="w-4 h-4" />} label="API plan" value={stats?.api_active} />
+          <StatCard icon={<Ban className="w-4 h-4" />} label="Suspended" value={stats?.suspended} tone={stats?.suspended ? "error" : undefined} />
+          <StatCard icon={<Scissors className="w-4 h-4" />} label="Crops today" value={stats ? stats.crops_web_today + stats.crops_api_today : undefined} />
+          <StatCard icon={<KeyRound className="w-4 h-4" />} label="Active keys" value={stats?.active_keys} />
+        </div>
+
+        <div className="relative mb-3">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
           <input
             value={query}
@@ -64,6 +117,23 @@ export function AdminPage() {
             placeholder="Search by email…"
             className="w-full rounded-lg bg-surface-raised border border-border-subtle pl-9 pr-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent"
           />
+        </div>
+
+        {/* Filters */}
+        <div className="flex flex-wrap gap-1.5 mb-4">
+          {FILTERS.map((f) => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={`px-2.5 py-1 text-[12px] rounded-full border capitalize transition-colors ${
+                filter === f
+                  ? "bg-accent/15 text-accent border-accent/30"
+                  : "text-text-muted border-border-subtle hover:text-text-secondary"
+              }`}
+            >
+              {f}
+            </button>
+          ))}
         </div>
 
         {error && (
@@ -89,14 +159,14 @@ export function AdminPage() {
                     <Loader2 className="w-5 h-5 text-accent animate-spin inline" />
                   </td>
                 </tr>
-              ) : users.length === 0 ? (
+              ) : visible.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="px-4 py-10 text-center text-[13px] text-text-muted">
                     No users found.
                   </td>
                 </tr>
               ) : (
-                users.map((u) => (
+                visible.map((u) => (
                   <tr
                     key={u.id}
                     onClick={() => setSelected(u)}
@@ -163,9 +233,37 @@ export function AdminPage() {
         <AdminUserDrawer
           user={selected}
           onClose={() => setSelected(null)}
-          onChanged={load}
+          onChanged={onChanged}
         />
       )}
+    </div>
+  );
+}
+
+function StatCard({
+  icon,
+  label,
+  value,
+  tone,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: number | undefined;
+  tone?: "error";
+}) {
+  return (
+    <div className="rounded-xl border border-border-subtle bg-surface-raised px-3 py-2.5">
+      <div className="flex items-center gap-1.5 text-text-muted mb-1">
+        {icon}
+        <span className="text-[10px] uppercase tracking-wide">{label}</span>
+      </div>
+      <p
+        className={`text-lg font-semibold tabular-nums ${
+          tone === "error" && value ? "text-error" : "text-text-primary"
+        }`}
+      >
+        {value === undefined ? "—" : value.toLocaleString()}
+      </p>
     </div>
   );
 }

@@ -9,6 +9,7 @@ import { requireApiKey } from "../middleware/apiKey.js";
 import { validateParams } from "../lib/cropParams.js";
 import { sendApiError } from "../lib/apiError.js";
 import { incrementApiUsage, getApiUsageToday } from "../lib/apiKeys.js";
+import { logActivity } from "../lib/activity.js";
 import { fetchRemoteImage, RemoteFetchError, MAX_REMOTE_BYTES } from "../lib/ssrf.js";
 import { rateLimit, rateLimitHeaders, DAILY_SOFT_CAP } from "../lib/rateLimit.js";
 import { openApiSpec } from "../openapi.js";
@@ -237,7 +238,15 @@ router.post(
         console.error("api usage increment failed:", err)
       );
 
-      if (req.accepts(["json", "image/png"]) === "image/png") {
+      const wantsPng = req.accepts(["json", "image/png"]) === "image/png";
+      logActivity({
+        userId: req.apiUser!.userId,
+        action: "crop.api",
+        actorId: req.apiUser!.userId,
+        detail: { key_id: req.apiUser!.keyId, format: wantsPng ? "png" : "json" },
+      });
+
+      if (wantsPng) {
         res.set({
           "Content-Type": "image/png",
           "Content-Length": pngBuffer.length.toString(),

@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import type Stripe from "stripe";
 import { requireAuth } from "../middleware/auth.js";
 import { getServiceClient } from "../lib/supabase.js";
+import { logActivity } from "../lib/activity.js";
 import {
   getStripe,
   isStripeConfigured,
@@ -166,6 +167,13 @@ async function syncSubscription(sub: Stripe.Subscription): Promise<void> {
   );
   // Surface failures so the webhook returns non-2xx and Stripe retries.
   if (error) throw error;
+
+  // Audit the billing-driven plan/status change (actor = system/Stripe).
+  logActivity({
+    userId,
+    action: "subscription.synced",
+    detail: { plan, status: sub.status, source: "stripe" },
+  });
 }
 
 // Stripe webhook. Mounted with a raw body parser (see index.ts) so the

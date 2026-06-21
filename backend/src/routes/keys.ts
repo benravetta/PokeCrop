@@ -3,10 +3,10 @@ import { requireAuth } from "../middleware/auth.js";
 import { getServiceClient } from "../lib/supabase.js";
 import { getPlan } from "../lib/usage.js";
 import { generateApiKey } from "../lib/apiKeys.js";
+import { logActivity } from "../lib/activity.js";
+import { effectiveKeyLimit } from "../lib/keyLimit.js";
 
 const router = Router();
-
-const MAX_ACTIVE_KEYS = 10;
 
 // Self-serve API key management for API-tier users. Keys are always scoped to
 // the authenticated user; admins manage other users' keys via /api/admin/*.
@@ -59,15 +59,19 @@ router.post(
       typeof req.body?.label === "string" ? req.body.label.slice(0, 80) : null;
     try {
       // Cap active keys per account so keys can't be farmed to amplify limits.
-      const { count, error: countErr } = await getServiceClient()
-        .from("api_keys")
-        .select("id", { count: "exact", head: true })
-        .eq("user_id", req.user!.id)
-        .is("revoked_at", null);
+      // The cap is the per-user override (set by an admin) or the global default.
+      const [{ count, error: countErr }, limit] = await Promise.all([
+        getServiceClient()
+          .from("api_keys")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", req.user!.id)
+          .is("revoked_at", null),
+        effectiveKeyLimit(req.user!.id),
+      ]);
       if (countErr) throw countErr;
-      if ((count ?? 0) >= MAX_ACTIVE_KEYS) {
+      if ((count ?? 0) >= limit) {
         res.status(409).json({
-          error: `You can have at most ${MAX_ACTIVE_KEYS} active API keys. Revoke one first.`,
+          error: `You can have at most ${limit} active API keys. Revoke one first.`,
         });
         return;
       }
@@ -84,6 +88,13 @@ router.post(
         .select("id, label, key_prefix, created_at")
         .single();
       if (error) throw error;
+      logActivity({
+        userId: req.user!.id,
+        action: "key.created",
+        actorId: req.user!.id,
+        actorEmail: req.user!.email ?? null,
+        detail: { key_id: data.id, label, key_prefix: keyPrefix },
+      });
       // The full key is returned ONCE; only its hash + prefix are stored.
       res.json({ key: data, secret: fullKey });
     } catch (err) {
@@ -99,12 +110,26 @@ router.delete(
   requireApiPlan,
   async (req: Request, res: Response) => {
     try {
-      const { error } = await getServiceClient()
+      // Only revoke a currently-active key the caller owns, so we can log a
+      // real revocation (and not a no-op on an already-revoked/foreign key).
+      const { data, error } = await getServiceClient()
         .from("api_keys")
         .update({ revoked_at: new Date().toISOString() })
         .eq("id", req.params.id)
-        .eq("user_id", req.user!.id);
+        .eq("user_id", req.user!.id)
+        .is("revoked_at", null)
+        .select("id, key_prefix")
+        .maybeSingle();
       if (error) throw error;
+      if (data) {
+        logActivity({
+          userId: req.user!.id,
+          action: "key.revoked",
+          actorId: req.user!.id,
+          actorEmail: req.user!.email ?? null,
+          detail: { key_id: data.id, key_prefix: data.key_prefix },
+        });
+      }
       res.json({ ok: true });
     } catch (err) {
       console.error("revoke key failed:", err);
