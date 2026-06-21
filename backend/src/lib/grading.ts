@@ -1,4 +1,5 @@
 import { chatComplete, isOpenAiConfigured, type ChatImage } from "./openai.js";
+import { buildPreparation } from "./preparation.js";
 
 // Strict, anti-hype PSA-style pre-grader. Two passes:
 //   1) inspection — vision model reports structured condition findings, no grade
@@ -42,6 +43,7 @@ const INSPECT_PROMPT = `Inspect the supplied card image(s) and return ONLY this 
   "edges": { "findings": [], "score": 0, "verdict": "" },
   "surface": { "findings": [], "score": 0, "verdict": "" },
   "eye_appeal": { "findings": [], "score": 0 },
+  "defects": [ { "kind": "dust|fingerprint|surface_residue|foil_scrape|surface_scratch|holo_scratch|print_line|gloss_loss|edge_whitening|corner_whitening|indentation|scuff|stain|crease|bend|tear|hole|writing|tape", "side": "front|back", "region": "top_left_corner|top_right_corner|bottom_left_corner|bottom_right_corner|top_edge|bottom_edge|left_edge|right_edge|top_left|top_center|top_right|center_left|center|center_right|bottom_left|bottom_center|bottom_right|holo_area|full", "bbox": [0,0,0,0], "severity": "minor|moderate|major", "note": "" } ],
   "observations": [ { "issue": "", "where": "", "severity": "minor|moderate|major", "likely": "damage|factory|unsure" } ]
 }
 Rules: each corner gets "Clean", "Minor concern", "Moderate concern", "Major concern", or "Cannot assess". Scores are 0-10 where 10 is flawless under close inspection — deduct for every visible defect and again when inspection is limited by photo quality. Separate likely physical damage from likely factory print defects in observations. For holo/textured/full-art cards, note that surface confidence is limited without an angled-light image. Centering tolerance: PSA 10 front <= ~55/45, back <= ~75/25.
@@ -55,7 +57,15 @@ Inspect for and report each of these wherever visible:
 - Corners: whitening, softness, rounding, chipping, fraying, bends, corner lift, dents, crushing, peeling.
 - Edges: whitening, chipping, silvering, rough or uneven cut, nicks, dents, lifted foil, edge wear, dark damage, AND any tear/split/missing material.
 - Surface: scratches, holo scratches, print lines, roller lines, dents, indentations, stains, fingerprints, scuffs, gloss loss, clouding, pressure marks, bends, creases, texture damage, ink spots, whitening on dark areas, and factory print defects.
-Do not invent defects, but do not skip a category — if a region cannot be judged, mark it "Cannot assess" rather than "Clean".`;
+Do not invent defects, but do not skip a category — if a region cannot be judged, mark it "Cannot assess" rather than "Clean".
+
+"defects" — for EVERY individual flaw you can actually see (skip factory print defects unless damaging), add one entry so it can be located on the card:
+- "kind": closest match from the list. Use the structural kinds (crease/tear/hole/writing/tape) only when truly present.
+- "side": which photo it is on.
+- "region": the single named zone it sits in. Corners and edges use the corner/edge names; surface flaws use the 3x3 grid (top_left..bottom_right) or "holo_area"; use "full" only for something spanning the whole card.
+- "bbox": a TIGHT normalised box [x, y, width, height] with values 0-1 measured from the top-left of THAT image, enclosing just the flaw. If you cannot localise it precisely, return [0,0,0,0] and rely on "region".
+- "severity": minor (faint/tiny), moderate (clearly visible), major (severe/structural).
+Only include flaws you are reasonably confident are real and physical. An empty array is fine for a clean card.`;
 
 const ADJUDICATE_SYSTEM =
   "You are the final grading adjudicator for CardCrop. You are given structured " +
@@ -209,6 +219,7 @@ export async function gradeCard(
   return {
     ...findings,
     ...(decision ?? {}),
+    preparation: buildPreparation((findings as Record<string, unknown>).defects),
     disclaimer:
       "Not an official grade from PSA, Beckett, CGC, TAG, ACE or any grader. A " +
       "pre-check estimate from photos to help you decide whether to submit, sell " +

@@ -53,6 +53,186 @@ interface RefineOptions {
   maxMove?: number;
 }
 
+/** Bilinear luminance sample (clamped to image bounds). */
+function sampleL(
+  gray: Float32Array,
+  width: number,
+  height: number,
+  x: number,
+  y: number
+): number {
+  if (x < 0) x = 0;
+  if (y < 0) y = 0;
+  if (x > width - 1) x = width - 1;
+  if (y > height - 1) y = height - 1;
+  const x0 = Math.floor(x);
+  const y0 = Math.floor(y);
+  const x1 = Math.min(x0 + 1, width - 1);
+  const y1 = Math.min(y0 + 1, height - 1);
+  const fx = x - x0;
+  const fy = y - y0;
+  const a = gray[y0 * width + x0];
+  const b = gray[y0 * width + x1];
+  const c = gray[y1 * width + x0];
+  const d = gray[y1 * width + x1];
+  return (
+    a * (1 - fx) * (1 - fy) +
+    b * fx * (1 - fy) +
+    c * (1 - fx) * fy +
+    d * fx * fy
+  );
+}
+
+/** Gradient magnitude (central difference) at a sub-pixel location. */
+function gradMag(
+  gray: Float32Array,
+  width: number,
+  height: number,
+  x: number,
+  y: number
+): number {
+  const gx = sampleL(gray, width, height, x + 1, y) - sampleL(gray, width, height, x - 1, y);
+  const gy = sampleL(gray, width, height, x, y + 1) - sampleL(gray, width, height, x, y - 1);
+  return Math.hypot(gx, gy) * 0.5;
+}
+
+interface Line {
+  px: number;
+  py: number;
+  dx: number;
+  dy: number;
+}
+
+/**
+ * Fit the straight card edge running from `corner` toward `toward`.
+ *
+ * Samples a series of points along the edge — skipping the rounded corner arc
+ * near `corner` — and at each one searches perpendicular to the edge for the
+ * strongest luminance transition (the card border). A weighted total-least-
+ * squares line is fitted through those edge points. Returns null when the edge
+ * is too short or too low-contrast to fit reliably.
+ */
+function fitEdge(
+  gray: Float32Array,
+  width: number,
+  height: number,
+  corner: Point,
+  toward: Point
+): Line | null {
+  const len = Math.hypot(toward.x - corner.x, toward.y - corner.y);
+  if (len < 24) return null;
+
+  const dx = (toward.x - corner.x) / len;
+  const dy = (toward.y - corner.y) / len;
+  const nx = -dy;
+  const ny = dx;
+
+  // Skip the rounded corner (~3mm on an 88mm card ≈ 3-5% of the edge), then fit
+  // along the straight run that follows it.
+  const skip = Math.min(Math.max(len * 0.06, 6), 40);
+  const spanEnd = Math.min(len * 0.42, len - 4);
+  if (spanEnd - skip < 12) return null;
+
+  const search = Math.min(Math.max(len * 0.06, 6), 28);
+  const samples = 26;
+  const stepT = (spanEnd - skip) / (samples - 1);
+
+  const pts: { x: number; y: number; w: number }[] = [];
+  for (let s = 0; s < samples; s++) {
+    const t = skip + stepT * s;
+    const baseX = corner.x + dx * t;
+    const baseY = corner.y + dy * t;
+    let best = 0;
+    let bestG = 0;
+    for (let o = -search; o <= search; o += 1) {
+      const g = gradMag(gray, width, height, baseX + nx * o, baseY + ny * o);
+      if (g > bestG) {
+        bestG = g;
+        best = o;
+      }
+    }
+    if (bestG < 6) continue;
+    pts.push({ x: baseX + nx * best, y: baseY + ny * best, w: bestG });
+  }
+
+  if (pts.length < 6) return null;
+
+  let sw = 0;
+  let mx = 0;
+  let my = 0;
+  for (const p of pts) {
+    sw += p.w;
+    mx += p.w * p.x;
+    my += p.w * p.y;
+  }
+  if (sw <= 0) return null;
+  mx /= sw;
+  my /= sw;
+
+  let sxx = 0;
+  let sxy = 0;
+  let syy = 0;
+  for (const p of pts) {
+    const ex = p.x - mx;
+    const ey = p.y - my;
+    sxx += p.w * ex * ex;
+    sxy += p.w * ex * ey;
+    syy += p.w * ey * ey;
+  }
+  const theta = 0.5 * Math.atan2(2 * sxy, sxx - syy);
+  return { px: mx, py: my, dx: Math.cos(theta), dy: Math.sin(theta) };
+}
+
+function intersectLines(a: Line, b: Line): Point | null {
+  const denom = a.dx * b.dy - a.dy * b.dx;
+  if (Math.abs(denom) < 1e-4) return null;
+  const t = ((b.px - a.px) * b.dy - (b.py - a.py) * b.dx) / denom;
+  return { x: a.px + a.dx * t, y: a.py + a.dy * t };
+}
+
+interface EdgeSnapOptions {
+  /** Maximum distance (image px) the corner may move; else keep the original. */
+  maxMove?: number;
+}
+
+/**
+ * Snap a crop corner onto the card's true (virtual sharp) corner.
+ *
+ * Trading cards have rounded corners, so the real geometric corner is the point
+ * where the two straight edges would meet if extended through the rounded arc.
+ * We fit each adjacent edge from its straight section and intersect them. This
+ * is the point the rounded-corner output mask is built around, so the crop ends
+ * up flush with the card. Falls back to null (caller may try `refineCorner`).
+ */
+export function snapCornerToCardEdges(
+  gray: Float32Array,
+  width: number,
+  height: number,
+  corner: Point,
+  prev: Point,
+  next: Point,
+  options: EdgeSnapOptions = {}
+): Point | null {
+  const e1 = fitEdge(gray, width, height, corner, prev);
+  const e2 = fitEdge(gray, width, height, corner, next);
+  if (!e1 || !e2) return null;
+
+  // Reject near-parallel edges (not a real corner).
+  const cross = Math.abs(e1.dx * e2.dy - e1.dy * e2.dx);
+  if (cross < 0.25) return null;
+
+  const hit = intersectLines(e1, e2);
+  if (!hit || !Number.isFinite(hit.x) || !Number.isFinite(hit.y)) return null;
+
+  const shorter = Math.min(
+    Math.hypot(prev.x - corner.x, prev.y - corner.y),
+    Math.hypot(next.x - corner.x, next.y - corner.y)
+  );
+  const maxMove = options.maxMove ?? Math.min(Math.max(shorter * 0.14, 18), 70);
+  if (Math.hypot(hit.x - corner.x, hit.y - corner.y) > maxMove) return null;
+  return hit;
+}
+
 /**
  * Sub-pixel corner refinement, equivalent in spirit to OpenCV's `cornerSubPix`.
  *

@@ -124,6 +124,10 @@ async function ensureArchived(session: Session): Promise<void> {
       if (full.metadata) session.result.metadata = full.metadata;
     }
 
+    if (!session.result.result_png) {
+      session.archived = false;
+      return;
+    }
     const buf = Buffer.from(session.result.result_png, "base64");
     const dims = pngDimensions(buf);
     const idB64 = session.result.idImageJpeg;

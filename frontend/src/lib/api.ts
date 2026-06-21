@@ -431,6 +431,39 @@ export interface GradeQuota {
 // since it mirrors the model's structured schema.
 export type GradeResult = Record<string, unknown>;
 
+// Located defect from the inspection pass.
+export interface GradeDefect {
+  kind: string;
+  side: "front" | "back";
+  region: string;
+  bbox: number[] | null;
+  severity: "minor" | "moderate" | "major";
+  note?: string;
+}
+
+// A single preparation recommendation for one defect.
+export interface PrepItem extends GradeDefect {
+  label: string;
+  location: string;
+  canAttempt: boolean;
+  action: string;
+  method: string;
+  difficulty: "easy" | "moderate" | "advanced" | "n/a";
+  risk: "low" | "medium" | "high";
+  reversible: boolean;
+  tools: string[];
+  expectedUpside: string;
+  caution?: string;
+}
+
+export interface Preparation {
+  items: PrepItem[];
+  safeCount: number;
+  avoidCount: number;
+  summary: string;
+  disclaimer: string;
+}
+
 export interface GradeImages {
   front: File;
   back?: File;

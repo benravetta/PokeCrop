@@ -53,13 +53,19 @@ def _choose_best_rectangle(
     image: np.ndarray,
     img_area: float,
 ) -> int:
-    """Choose the best rectangle using geometry plus simple nesting logic.
+    """Choose the best rectangle that represents the physical card.
 
-    The outer plastic wrapper is often also a near-perfect trading-card-shaped
-    rectangle. The crucial difference is structural:
-    - wrapper: contains a slightly smaller card-like child
-    - front card: nested inside the wrapper, but does not contain another
-      similarly sized card-like child
+    Two structures look card-shaped and nest inside each other:
+    - a plastic sleeve/toploader AROUND the card — only slightly larger, with a
+      thin, UNIFORM (low-texture) plastic margin between it and the card.
+    - the card's own inner ARTWORK frame — much smaller than the card and
+      separated from the card edge by a TEXTURED, coloured border.
+
+    A raw card always contains an inner artwork frame, so we must not treat the
+    outer (real) card as a "wrapper" just because it has a card-shaped child.
+    We disambiguate by measuring the texture of the ring between the two:
+    uniform ring => the outer is a sleeve (prefer the inner); textured ring =>
+    the outer is the real card (prefer the outer).
     """
     h, w = image.shape[:2]
     masks = []
@@ -82,46 +88,39 @@ def _choose_best_rectangle(
     best_idx = -1
     best_score = -1e9
 
-    for i, cnt in enumerate(rects):
+    for i in range(len(rects)):
         score = base_scores[i]
         rel_size = areas[i] / img_area if img_area > 0 else 0.0
 
-        parent_count = 0
-        wrapper_child = False
-
         for j in range(len(rects)):
-            if i == j:
+            if i == j or areas[i] <= 0 or areas[j] <= 0:
                 continue
-
             overlap = float(np.count_nonzero(masks[i] & masks[j]))
 
-            # Is this rectangle nested inside a larger one?
-            if areas[i] > 0 and areas[j] > areas[i] * 1.03 and overlap / areas[i] > 0.82:
-                parent_count += 1
+            # --- i is nested inside the larger rectangle j ---
+            if areas[j] > areas[i] * 1.03 and overlap / areas[i] > 0.82:
+                child_rel = areas[i] / areas[j]
+                if child_rel >= 0.80 and _ring_is_uniform(masks[j], masks[i], image):
+                    # j is a sleeve/toploader hugging i: i is the real card.
+                    score += 0.28
+                elif child_rel <= 0.82:
+                    # j is the real card and i is its inner artwork frame.
+                    score -= 0.42
 
-            # Does this rectangle contain another similarly shaped, reasonably
-            # large card-like child? If yes, this is probably the wrapper.
-            child_rel = areas[j] / areas[i] if areas[i] > 0 else 0.0
-            if (
-                areas[j] < areas[i] * 0.97
-                and 0.35 <= child_rel <= 0.8
-                and overlap / max(areas[j], 1.0) > 0.82
-                and abs(ratios[j] - CARD_RATIO) < 0.06
-            ):
-                wrapper_child = True
+            # --- i contains the smaller rectangle j ---
+            if areas[i] > areas[j] * 1.03 and overlap / areas[j] > 0.82:
+                child_rel = areas[j] / areas[i]
+                if child_rel >= 0.80 and _ring_is_uniform(masks[i], masks[j], image):
+                    # i is a sleeve around j: penalise i.
+                    score -= 0.30
+                elif 0.30 <= child_rel <= 0.82 and abs(ratios[i] - CARD_RATIO) < 0.12:
+                    # i is the real card containing its inner artwork frame.
+                    score += 0.18
 
-        # Nested inside one larger rectangle is usually the real front card.
-        if parent_count >= 1:
-            score += 0.16
-
-        # Very large rectangles are often wrapper/background, not the front card.
-        if rel_size > 0.65:
-            score -= 0.18
-
-        # If this rectangle contains a strong card-like child, it's probably
-        # the wrapper and should lose heavily.
-        if wrapper_child:
-            score -= 0.30
+        # Only penalise rectangles that span almost the whole frame (likely the
+        # background/scan bed), not a card photographed close up.
+        if rel_size > 0.93:
+            score -= 0.12
 
         if score > best_score:
             best_score = score
@@ -130,19 +129,88 @@ def _choose_best_rectangle(
     return best_idx
 
 
+def _ring_is_uniform(outer_mask: np.ndarray, inner_mask: np.ndarray, image: np.ndarray) -> bool:
+    """True when the band between an outer and inner rectangle is low-texture.
+
+    A plastic sleeve leaves a thin, near-uniform margin around the card; a card's
+    coloured border between its edge and inner artwork is textured/saturated.
+    """
+    ring = cv2.subtract(outer_mask, inner_mask)
+    # Pull the ring away from both edges so we sample the band itself, not the
+    # high-contrast transitions at the rectangle boundaries.
+    ring = cv2.erode(ring, cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3)), iterations=1)
+    pixels = image[ring > 0]
+    if pixels.ndim == 1:
+        pixels = pixels.reshape(-1, 3)
+    if len(pixels) < 80:
+        return False
+    lab = cv2.cvtColor(pixels.reshape(-1, 1, 3), cv2.COLOR_BGR2LAB).astype(np.float32).reshape(-1, 3)
+    spread = float(np.std(lab, axis=0).mean())
+    return spread < 9.0
+
+
 def detect_card_quad(card_contour: np.ndarray, image: np.ndarray) -> np.ndarray:
     """Locate the four outer corners of the physical card border.
 
-    Expands only when the initial fit looks tight, refines in card-space,
-    then snaps to the table→card transition so background is excluded.
+    Recovers the true quadrilateral (so perspective tilt is corrected), expands
+    only when the initial fit looks tight, refines in card-space, then snaps to
+    the table→card transition so background is excluded.
     """
-    rect = cv2.minAreaRect(card_contour)
-    box = cv2.boxPoints(rect).astype(np.float64)
+    box = _quad_from_contour(card_contour)
     if _box_needs_outward_expand(box, image):
         box = _expand_box_to_outer_border(box, image)
     box = _refine_box_in_card_space(box, image)
     box = _fit_box_to_card_edges(box, image)
     return order_corners(box.astype(np.float32))
+
+
+def _quad_from_contour(card_contour: np.ndarray) -> np.ndarray:
+    """Recover the card's true four corners, handling perspective tilt.
+
+    ``cv2.minAreaRect`` only yields a rotated *rectangle*, which is wrong for a
+    card photographed at an angle (its outline is a keystone trapezoid). We
+    approximate the contour's convex hull down to a 4-point polygon to get the
+    real corners, and fall back to the rotated rectangle when the contour is too
+    noisy or partial to give a clean, full-size quad.
+    """
+    rect = cv2.minAreaRect(card_contour)
+    box = cv2.boxPoints(rect).astype(np.float64)
+    rect_area = float(rect[1][0]) * float(rect[1][1])
+    if rect_area <= 0:
+        return box
+
+    hull = cv2.convexHull(card_contour)
+    peri = cv2.arcLength(hull, True)
+    hull_area = float(cv2.contourArea(hull))
+    if peri <= 0 or hull_area <= 0:
+        return box
+
+    quad = None
+    for frac in (0.02, 0.03, 0.04, 0.05, 0.06, 0.08, 0.10):
+        approx = cv2.approxPolyDP(hull, frac * peri, True)
+        if len(approx) == 4 and cv2.isContourConvex(approx):
+            quad = approx.reshape(4, 2).astype(np.float64)
+            break
+
+    if quad is None:
+        return box
+
+    # The 4-point approximation should faithfully cover the contour's convex
+    # hull. Compare against the hull (NOT the rotated bounding rect): a genuine
+    # perspective trapezoid is legitimately smaller than its bounding rectangle,
+    # so using the rect as reference would wrongly reject correct quads.
+    quad_area = float(cv2.contourArea(quad.astype(np.float32)))
+    if quad_area < hull_area * 0.88:
+        return box
+
+    # Reject degenerate quads (near-collinear points / slivers).
+    side_lengths = [
+        float(np.linalg.norm(quad[(k + 1) % 4] - quad[k])) for k in range(4)
+    ]
+    if min(side_lengths) < 0.05 * max(side_lengths):
+        return box
+
+    return order_corners(quad.astype(np.float32)).astype(np.float64)
 
 
 def _box_needs_outward_expand(box: np.ndarray, image: np.ndarray) -> bool:

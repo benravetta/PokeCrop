@@ -2,91 +2,120 @@ import { useEffect, useRef } from "react";
 import { Crosshair } from "lucide-react";
 import {
   type CardSide,
-  type InnerBox,
-  ratiosFromBox,
+  type Box,
+  borderRatios,
   centeringCeiling,
   ceilingLabel,
-  detectInnerBox,
+  detectBorders,
 } from "../../lib/centering";
 
+type BoxId = "outer" | "inner";
 type Edge = "x0" | "x1" | "y0" | "y1";
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
+const MIN = 0.04; // minimum span / gap between edges
 
 export function CenteringTool({
   side,
   imageSrc,
-  box,
-  onBox,
+  outer,
+  inner,
+  onOuter,
+  onInner,
   skipped,
   onSkip,
 }: {
   side: CardSide;
   imageSrc: string;
-  box: InnerBox | null;
-  onBox: (b: InnerBox) => void;
+  outer: Box | null;
+  inner: Box | null;
+  onOuter: (b: Box) => void;
+  onInner: (b: Box) => void;
   skipped: boolean;
   onSkip: (v: boolean) => void;
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
-  const dragEdge = useRef<Edge | null>(null);
+  const drag = useRef<{ box: BoxId; edge: Edge } | null>(null);
   const autoDone = useRef(false);
 
-  // Auto-detect the inner border once, when the image first loads.
   const runAutoDetect = () => {
     if (autoDone.current || !imgRef.current) return;
     autoDone.current = true;
     try {
-      onBox(detectInnerBox(imgRef.current));
+      const { outer: o, inner: i } = detectBorders(imgRef.current);
+      onOuter(o);
+      onInner(i);
     } catch {
-      onBox({ x0: 0.08, y0: 0.08, x1: 0.92, y1: 0.92 });
+      onOuter({ x0: 0, y0: 0, x1: 1, y1: 1 });
+      onInner({ x0: 0.09, y0: 0.07, x1: 0.91, y1: 0.93 });
     }
   };
 
   useEffect(() => {
-    // reset auto-detect when the image changes
     autoDone.current = false;
   }, [imageSrc]);
 
   useEffect(() => {
     const move = (e: PointerEvent) => {
-      const edge = dragEdge.current;
+      const d = drag.current;
       const el = wrapRef.current;
-      if (!edge || !el || !box) return;
+      if (!d || !el || !outer || !inner) return;
       const rect = el.getBoundingClientRect();
-      if (edge === "x0") {
-        const v = (e.clientX - rect.left) / rect.width;
-        onBox({ ...box, x0: clamp(v, 0.01, box.x1 - 0.08) });
-      } else if (edge === "x1") {
-        const v = (e.clientX - rect.left) / rect.width;
-        onBox({ ...box, x1: clamp(v, box.x0 + 0.08, 0.99) });
-      } else if (edge === "y0") {
-        const v = (e.clientY - rect.top) / rect.height;
-        onBox({ ...box, y0: clamp(v, 0.01, box.y1 - 0.08) });
+      const fx = (e.clientX - rect.left) / rect.width;
+      const fy = (e.clientY - rect.top) / rect.height;
+      if (d.box === "outer") {
+        const o = { ...outer };
+        if (d.edge === "x0") o.x0 = clamp(fx, 0, inner.x0 - MIN);
+        else if (d.edge === "x1") o.x1 = clamp(fx, inner.x1 + MIN, 1);
+        else if (d.edge === "y0") o.y0 = clamp(fy, 0, inner.y0 - MIN);
+        else o.y1 = clamp(fy, inner.y1 + MIN, 1);
+        onOuter(o);
       } else {
-        const v = (e.clientY - rect.top) / rect.height;
-        onBox({ ...box, y1: clamp(v, box.y0 + 0.08, 0.99) });
+        const i = { ...inner };
+        if (d.edge === "x0") i.x0 = clamp(fx, outer.x0, i.x1 - MIN);
+        else if (d.edge === "x1") i.x1 = clamp(fx, i.x0 + MIN, outer.x1);
+        else if (d.edge === "y0") i.y0 = clamp(fy, outer.y0, i.y1 - MIN);
+        else i.y1 = clamp(fy, i.y0 + MIN, outer.y1);
+        onInner(i);
       }
     };
-    const up = () => (dragEdge.current = null);
+    const up = () => (drag.current = null);
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
     return () => {
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
     };
-  }, [box, onBox]);
+  }, [outer, inner, onOuter, onInner]);
 
-  const ratios = box ? ratiosFromBox(box) : null;
+  const ready = outer && inner;
+  const ratios = ready ? borderRatios(outer!, inner!) : null;
   const ceiling = ratios ? centeringCeiling(ratios, side) : null;
 
   const pct = (n: number) => `${n * 100}%`;
-  const startDrag = (edge: Edge) => (e: React.PointerEvent) => {
+  const startDrag = (box: BoxId, edge: Edge) => (e: React.PointerEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    dragEdge.current = edge;
+    drag.current = { box, edge };
   };
+
+  const edgeBars = (box: BoxId, b: Box, colour: string) => (
+    <>
+      <div onPointerDown={startDrag(box, "x0")} className="absolute top-0 bottom-0 w-3 -ml-1.5 cursor-ew-resize z-10" style={{ left: pct(b.x0) }}>
+        <div className={`absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 ${colour}`} />
+      </div>
+      <div onPointerDown={startDrag(box, "x1")} className="absolute top-0 bottom-0 w-3 -ml-1.5 cursor-ew-resize z-10" style={{ left: pct(b.x1) }}>
+        <div className={`absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 ${colour}`} />
+      </div>
+      <div onPointerDown={startDrag(box, "y0")} className="absolute left-0 right-0 h-3 -mt-1.5 cursor-ns-resize z-10" style={{ top: pct(b.y0) }}>
+        <div className={`absolute inset-x-0 top-1/2 h-0.5 -translate-y-1/2 ${colour}`} />
+      </div>
+      <div onPointerDown={startDrag(box, "y1")} className="absolute left-0 right-0 h-3 -mt-1.5 cursor-ns-resize z-10" style={{ top: pct(b.y1) }}>
+        <div className={`absolute inset-x-0 top-1/2 h-0.5 -translate-y-1/2 ${colour}`} />
+      </div>
+    </>
+  );
 
   return (
     <div>
@@ -106,62 +135,35 @@ export function CenteringTool({
           crossOrigin="anonymous"
         />
 
-        {box && (
+        {ready && (
           <>
-            {/* shaded border regions */}
+            {/* shade the measured border band (between outer and inner) */}
             <div className="pointer-events-none absolute inset-0">
-              <div className="absolute top-0 bottom-0 left-0 bg-accent/15" style={{ width: pct(box.x0) }} />
-              <div className="absolute top-0 bottom-0 right-0 bg-accent/15" style={{ width: pct(1 - box.x1) }} />
-              <div className="absolute left-0 right-0 top-0 bg-accent/15" style={{ height: pct(box.y0) }} />
-              <div className="absolute left-0 right-0 bottom-0 bg-accent/15" style={{ height: pct(1 - box.y1) }} />
+              <div className="absolute bg-sky-400/15" style={{ left: pct(outer!.x0), top: pct(outer!.y0), width: pct(inner!.x0 - outer!.x0), height: pct(outer!.y1 - outer!.y0) }} />
+              <div className="absolute bg-sky-400/15" style={{ left: pct(inner!.x1), top: pct(outer!.y0), width: pct(outer!.x1 - inner!.x1), height: pct(outer!.y1 - outer!.y0) }} />
+              <div className="absolute bg-sky-400/15" style={{ left: pct(inner!.x0), top: pct(outer!.y0), width: pct(inner!.x1 - inner!.x0), height: pct(inner!.y0 - outer!.y0) }} />
+              <div className="absolute bg-sky-400/15" style={{ left: pct(inner!.x0), top: pct(inner!.y1), width: pct(inner!.x1 - inner!.x0), height: pct(outer!.y1 - inner!.y1) }} />
             </div>
 
-            {/* inner-design rectangle */}
-            <div
-              className="pointer-events-none absolute border-2 border-accent/90"
-              style={{
-                left: pct(box.x0),
-                top: pct(box.y0),
-                width: pct(box.x1 - box.x0),
-                height: pct(box.y1 - box.y0),
-              }}
-            />
+            {/* outer rectangle (card edge) */}
+            <div className="pointer-events-none absolute border-2 border-dashed border-sky-400/90" style={{ left: pct(outer!.x0), top: pct(outer!.y0), width: pct(outer!.x1 - outer!.x0), height: pct(outer!.y1 - outer!.y0) }} />
+            {/* inner rectangle (art edge) */}
+            <div className="pointer-events-none absolute border-2 border-accent/90" style={{ left: pct(inner!.x0), top: pct(inner!.y0), width: pct(inner!.x1 - inner!.x0), height: pct(inner!.y1 - inner!.y0) }} />
 
-            {/* draggable edges */}
-            <div
-              onPointerDown={startDrag("x0")}
-              className="absolute top-0 bottom-0 w-3 -ml-1.5 cursor-ew-resize"
-              style={{ left: pct(box.x0) }}
-            >
-              <div className="absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 bg-accent" />
-            </div>
-            <div
-              onPointerDown={startDrag("x1")}
-              className="absolute top-0 bottom-0 w-3 -ml-1.5 cursor-ew-resize"
-              style={{ left: pct(box.x1) }}
-            >
-              <div className="absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 bg-accent" />
-            </div>
-            <div
-              onPointerDown={startDrag("y0")}
-              className="absolute left-0 right-0 h-3 -mt-1.5 cursor-ns-resize"
-              style={{ top: pct(box.y0) }}
-            >
-              <div className="absolute inset-x-0 top-1/2 h-0.5 -translate-y-1/2 bg-accent" />
-            </div>
-            <div
-              onPointerDown={startDrag("y1")}
-              className="absolute left-0 right-0 h-3 -mt-1.5 cursor-ns-resize"
-              style={{ top: pct(box.y1) }}
-            >
-              <div className="absolute inset-x-0 top-1/2 h-0.5 -translate-y-1/2 bg-accent" />
-            </div>
+            {edgeBars("outer", outer!, "bg-sky-400")}
+            {edgeBars("inner", inner!, "bg-accent")}
           </>
         )}
       </div>
 
+      {/* legend */}
+      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-text-muted">
+        <span className="inline-flex items-center gap-1.5"><span className="inline-block w-3 border-t-2 border-dashed border-sky-400" /> Card edge</span>
+        <span className="inline-flex items-center gap-1.5"><span className="inline-block w-3 border-t-2 border-accent" /> Inner border</span>
+      </div>
+
       {/* readout */}
-      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5">
+      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5">
         {ratios && !skipped ? (
           <>
             <span className="text-sm text-text-secondary">
@@ -192,16 +194,16 @@ export function CenteringTool({
       <div className="mt-2 flex items-center justify-between gap-2">
         <p className="text-xs text-text-muted flex items-center gap-1.5">
           <Crosshair className="w-3.5 h-3.5" />
-          Drag the lines to the edge of the printed design.
+          Set the dashed box to the card edge and the solid box to where the artwork starts.
         </p>
-        <label className="text-xs text-text-secondary flex items-center gap-1.5 cursor-pointer">
+        <label className="text-xs text-text-secondary flex items-center gap-1.5 cursor-pointer shrink-0">
           <input
             type="checkbox"
             checked={skipped}
             onChange={(e) => onSkip(e.target.checked)}
             className="accent-[var(--color-accent)]"
           />
-          No clear border
+          No border
         </label>
       </div>
     </div>

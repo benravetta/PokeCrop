@@ -14,6 +14,10 @@ import {
   Camera,
   Sun,
   RotateCcw,
+  Wrench,
+  ShieldAlert,
+  CheckCircle2,
+  RotateCw,
 } from "lucide-react";
 import {
   gradeCard,
@@ -23,9 +27,12 @@ import {
   type GradeResult,
   type GradeImages,
   type MeasuredCentering,
+  type Preparation,
+  type PrepItem,
 } from "../lib/api";
 import { CenteringTool } from "../components/grade/CenteringTool";
-import { ratiosFromBox, type InnerBox } from "../lib/centering";
+import { borderRatios, type Box } from "../lib/centering";
+import { loadImage, cropFromImage, resolveRect } from "../lib/cardRegions";
 
 // ---- helpers to read the loosely-typed model result ----
 const asObj = (v: unknown): Record<string, unknown> =>
@@ -94,7 +101,11 @@ export function GradePage() {
     front: { loading: false, failed: false },
     back: { loading: false, failed: false },
   });
-  const [boxes, setBoxes] = useState<Record<CardSlot, InnerBox | null>>({
+  const [outers, setOuters] = useState<Record<CardSlot, Box | null>>({
+    front: null,
+    back: null,
+  });
+  const [inners, setInners] = useState<Record<CardSlot, Box | null>>({
     front: null,
     back: null,
   });
@@ -113,7 +124,8 @@ export function GradePage() {
   // clean card. Falls back to the original photo if no card is detected.
   const straighten = useCallback(async (slot: CardSlot, file: File) => {
     setProc((p) => ({ ...p, [slot]: { loading: true, failed: false } }));
-    setBoxes((b) => ({ ...b, [slot]: null }));
+    setOuters((b) => ({ ...b, [slot]: null }));
+    setInners((b) => ({ ...b, [slot]: null }));
     try {
       const src = await straightenForGrade(file);
       setProc((p) => ({ ...p, [slot]: { src: src ?? undefined, loading: false, failed: !src } }));
@@ -137,7 +149,8 @@ export function GradePage() {
           void straighten(slot, file);
         } else {
           setProc((p) => ({ ...p, [slot]: { loading: false, failed: false } }));
-          setBoxes((b) => ({ ...b, [slot]: null }));
+          setOuters((b) => ({ ...b, [slot]: null }));
+          setInners((b) => ({ ...b, [slot]: null }));
           setSkip((s) => ({ ...s, [slot]: false }));
         }
       }
@@ -148,16 +161,16 @@ export function GradePage() {
   // Build the measured-centering payload from the (un-skipped) boxes.
   const buildCentering = useCallback((): MeasuredCentering | undefined => {
     const out: MeasuredCentering = {};
-    if (!skip.front && boxes.front) {
-      const r = ratiosFromBox(boxes.front);
+    if (!skip.front && outers.front && inners.front) {
+      const r = borderRatios(outers.front, inners.front);
       out.front = { leftRight: r.leftRight.ratio, topBottom: r.topBottom.ratio };
     }
-    if (files.back && !skip.back && boxes.back) {
-      const r = ratiosFromBox(boxes.back);
+    if (files.back && !skip.back && outers.back && inners.back) {
+      const r = borderRatios(outers.back, inners.back);
       out.back = { leftRight: r.leftRight.ratio, topBottom: r.topBottom.ratio };
     }
     return out.front || out.back ? out : undefined;
-  }, [boxes, skip, files.back]);
+  }, [outers, inners, skip, files.back]);
 
   // The image we send for inspection: the straightened card when available
   // (cleaner read), otherwise the downscaled original.
@@ -260,8 +273,10 @@ export function GradePage() {
                 label="Front"
                 proc={proc.front}
                 displaySrc={proc.front.src ?? previews.front}
-                box={boxes.front}
-                onBox={(b) => setBoxes((prev) => ({ ...prev, front: b }))}
+                outer={outers.front}
+                inner={inners.front}
+                onOuter={(b) => setOuters((prev) => ({ ...prev, front: b }))}
+                onInner={(b) => setInners((prev) => ({ ...prev, front: b }))}
                 skip={skip.front}
                 onSkip={(v) => setSkip((s) => ({ ...s, front: v }))}
               />
@@ -272,8 +287,10 @@ export function GradePage() {
                 label="Back"
                 proc={proc.back}
                 displaySrc={proc.back.src ?? previews.back}
-                box={boxes.back}
-                onBox={(b) => setBoxes((prev) => ({ ...prev, back: b }))}
+                outer={outers.back}
+                inner={inners.back}
+                onOuter={(b) => setOuters((prev) => ({ ...prev, back: b }))}
+                onInner={(b) => setInners((prev) => ({ ...prev, back: b }))}
                 skip={skip.back}
                 onSkip={(v) => setSkip((s) => ({ ...s, back: v }))}
               />
@@ -320,7 +337,13 @@ export function GradePage() {
             <RotateCcw className="w-4 h-4" />
             Grade another card
           </button>
-          <GradeReport result={result} />
+          <GradeReport
+            result={result}
+            images={{
+              front: proc.front.src ?? previews.front,
+              back: proc.back.src ?? previews.back,
+            }}
+          />
         </>
       )}
     </div>
@@ -333,8 +356,10 @@ function CenteringPanel({
   label,
   proc,
   displaySrc,
-  box,
-  onBox,
+  outer,
+  inner,
+  onOuter,
+  onInner,
   skip,
   onSkip,
 }: {
@@ -342,8 +367,10 @@ function CenteringPanel({
   label: string;
   proc: SideProc;
   displaySrc?: string;
-  box: InnerBox | null;
-  onBox: (b: InnerBox) => void;
+  outer: Box | null;
+  inner: Box | null;
+  onOuter: (b: Box) => void;
+  onInner: (b: Box) => void;
   skip: boolean;
   onSkip: (v: boolean) => void;
 }) {
@@ -363,14 +390,16 @@ function CenteringPanel({
           {proc.failed && (
             <p className="mb-2 flex items-center gap-1.5 text-xs text-amber-300/90">
               <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-              Couldn't auto-straighten — measure on the original or tick "No clear border".
+              Couldn't auto-straighten — adjust the borders by hand or tick "No border".
             </p>
           )}
           <CenteringTool
             side={side}
             imageSrc={displaySrc}
-            box={box}
-            onBox={onBox}
+            outer={outer}
+            inner={inner}
+            onOuter={onOuter}
+            onInner={onInner}
             skipped={skip}
             onSkip={onSkip}
           />
@@ -479,8 +508,8 @@ function CenteringGuide() {
           <line x1="48" y1="42" x2="59" y2="42" className="stroke-accent" strokeWidth="1.5" />
         </svg>
         <p className="text-xs text-text-secondary">
-          Drag the lines onto the edge of the printed design — not the card edge. We measure
-          the gaps for you.
+          Set the dashed box to the card's outer edge and the solid box to where the artwork
+          starts. We measure the border band between them on each side.
         </p>
       </div>
     </div>
@@ -623,7 +652,13 @@ function CompanyEstimate({ obj }: { obj: unknown }) {
   );
 }
 
-function GradeReport({ result }: { result: GradeResult }) {
+function GradeReport({
+  result,
+  images,
+}: {
+  result: GradeResult;
+  images?: { front?: string; back?: string };
+}) {
   const rec = asObj(result.submission_recommendation);
   const confidence = asObj(result.confidence);
   const blockers = asObj(result.grade_blockers);
@@ -722,6 +757,8 @@ function GradeReport({ result }: { result: GradeResult }) {
 
       <Centering obj={result.centering} />
 
+      <PreparationSection preparation={result.preparation as Preparation | undefined} images={images} />
+
       <div className="grid md:grid-cols-2 gap-3">
         <div className="rounded-xl border border-border-subtle bg-surface-raised p-5">
           <h3 className="text-sm font-medium text-text-primary mb-2">Card</h3>
@@ -753,6 +790,149 @@ function GradeReport({ result }: { result: GradeResult }) {
       )}
 
       <p className="text-xs text-text-muted">{asStr(result.disclaimer)}</p>
+    </div>
+  );
+}
+
+const RISK_TONE: Record<string, string> = {
+  low: "bg-emerald-500/15 text-emerald-300",
+  medium: "bg-amber-500/15 text-amber-300",
+  high: "bg-red-500/15 text-red-300",
+};
+
+function PreparationSection({
+  preparation,
+  images,
+}: {
+  preparation?: Preparation;
+  images?: { front?: string; back?: string };
+}) {
+  const [shots, setShots] = useState<Record<number, string>>({});
+
+  useEffect(() => {
+    if (!preparation || preparation.items.length === 0) return;
+    let cancelled = false;
+    const cache: Partial<Record<"front" | "back", HTMLImageElement | null>> = {};
+    const getImg = async (side: "front" | "back") => {
+      if (!(side in cache)) {
+        const src = side === "back" ? images?.back : images?.front;
+        cache[side] = src ? await loadImage(src).catch(() => null) : null;
+      }
+      return cache[side] ?? null;
+    };
+    (async () => {
+      const out: Record<number, string> = {};
+      for (let i = 0; i < preparation.items.length; i++) {
+        const it = preparation.items[i];
+        const img = await getImg(it.side);
+        if (!img) continue;
+        const url = cropFromImage(img, resolveRect(it.region, it.bbox));
+        if (url) out[i] = url;
+      }
+      if (!cancelled) setShots(out);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [preparation, images?.front, images?.back]);
+
+  if (!preparation) return null;
+
+  const safe = preparation.items
+    .map((it, i) => ({ it, i }))
+    .filter(({ it }) => it.canAttempt);
+  const avoid = preparation.items
+    .map((it, i) => ({ it, i }))
+    .filter(({ it }) => !it.canAttempt);
+
+  return (
+    <div className="rounded-xl border border-border-subtle bg-surface-raised p-5">
+      <div className="flex items-center gap-2 mb-1">
+        <Wrench className="w-5 h-5 text-accent" />
+        <h3 className="text-lg font-semibold text-text-primary">Preparation plan</h3>
+      </div>
+      <p className="text-sm text-text-secondary mb-4">{preparation.summary}</p>
+
+      {safe.length > 0 && (
+        <div className="mb-5">
+          <h4 className="text-xs uppercase tracking-wide text-emerald-300/90 mb-2 flex items-center gap-1.5">
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            Safe to prep ({safe.length})
+          </h4>
+          <div className="space-y-3">
+            {safe.map(({ it, i }) => (
+              <PrepCard key={i} item={it} shot={shots[i]} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {avoid.length > 0 && (
+        <div>
+          <h4 className="text-xs uppercase tracking-wide text-red-300/90 mb-2 flex items-center gap-1.5">
+            <ShieldAlert className="w-3.5 h-3.5" />
+            Leave alone — don't touch ({avoid.length})
+          </h4>
+          <div className="space-y-3">
+            {avoid.map(({ it, i }) => (
+              <PrepCard key={i} item={it} shot={shots[i]} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {preparation.items.length === 0 && (
+        <p className="text-sm text-text-muted">No locatable defects to prepare.</p>
+      )}
+
+      <p className="mt-4 text-xs text-text-muted border-t border-border-subtle pt-3">
+        {preparation.disclaimer}
+      </p>
+    </div>
+  );
+}
+
+function PrepCard({ item, shot }: { item: PrepItem; shot?: string }) {
+  return (
+    <div className="flex gap-3 rounded-lg border border-border-subtle bg-surface-overlay/40 p-3">
+      <div className="w-20 h-20 shrink-0 rounded-md overflow-hidden border border-border-subtle bg-surface-overlay flex items-center justify-center">
+        {shot ? (
+          <img src={shot} alt={item.label} className="w-full h-full object-cover" />
+        ) : (
+          <span className="text-[10px] text-text-muted text-center px-1">No snapshot</span>
+        )}
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm font-medium text-text-primary">{item.label}</span>
+          <span className="text-xs text-text-muted">· {item.location}</span>
+          <span className={`text-[10px] rounded-full px-2 py-0.5 font-medium ${RISK_TONE[item.risk] ?? RISK_TONE.high}`}>
+            {item.risk} risk
+          </span>
+          {item.canAttempt && (
+            <span className="text-[10px] rounded-full px-2 py-0.5 font-medium bg-surface-overlay text-text-secondary inline-flex items-center gap-1">
+              {item.reversible ? <RotateCw className="w-3 h-3" /> : null}
+              {item.difficulty}
+            </span>
+          )}
+        </div>
+        <div className="text-sm text-text-primary mt-1">{item.action}</div>
+        {item.method && <p className="text-xs text-text-secondary mt-1">{item.method}</p>}
+        {item.tools.length > 0 && (
+          <p className="text-xs text-text-muted mt-1">Tools: {item.tools.join(", ")}</p>
+        )}
+        {item.caution && (
+          <p className="text-xs text-amber-300/90 mt-1 flex items-start gap-1.5">
+            <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+            {item.caution}
+          </p>
+        )}
+        {item.expectedUpside && (
+          <p className="text-xs text-text-secondary mt-1">
+            <span className="text-text-muted">Upside:</span> {item.expectedUpside}
+          </p>
+        )}
+      </div>
     </div>
   );
 }

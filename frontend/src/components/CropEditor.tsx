@@ -9,7 +9,11 @@ import {
   Point,
   roundedCropPath,
 } from "../lib/cropGeometry";
-import { loadLuminance, refineCorner } from "../lib/cornerSnap";
+import {
+  loadLuminance,
+  refineCorner,
+  snapCornerToCardEdges,
+} from "../lib/cornerSnap";
 
 type HandleKind =
   | { type: "corner"; index: number }
@@ -71,6 +75,15 @@ export function CropEditor({
 }: CropEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [box, setBox] = useState({ width: 0, height: 0 });
+  // The editor zooms to the current crop region (+ margin) so the card fills the
+  // canvas for precise corner work, rather than showing the whole source photo.
+  // Frozen when a new image loads so dragging doesn't continuously re-zoom.
+  const [viewport, setViewport] = useState<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null>(null);
   const [activeHandle, setActiveHandle] = useState<HandleKind | null>(null);
   const [hoverHandle, setHoverHandle] = useState<HandleKind | null>(null);
   const [snapFlash, setSnapFlash] = useState<number | null>(null);
@@ -103,6 +116,30 @@ export function CropEditor({
     return () => observer.disconnect();
   }, [imageSrc]);
 
+  // Freeze the zoom viewport to the crop region present when this image loads.
+  // Intentionally excludes `corners` from deps so dragging doesn't re-zoom.
+  useEffect(() => {
+    const xs = corners.map((c) => c.x);
+    const ys = corners.map((c) => c.y);
+    const minX = Math.min(...xs);
+    const maxX = Math.max(...xs);
+    const minY = Math.min(...ys);
+    const maxY = Math.max(...ys);
+    const cardW = Math.max(maxX - minX, 1);
+    const cardH = Math.max(maxY - minY, 1);
+    // Generous margin so corners can still be dragged outward to recover a card
+    // edge the auto-detector clipped.
+    const margin = Math.max(cardW, cardH) * 0.22 + 12;
+    const vx = Math.max(0, minX - margin);
+    const vy = Math.max(0, minY - margin);
+    const vw = Math.min(imageWidth, maxX + margin) - vx;
+    const vh = Math.min(imageHeight, maxY + margin) - vy;
+    if (vw > 0 && vh > 0) {
+      setViewport({ x: vx, y: vy, width: vw, height: vh });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [imageSrc, imageWidth, imageHeight]);
+
   // Decode the editing image into a luminance buffer so dropped corners can snap
   // onto the nearest real corner via sub-pixel refinement.
   useEffect(() => {
@@ -116,14 +153,15 @@ export function CropEditor({
     };
   }, [imageSrc, imageWidth, imageHeight]);
 
-  const fit = fitContain(box.width, box.height, imageWidth, imageHeight);
+  const vp = viewport ?? { x: 0, y: 0, width: imageWidth, height: imageHeight };
+  const fit = fitContain(box.width, box.height, vp.width, vp.height);
 
   const toDisplay = useCallback(
     (p: Point) => ({
-      x: fit.x + p.x * fit.scale,
-      y: fit.y + p.y * fit.scale,
+      x: fit.x + (p.x - vp.x) * fit.scale,
+      y: fit.y + (p.y - vp.y) * fit.scale,
     }),
-    [fit.x, fit.y, fit.scale]
+    [fit.x, fit.y, fit.scale, vp.x, vp.y]
   );
 
   const toImage = useCallback(
@@ -131,11 +169,11 @@ export function CropEditor({
       const rect = containerRef.current?.getBoundingClientRect();
       if (!rect || fit.scale <= 0) return { x: 0, y: 0 };
       return {
-        x: (clientX - rect.left - fit.x) / fit.scale,
-        y: (clientY - rect.top - fit.y) / fit.scale,
+        x: (clientX - rect.left - fit.x) / fit.scale + vp.x,
+        y: (clientY - rect.top - fit.y) / fit.scale + vp.y,
       };
     },
-    [fit.x, fit.y, fit.scale]
+    [fit.x, fit.y, fit.scale, vp.x, vp.y]
   );
 
   const onPointerDown = (kind: HandleKind) => (event: React.PointerEvent) => {
@@ -178,17 +216,26 @@ export function CropEditor({
     dragRef.current = null;
     setActiveHandle(null);
 
-    // Corner snap: refine the dropped corner onto the nearest real card corner.
+    // Corner snap: refine the dropped corner onto the card's true corner.
+    // TCG cards have rounded corners, so we first try to intersect the two
+    // straight edges adjacent to this corner (the virtual sharp corner the
+    // rounded mask is built around); if that fails we fall back to a generic
+    // sub-pixel corner refinement.
     if (drag && drag.kind.type === "corner") {
       const gray = grayRef.current;
       const index = drag.kind.index;
       if (gray) {
-        const snapped = refineCorner(
-          gray,
-          imageWidth,
-          imageHeight,
-          corners[index]
-        );
+        const prev = corners[(index + 3) % 4];
+        const next = corners[(index + 1) % 4];
+        const snapped =
+          snapCornerToCardEdges(
+            gray,
+            imageWidth,
+            imageHeight,
+            corners[index],
+            prev,
+            next
+          ) ?? refineCorner(gray, imageWidth, imageHeight, corners[index]);
         if (snapped) {
           const next = cloneCorners(corners);
           next[index] = snapped;
@@ -228,20 +275,28 @@ export function CropEditor({
   return (
     <div
       ref={containerRef}
-      className="relative w-full h-full min-h-[200px] select-none touch-none"
+      className="relative w-full h-full min-h-[200px] select-none touch-none overflow-hidden"
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerLeave={onPointerUp}
     >
-      <div className="absolute inset-0 flex items-center justify-center">
+      {fit.scale > 0 && (
         <img
           src={imageSrc}
           alt="Crop editor"
-          style={{ width: fit.width || undefined, height: fit.height || undefined }}
-          className="object-contain pointer-events-none max-w-full max-h-full"
+          style={{
+            position: "absolute",
+            width: imageWidth * fit.scale,
+            height: imageHeight * fit.scale,
+            left: fit.x - vp.x * fit.scale,
+            top: fit.y - vp.y * fit.scale,
+            maxWidth: "none",
+            maxHeight: "none",
+          }}
+          className="pointer-events-none"
           draggable={false}
         />
-      </div>
+      )}
 
       {fit.scale > 0 && (
         <svg
