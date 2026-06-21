@@ -8,6 +8,7 @@ import { getServiceClient } from "./supabase.js";
 export type ActivityAction =
   | "crop.web"
   | "crop.api"
+  | "grade.web"
   | "key.created"
   | "key.revoked"
   | "plan.changed"

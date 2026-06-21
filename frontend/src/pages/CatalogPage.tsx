@@ -114,6 +114,7 @@ export function CatalogPage() {
   const FacetIcon = facetIcon;
 
   return (
+    <div className="flex-1 min-h-0 overflow-y-auto">
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 w-full">
       <div className="flex items-center gap-3 mb-1">
         <Layers className="w-6 h-6 text-accent" />
@@ -236,6 +237,7 @@ export function CatalogPage() {
           )}
         </>
       )}
+    </div>
     </div>
   );
 }

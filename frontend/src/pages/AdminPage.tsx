@@ -10,12 +10,15 @@ import {
   KeyRound,
   Ban,
   Scissors,
+  DollarSign,
 } from "lucide-react";
 import {
   adminListUsers,
   adminGetStats,
+  adminGetAiSpend,
   type AdminUser,
   type AdminStats,
+  type AiSpend,
 } from "../lib/api";
 import { AdminUserDrawer } from "../components/AdminUserDrawer";
 
@@ -37,6 +40,7 @@ export function AdminPage() {
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<AdminUser | null>(null);
   const [stats, setStats] = useState<AdminStats | null>(null);
+  const [spend, setSpend] = useState<AiSpend | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
 
   const load = useCallback(async () => {
@@ -66,6 +70,9 @@ export function AdminPage() {
 
   useEffect(() => {
     loadStats();
+    adminGetAiSpend(30)
+      .then((r) => setSpend(r.spend))
+      .catch(() => setSpend(null));
   }, [loadStats]);
 
   // Keep the open detail drawer in sync with refreshed list data.
@@ -105,6 +112,29 @@ export function AdminPage() {
           <StatCard icon={<Scissors className="w-4 h-4" />} label="Crops today" value={stats ? stats.crops_web_today + stats.crops_api_today : undefined} />
           <StatCard icon={<KeyRound className="w-4 h-4" />} label="Active keys" value={stats?.active_keys} />
         </div>
+
+        {/* AI spend (token-exact, last 30 days) */}
+        {spend && (
+          <div className="mb-6 rounded-xl border border-border-subtle bg-surface-raised p-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="flex items-center gap-2 text-sm text-text-secondary">
+                <DollarSign className="w-4 h-4 text-accent" />
+                AI spend (30 days)
+              </span>
+              <span className="text-lg font-semibold text-text-primary tabular-nums">
+                ${spend.total_cost_usd.toFixed(2)}
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-x-5 gap-y-1 text-[12px] text-text-muted">
+              <span>{spend.total_calls.toLocaleString()} calls</span>
+              {spend.by_feature.map((f) => (
+                <span key={f.feature}>
+                  {f.feature}: <span className="text-text-secondary">${f.cost_usd.toFixed(2)}</span> ({f.calls})
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="relative mb-3">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />

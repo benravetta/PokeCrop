@@ -6,6 +6,7 @@ import { meRoutes } from "./routes/me.js";
 import { billingRoutes, stripeWebhookHandler } from "./routes/billing.js";
 import { adminRoutes } from "./routes/admin.js";
 import { keyRoutes } from "./routes/keys.js";
+import { gradeRoutes } from "./routes/grade.js";
 import { apiV1Routes } from "./routes/v1.js";
 import { sendApiError } from "./lib/apiError.js";
 
@@ -47,6 +48,7 @@ app.use("/api", meRoutes);
 app.use("/api", billingRoutes);
 app.use("/api", adminRoutes);
 app.use("/api", keyRoutes);
+app.use("/api", gradeRoutes);
 app.use("/api", processRoutes);
 app.use("/v1", apiV1Routes);
 

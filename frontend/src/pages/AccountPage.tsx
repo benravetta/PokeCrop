@@ -4,7 +4,7 @@ import { User as UserIcon, CreditCard, Lock, Check, Loader2, Sparkles, KeyRound 
 import { useAuth } from "../hooks/useAuth";
 import { useMe } from "../hooks/useMe";
 import { supabase } from "../lib/supabase";
-import { openBillingPortal } from "../lib/api";
+import { openBillingPortal, getGradeQuota, type GradeQuota } from "../lib/api";
 import { Field } from "../components/auth/AuthLayout";
 import { ApiKeysPanel } from "../components/ApiKeysPanel";
 
@@ -41,6 +41,7 @@ export function AccountPage() {
   const { me, refresh } = useMe();
   const [searchParams, setSearchParams] = useSearchParams();
   const [portalBusy, setPortalBusy] = useState(false);
+  const [gradeQuota, setGradeQuota] = useState<GradeQuota | null>(null);
 
   const [displayName, setDisplayName] = useState("");
   const [savingName, setSavingName] = useState(false);
@@ -56,6 +57,9 @@ export function AccountPage() {
 
   useEffect(() => {
     refresh();
+    getGradeQuota()
+      .then((r) => setGradeQuota(r.quota))
+      .catch(() => {});
   }, [refresh]);
 
   // Returning from Stripe Checkout: refresh plan, then strip the query param.
@@ -194,6 +198,12 @@ export function AccountPage() {
                     : "3 crops per day"
                   : "Unlimited crops"}
               </p>
+              {gradeQuota && (
+                <p className="text-[12px] text-text-muted mt-0.5">
+                  {gradeQuota.remaining} of {gradeQuota.limit} AI grades remaining{" "}
+                  {gradeQuota.window === "month" ? "this month" : "today"}
+                </p>
+              )}
             </div>
             {plan === "free" ? (
               <Link

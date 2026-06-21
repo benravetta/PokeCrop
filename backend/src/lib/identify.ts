@@ -1,13 +1,13 @@
 import type { CardIdentity } from "./catalog.js";
+import { chatComplete, isOpenAiConfigured } from "./openai.js";
 
 // AI card identification via OpenAI's vision models. Called server-side and
 // fire-and-forget, only on unique (newly de-duplicated) crops, so latency and
-// cost stay bounded. A safe no-op when OPENAI_API_KEY is not set.
-const KEY = process.env.OPENAI_API_KEY || "";
+// cost stay bounded. A safe no-op when OpenAI is not configured.
 const MODEL = process.env.CARD_ID_MODEL || "gpt-4o-mini";
 
 export function isAiIdentifyConfigured(): boolean {
-  return Boolean(KEY);
+  return isOpenAiConfigured();
 }
 
 const SYSTEM =
@@ -37,9 +37,8 @@ function normalize(parsed: Record<string, unknown>): CardIdentity {
   if (typeof c === "number" && Number.isFinite(c)) {
     confidence = Math.max(0, Math.min(1, c));
   }
-  const tcg = str(parsed.tcg, "unidentified").toLowerCase();
   return {
-    tcg,
+    tcg: str(parsed.tcg, "unidentified").toLowerCase(),
     set: str(parsed.set, "unknown").toLowerCase(),
     number: str(parsed.number, "unknown"),
     name: str(parsed.name, ""),
@@ -51,45 +50,21 @@ export async function identifyCardAI(
   image: Buffer,
   mime = "image/jpeg"
 ): Promise<CardIdentity | null> {
-  if (!KEY) return null;
   const dataUrl = `data:${mime};base64,${image.toString("base64")}`;
+  const result = await chatComplete({
+    model: MODEL,
+    system: SYSTEM,
+    user: PROMPT,
+    images: [{ dataUrl, detail: "high" }],
+    jsonObject: true,
+    maxTokens: 200,
+    feature: "catalog_id",
+    timeoutMs: 20000,
+  });
+  if (!result) return null;
   try {
-    const res = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: MODEL,
-        temperature: 0,
-        max_tokens: 200,
-        response_format: { type: "json_object" },
-        messages: [
-          { role: "system", content: SYSTEM },
-          {
-            role: "user",
-            content: [
-              { type: "text", text: PROMPT },
-              { type: "image_url", image_url: { url: dataUrl, detail: "high" } },
-            ],
-          },
-        ],
-      }),
-      signal: AbortSignal.timeout(20000),
-    });
-    if (!res.ok) {
-      console.error("AI identify failed:", res.status, (await res.text().catch(() => "")).slice(0, 200));
-      return null;
-    }
-    const json = (await res.json()) as {
-      choices?: { message?: { content?: string } }[];
-    };
-    const content = json.choices?.[0]?.message?.content;
-    if (!content) return null;
-    return normalize(JSON.parse(content) as Record<string, unknown>);
-  } catch (err) {
-    console.error("AI identify error:", err);
+    return normalize(JSON.parse(result.content) as Record<string, unknown>);
+  } catch {
     return null;
   }
 }

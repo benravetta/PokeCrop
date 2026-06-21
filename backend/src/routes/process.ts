@@ -62,11 +62,16 @@ interface Session {
   // Params from the most recent /process, reused to regenerate the full-res
   // PNG lazily at export time (it is not produced during the interactive loop).
   lastParams?: Record<string, unknown>;
+  // True once this upload's crop has been archived to the catalog, so it's
+  // catalogued at most once (one R2 object + one paid identify call) per upload.
+  archived?: boolean;
   result?: {
     result_web_png: string;
     // Full-resolution PNG: produced lazily on the first original-size export
     // and cached thereafter.
     result_png?: string;
+    // Small downscaled JPEG used for cheap AI identification at archive time.
+    idImageJpeg?: string;
     metadata: Record<string, unknown>;
   };
 }
@@ -94,6 +99,45 @@ process.on("SIGTERM", () => clearInterval(cleanupInterval));
 function sanitizeFilename(name: string): string {
   const base = path.basename(name, path.extname(name));
   return base.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 100);
+}
+
+// Archive this upload's crop to the R2 catalog exactly once. Builds the
+// full-resolution PNG (and a small id image for AI identification) lazily if it
+// hasn't been produced yet. No-op when R2 is unconfigured (inside archiveCrop).
+async function ensureArchived(session: Session): Promise<void> {
+  if (session.archived || !session.result) return;
+  session.archived = true; // claim it up-front so concurrent calls don't double-render
+
+  try {
+    if (!session.result.result_png) {
+      const full = await sendToPython(session.filePath, session.filename, {
+        ...(session.lastParams ?? {}),
+        full_resolution: true,
+        identify: true,
+      });
+      if (full.error || !full.result_png) {
+        session.archived = false; // allow a later retry (e.g. on export)
+        return;
+      }
+      session.result.result_png = full.result_png;
+      session.result.idImageJpeg = full.id_image_jpeg as string | undefined;
+      if (full.metadata) session.result.metadata = full.metadata;
+    }
+
+    const buf = Buffer.from(session.result.result_png, "base64");
+    const dims = pngDimensions(buf);
+    const idB64 = session.result.idImageJpeg;
+    archiveCropAsync({
+      png: buf,
+      idImage: idB64 ? Buffer.from(idB64, "base64") : undefined,
+      source: "web",
+      width: dims?.width,
+      height: dims?.height,
+    });
+  } catch (err) {
+    console.error("ensureArchived failed:", err);
+    session.archived = false;
+  }
 }
 
 // Resolve a session that belongs to the authenticated user. Returns null (and
@@ -236,6 +280,11 @@ router.post("/process", requireAuth, async (req: Request, res: Response) => {
         actorEmail: req.user!.email ?? null,
         detail: { filename: sanitizeFilename(session.filename) },
       });
+
+      // Catalogue this crop to R2 in the background. Runs once per upload (the
+      // first successful extraction), renders the full-res PNG off the response
+      // path, and is a no-op when R2 is unconfigured.
+      void ensureArchived(session);
     }
 
     res.json({
@@ -278,19 +327,8 @@ router.get("/export/:sessionId", requireAuth, async (req: Request, res: Response
           return;
         }
         session.result.result_png = full.result_png;
-
-        // Archive this full-resolution crop to the R2 catalog. Fire-and-forget,
-        // de-duplicated by content hash, and a no-op when R2 is unconfigured.
-        const fullBuf = Buffer.from(full.result_png, "base64");
-        const dims = pngDimensions(fullBuf);
-        const idImageB64 = full.id_image_jpeg as string | undefined;
-        archiveCropAsync({
-          png: fullBuf,
-          idImage: idImageB64 ? Buffer.from(idImageB64, "base64") : undefined,
-          source: "web",
-          width: dims?.width,
-          height: dims?.height,
-        });
+        session.result.idImageJpeg = full.id_image_jpeg as string | undefined;
+        if (full.metadata) session.result.metadata = full.metadata;
       } catch (err) {
         console.error("Export render error:", err);
         res.status(500).json({ error: "Failed to render full-resolution image" });
@@ -298,6 +336,10 @@ router.get("/export/:sessionId", requireAuth, async (req: Request, res: Response
       }
     }
     base64Data = session.result.result_png;
+
+    // Catalogue the crop (once per upload, de-duplicated by content hash, no-op
+    // when R2 is unconfigured). Fire-and-forget so the download isn't delayed.
+    void ensureArchived(session);
   }
 
   if (!base64Data) {

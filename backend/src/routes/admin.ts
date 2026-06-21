@@ -467,6 +467,21 @@ router.delete("/admin/api-keys/:keyId", requireAdmin, async (req: Request, res: 
 // Catalog browser (R2-backed archive of crops, organised by TCG/set/number).
 // ----------------------------------------------------------------------------
 
+// GET /admin/ai-spend?days=30 — token-exact OpenAI spend, by feature and day.
+router.get("/admin/ai-spend", requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const days = Math.min(Math.max(parseInt(String(req.query.days ?? "30"), 10) || 30, 1), 180);
+    const { data, error } = await getServiceClient().rpc("ai_spend_summary", {
+      p_days: days,
+    });
+    if (error) throw error;
+    res.json({ spend: data, days });
+  } catch (err) {
+    console.error("admin ai-spend failed:", err);
+    res.status(500).json({ error: "Failed to load AI spend." });
+  }
+});
+
 // GET /admin/catalog/facets?tcg=&set= — grouped counts for tree navigation.
 router.get("/admin/catalog/facets", requireAdmin, async (req: Request, res: Response) => {
   try {

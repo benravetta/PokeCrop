@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, Outlet, useOutletContext } from "react-router-dom";
+import { Link, NavLink, Outlet, useOutletContext } from "react-router-dom";
 import { Crop, HelpCircle } from "lucide-react";
 import { HelpDrawer } from "./HelpDrawer";
 import { UserMenu } from "./UserMenu";
@@ -32,6 +32,34 @@ export function Layout() {
             </span>
           </span>
         </Link>
+
+        <nav className="flex items-center gap-1">
+          <NavLink
+            to="/"
+            end
+            className={({ isActive }) =>
+              `px-2.5 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                isActive
+                  ? "bg-surface-overlay text-text-primary"
+                  : "text-text-secondary hover:text-text-primary hover:bg-surface-overlay/60"
+              }`
+            }
+          >
+            Crop
+          </NavLink>
+          <NavLink
+            to="/grade"
+            className={({ isActive }) =>
+              `px-2.5 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                isActive
+                  ? "bg-surface-overlay text-text-primary"
+                  : "text-text-secondary hover:text-text-primary hover:bg-surface-overlay/60"
+              }`
+            }
+          >
+            Grade
+          </NavLink>
+        </nav>
 
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           <CropsBadge />

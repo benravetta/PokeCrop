@@ -417,6 +417,69 @@ export async function adminCatalogFacets(opts: {
   return res.json();
 }
 
+// ---- AI grading ----
+
+export interface GradeQuota {
+  plan: "free" | "unlimited" | "api";
+  limit: number;
+  used: number;
+  remaining: number;
+  window: "day" | "month";
+}
+
+// The grade result is the merged inspection + adjudication JSON; typed loosely
+// since it mirrors the model's structured schema.
+export type GradeResult = Record<string, unknown>;
+
+export interface GradeImages {
+  front: File;
+  back?: File;
+  angled_front?: File;
+  angled_back?: File;
+  closeups?: File[];
+}
+
+export async function getGradeQuota(): Promise<{ quota: GradeQuota }> {
+  const res = await fetch(`${BASE}/grade/quota`, { headers: await authHeaders() });
+  if (!res.ok) await fail(res, "Failed to load grading quota");
+  return res.json();
+}
+
+export async function gradeCard(
+  images: GradeImages
+): Promise<{ result: GradeResult; quota: GradeQuota }> {
+  const form = new FormData();
+  form.append("front", images.front);
+  if (images.back) form.append("back", images.back);
+  if (images.angled_front) form.append("angled_front", images.angled_front);
+  if (images.angled_back) form.append("angled_back", images.angled_back);
+  for (const c of images.closeups ?? []) form.append("closeups", c);
+  const res = await fetch(`${BASE}/grade`, {
+    method: "POST",
+    headers: await authHeaders(),
+    body: form,
+  });
+  if (!res.ok) await fail(res, "Grading failed");
+  return res.json();
+}
+
+// ---- Admin: AI spend ----
+
+export interface AiSpend {
+  total_cost_usd: number;
+  total_calls: number;
+  by_feature: { feature: string; calls: number; cost_usd: number }[];
+  by_day: { day: string; cost_usd: number }[];
+}
+
+export async function adminGetAiSpend(days = 30): Promise<{ spend: AiSpend; days: number }> {
+  const res = await fetch(`${BASE}/admin/ai-spend?days=${days}`, {
+    headers: await authHeaders(),
+  });
+  if (!res.ok) await fail(res, "Failed to load AI spend");
+  return res.json();
+}
+
 export async function adminCatalogItems(opts: {
   tcg?: string;
   set?: string;

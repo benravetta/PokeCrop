@@ -10,6 +10,7 @@ import { AccountPage } from "./pages/AccountPage";
 import { PricingPage } from "./pages/PricingPage";
 import { AdminPage } from "./pages/AdminPage";
 import { CatalogPage } from "./pages/CatalogPage";
+import { GradePage } from "./pages/GradePage";
 import { LoginPage } from "./pages/LoginPage";
 import { RegisterPage } from "./pages/RegisterPage";
 import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
@@ -77,6 +78,7 @@ export default function App() {
         }
       >
         <Route path="/" element={<ToolPage />} />
+        <Route path="/grade" element={<GradePage />} />
         <Route path="/account" element={<AccountPage />} />
         <Route path="/pricing" element={<PricingPage />} />
         <Route
