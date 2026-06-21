@@ -19,7 +19,7 @@ export function Layout() {
   return (
     <div className="h-[100dvh] overflow-hidden bg-surface flex flex-col">
       <header className="border-b border-border-subtle px-4 sm:px-6 py-3 sm:py-3.5 flex items-center justify-between gap-3">
-        <Link to="/" className="flex items-center gap-2.5 min-w-0">
+        <Link to="/crop" className="flex items-center gap-2.5 min-w-0">
           <span className="w-8 h-8 rounded-lg bg-accent/15 flex items-center justify-center shrink-0">
             <Crop className="w-[18px] h-[18px] text-accent" />
           </span>
@@ -35,7 +35,7 @@ export function Layout() {
 
         <nav className="flex items-center gap-1">
           <NavLink
-            to="/"
+            to="/crop"
             end
             className={({ isActive }) =>
               `px-2.5 py-1.5 rounded-lg text-sm font-medium transition-colors ${

@@ -439,14 +439,36 @@ export interface GradeImages {
   closeups?: File[];
 }
 
+// Measured centering ratios (e.g. "55/45"), larger-side first, per side.
+export interface MeasuredCentering {
+  front?: { leftRight?: string; topBottom?: string };
+  back?: { leftRight?: string; topBottom?: string };
+}
+
 export async function getGradeQuota(): Promise<{ quota: GradeQuota }> {
   const res = await fetch(`${BASE}/grade/quota`, { headers: await authHeaders() });
   if (!res.ok) await fail(res, "Failed to load grading quota");
   return res.json();
 }
 
+// Run a single photo through the crop/straighten pipeline so centering can be
+// measured on a clean card. Returns a PNG data URL, or null if no card found.
+export async function straightenForGrade(file: File): Promise<string | null> {
+  const form = new FormData();
+  form.append("image", file);
+  const res = await fetch(`${BASE}/grade/straighten`, {
+    method: "POST",
+    headers: await authHeaders(),
+    body: form,
+  });
+  if (!res.ok) return null;
+  const data = (await res.json()) as { png?: string };
+  return data.png ? `data:image/png;base64,${data.png}` : null;
+}
+
 export async function gradeCard(
-  images: GradeImages
+  images: GradeImages,
+  centering?: MeasuredCentering
 ): Promise<{ result: GradeResult; quota: GradeQuota }> {
   const form = new FormData();
   form.append("front", images.front);
@@ -454,6 +476,7 @@ export async function gradeCard(
   if (images.angled_front) form.append("angled_front", images.angled_front);
   if (images.angled_back) form.append("angled_back", images.angled_back);
   for (const c of images.closeups ?? []) form.append("closeups", c);
+  if (centering) form.append("centering", JSON.stringify(centering));
   const res = await fetch(`${BASE}/grade`, {
     method: "POST",
     headers: await authHeaders(),

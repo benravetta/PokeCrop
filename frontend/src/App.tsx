@@ -5,6 +5,7 @@ import { useAuth } from "./hooks/useAuth";
 import { Layout } from "./components/Layout";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AdminRoute } from "./components/AdminRoute";
+import { LandingPage } from "./pages/LandingPage";
 import { ToolPage } from "./pages/ToolPage";
 import { AccountPage } from "./pages/AccountPage";
 import { PricingPage } from "./pages/PricingPage";
@@ -29,7 +30,7 @@ function FullScreenLoader() {
 function PublicOnly({ children }: { children: ReactNode }) {
   const { session, initializing } = useAuth();
   if (initializing) return <FullScreenLoader />;
-  if (session) return <Navigate to="/" replace />;
+  if (session) return <Navigate to="/crop" replace />;
   return <>{children}</>;
 }
 
@@ -70,6 +71,9 @@ export default function App() {
       {/* Public API documentation (no auth required). */}
       <Route path="/docs" element={<DocsPage />} />
 
+      {/* Public marketing homepage. */}
+      <Route path="/" element={<LandingPage />} />
+
       <Route
         element={
           <ProtectedRoute>
@@ -77,7 +81,7 @@ export default function App() {
           </ProtectedRoute>
         }
       >
-        <Route path="/" element={<ToolPage />} />
+        <Route path="/crop" element={<ToolPage />} />
         <Route path="/grade" element={<GradePage />} />
         <Route path="/account" element={<AccountPage />} />
         <Route path="/pricing" element={<PricingPage />} />

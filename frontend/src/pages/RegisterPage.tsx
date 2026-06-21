@@ -38,7 +38,7 @@ export function RegisterPage() {
       if (needsConfirmation) {
         setSentTo(email);
       } else {
-        navigate("/", { replace: true });
+        navigate("/crop", { replace: true });
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not create account.");

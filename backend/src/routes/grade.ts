@@ -1,12 +1,26 @@
 import { Router, Request, Response } from "express";
 import multer from "multer";
+import fs from "fs";
+import os from "os";
+import path from "path";
+import { v4 as uuid } from "uuid";
 import { requireAuth } from "../middleware/auth.js";
-import { gradeCard, isGradingConfigured, type GradeImageInput } from "../lib/grading.js";
+import {
+  gradeCard,
+  isGradingConfigured,
+  type GradeImageInput,
+  type MeasuredCentering,
+} from "../lib/grading.js";
 import { getGradeQuota, incrementGrade } from "../lib/gradeQuota.js";
 import { isSuspended } from "../lib/usage.js";
 import { logActivity } from "../lib/activity.js";
+import { sendToPython } from "../services/pythonBridge.js";
+import { validateParams } from "../lib/cropParams.js";
 
 const router = Router();
+
+const tmpDir = path.join(os.tmpdir(), "cardcrop-grade");
+fs.mkdirSync(tmpDir, { recursive: true });
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -19,6 +33,27 @@ const upload = multer({
     }
   },
 });
+
+// Parse the optional `centering` form field (JSON) into a MeasuredCentering.
+function parseCentering(raw: unknown): MeasuredCentering | undefined {
+  if (typeof raw !== "string" || !raw.trim()) return undefined;
+  try {
+    const v = JSON.parse(raw) as MeasuredCentering;
+    if (!v || typeof v !== "object") return undefined;
+    const ratio = (s: unknown) =>
+      typeof s === "string" && /^\d{1,3}\/\d{1,3}$/.test(s) ? s : undefined;
+    const out: MeasuredCentering = {};
+    if (v.front)
+      out.front = { leftRight: ratio(v.front.leftRight), topBottom: ratio(v.front.topBottom) };
+    if (v.back)
+      out.back = { leftRight: ratio(v.back.leftRight), topBottom: ratio(v.back.topBottom) };
+    const hasAny =
+      out.front?.leftRight || out.front?.topBottom || out.back?.leftRight || out.back?.topBottom;
+    return hasAny ? out : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 const gradeUpload = upload.fields([
   { name: "front", maxCount: 1 },
@@ -48,6 +83,37 @@ function toImages(files: FileMap | undefined): GradeImageInput[] {
   for (const f of files.closeups ?? []) add("closeup", f);
   return images;
 }
+
+// POST /api/grade/straighten — run a single photo through the crop/straighten
+// pipeline so centering can be measured on a clean, perspective-corrected card.
+// Not metered against the crop quota; it's a helper for the grader.
+router.post(
+  "/grade/straighten",
+  requireAuth,
+  upload.single("image"),
+  async (req: Request, res: Response) => {
+    const file = req.file;
+    if (!file) {
+      res.status(400).json({ error: "No image provided." });
+      return;
+    }
+    const tempPath = path.join(tmpDir, `${uuid()}-${file.originalname || "card"}`);
+    try {
+      await fs.promises.writeFile(tempPath, file.buffer);
+      const result = await sendToPython(tempPath, file.originalname || "card", validateParams({}));
+      if (result.error || !result.result_web_png) {
+        res.status(422).json({ error: "Could not detect a card to straighten." });
+        return;
+      }
+      res.json({ png: result.result_web_png });
+    } catch (err) {
+      console.error("grade straighten failed:", err);
+      res.status(500).json({ error: "Failed to straighten the image." });
+    } finally {
+      fs.unlink(tempPath, () => {});
+    }
+  }
+);
 
 // GET /api/grade/quota — current grading allowance for the signed-in user.
 router.get("/grade/quota", requireAuth, async (req: Request, res: Response) => {
@@ -93,7 +159,8 @@ router.post("/grade", requireAuth, gradeUpload, async (req: Request, res: Respon
       return;
     }
 
-    const result = await gradeCard(images, userId);
+    const centering = parseCentering((req.body as Record<string, unknown>)?.centering);
+    const result = await gradeCard(images, userId, centering);
     if (!result) {
       res.status(502).json({ error: "Grading failed. Please try again." });
       return;
@@ -104,7 +171,11 @@ router.post("/grade", requireAuth, gradeUpload, async (req: Request, res: Respon
       userId,
       action: "grade.web",
       actorId: userId,
-      detail: { images: images.length, back: images.some((i) => i.label === "back") },
+      detail: {
+        images: images.length,
+        back: images.some((i) => i.label === "back"),
+        centering: Boolean(centering),
+      },
     });
 
     const updated = await getGradeQuota(userId);

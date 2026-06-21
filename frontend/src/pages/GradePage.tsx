@@ -7,14 +7,25 @@ import {
   Sparkles,
   AlertTriangle,
   ChevronDown,
+  Crop,
+  ScanSearch,
+  Square,
+  Layers,
+  Camera,
+  Sun,
+  RotateCcw,
 } from "lucide-react";
 import {
   gradeCard,
   getGradeQuota,
+  straightenForGrade,
   type GradeQuota,
   type GradeResult,
   type GradeImages,
+  type MeasuredCentering,
 } from "../lib/api";
+import { CenteringTool } from "../components/grade/CenteringTool";
+import { ratiosFromBox, type InnerBox } from "../lib/centering";
 
 // ---- helpers to read the loosely-typed model result ----
 const asObj = (v: unknown): Record<string, unknown> =>
@@ -45,6 +56,24 @@ async function downscale(file: File, max = 1600): Promise<File> {
 }
 
 type Slot = "front" | "back" | "angled_front" | "angled_back";
+type CardSlot = "front" | "back";
+
+// Straightened-card state per side, used for centering measurement + as the
+// (cleaner) image we send to the inspector.
+interface SideProc {
+  src?: string; // straightened PNG data URL (when detection succeeded)
+  loading: boolean;
+  failed: boolean;
+}
+
+function dataUrlToFile(dataUrl: string, name: string): File {
+  const [head, b64] = dataUrl.split(",");
+  const mime = /:(.*?);/.exec(head)?.[1] || "image/png";
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new File([bytes], name, { type: mime });
+}
 
 export function GradePage() {
   const [files, setFiles] = useState<Record<Slot, File | null>>({
@@ -60,22 +89,88 @@ export function GradePage() {
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Centering measurement state, per side.
+  const [proc, setProc] = useState<Record<CardSlot, SideProc>>({
+    front: { loading: false, failed: false },
+    back: { loading: false, failed: false },
+  });
+  const [boxes, setBoxes] = useState<Record<CardSlot, InnerBox | null>>({
+    front: null,
+    back: null,
+  });
+  const [skip, setSkip] = useState<Record<CardSlot, boolean>>({
+    front: false,
+    back: false,
+  });
+
   useEffect(() => {
     getGradeQuota()
       .then((r) => setQuota(r.quota))
       .catch(() => {});
   }, []);
 
-  const setSlot = useCallback((slot: Slot, file: File | null) => {
-    setFiles((prev) => ({ ...prev, [slot]: file }));
-    setPreviews((prev) => {
-      if (prev[slot]) URL.revokeObjectURL(prev[slot]);
-      const next = { ...prev };
-      if (file) next[slot] = URL.createObjectURL(file);
-      else delete next[slot];
-      return next;
-    });
+  // Straighten a freshly-picked front/back so centering can be measured on a
+  // clean card. Falls back to the original photo if no card is detected.
+  const straighten = useCallback(async (slot: CardSlot, file: File) => {
+    setProc((p) => ({ ...p, [slot]: { loading: true, failed: false } }));
+    setBoxes((b) => ({ ...b, [slot]: null }));
+    try {
+      const src = await straightenForGrade(file);
+      setProc((p) => ({ ...p, [slot]: { src: src ?? undefined, loading: false, failed: !src } }));
+    } catch {
+      setProc((p) => ({ ...p, [slot]: { loading: false, failed: true } }));
+    }
   }, []);
+
+  const setSlot = useCallback(
+    (slot: Slot, file: File | null) => {
+      setFiles((prev) => ({ ...prev, [slot]: file }));
+      setPreviews((prev) => {
+        if (prev[slot]) URL.revokeObjectURL(prev[slot]);
+        const next = { ...prev };
+        if (file) next[slot] = URL.createObjectURL(file);
+        else delete next[slot];
+        return next;
+      });
+      if (slot === "front" || slot === "back") {
+        if (file) {
+          void straighten(slot, file);
+        } else {
+          setProc((p) => ({ ...p, [slot]: { loading: false, failed: false } }));
+          setBoxes((b) => ({ ...b, [slot]: null }));
+          setSkip((s) => ({ ...s, [slot]: false }));
+        }
+      }
+    },
+    [straighten]
+  );
+
+  // Build the measured-centering payload from the (un-skipped) boxes.
+  const buildCentering = useCallback((): MeasuredCentering | undefined => {
+    const out: MeasuredCentering = {};
+    if (!skip.front && boxes.front) {
+      const r = ratiosFromBox(boxes.front);
+      out.front = { leftRight: r.leftRight.ratio, topBottom: r.topBottom.ratio };
+    }
+    if (files.back && !skip.back && boxes.back) {
+      const r = ratiosFromBox(boxes.back);
+      out.back = { leftRight: r.leftRight.ratio, topBottom: r.topBottom.ratio };
+    }
+    return out.front || out.back ? out : undefined;
+  }, [boxes, skip, files.back]);
+
+  // The image we send for inspection: the straightened card when available
+  // (cleaner read), otherwise the downscaled original.
+  const imageFor = useCallback(
+    async (slot: CardSlot): Promise<File | null> => {
+      const f = files[slot];
+      if (!f) return null;
+      const s = proc[slot];
+      if (s?.src) return dataUrlToFile(s.src, `${slot}.png`);
+      return downscale(f);
+    },
+    [files, proc]
+  );
 
   const run = useCallback(async () => {
     if (!files.front) return;
@@ -83,11 +178,14 @@ export function GradePage() {
     setError(null);
     setResult(null);
     try {
-      const payload: GradeImages = { front: await downscale(files.front) };
-      if (files.back) payload.back = await downscale(files.back);
+      const front = await imageFor("front");
+      if (!front) return;
+      const payload: GradeImages = { front };
+      const back = await imageFor("back");
+      if (back) payload.back = back;
       if (files.angled_front) payload.angled_front = await downscale(files.angled_front);
       if (files.angled_back) payload.angled_back = await downscale(files.angled_back);
-      const res = await gradeCard(payload);
+      const res = await gradeCard(payload, buildCentering());
       setResult(res.result);
       setQuota(res.quota);
     } catch (err) {
@@ -95,7 +193,12 @@ export function GradePage() {
     } finally {
       setRunning(false);
     }
-  }, [files]);
+  }, [files, imageFor, buildCentering]);
+
+  const reset = useCallback(() => {
+    setResult(null);
+    setError(null);
+  }, []);
 
   const outOfQuota = quota ? quota.remaining <= 0 : false;
 
@@ -120,49 +223,293 @@ export function GradePage() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-4 mb-4">
-        <ImageSlot label="Front (required)" preview={previews.front} onPick={(f) => setSlot("front", f)} onClear={() => setSlot("front", null)} />
-        <ImageSlot label="Back" preview={previews.back} onPick={(f) => setSlot("back", f)} onClear={() => setSlot("back", null)} />
-      </div>
+      {!result && (
+        <div className="grid lg:grid-cols-5 gap-6">
+          <div className="lg:col-span-3 space-y-5">
+            <div className="grid grid-cols-2 gap-4">
+              <ImageSlot label="Front (required)" preview={previews.front} onPick={(f) => setSlot("front", f)} onClear={() => setSlot("front", null)} />
+              <ImageSlot label="Back" preview={previews.back} onPick={(f) => setSlot("back", f)} onClear={() => setSlot("back", null)} />
+            </div>
 
-      <button
-        onClick={() => setShowAdvanced((v) => !v)}
-        className="mb-2 inline-flex items-center gap-1.5 text-sm text-text-secondary hover:text-text-primary transition-colors"
-      >
-        <ChevronDown className={`w-4 h-4 transition-transform ${showAdvanced ? "rotate-180" : ""}`} />
-        Angled / holo shots (improve surface accuracy)
-      </button>
-      {showAdvanced && (
-        <div className="grid grid-cols-2 gap-4 mb-4">
-          <ImageSlot label="Angled front (holo glare)" preview={previews.angled_front} onPick={(f) => setSlot("angled_front", f)} onClear={() => setSlot("angled_front", null)} />
-          <ImageSlot label="Angled back" preview={previews.angled_back} onPick={(f) => setSlot("angled_back", f)} onClear={() => setSlot("angled_back", null)} />
+            <div>
+              <button
+                onClick={() => setShowAdvanced((v) => !v)}
+                className="inline-flex items-center gap-1.5 text-sm text-text-secondary hover:text-text-primary transition-colors"
+              >
+                <ChevronDown className={`w-4 h-4 transition-transform ${showAdvanced ? "rotate-180" : ""}`} />
+                Angled / holo shots (improve surface accuracy)
+              </button>
+              {showAdvanced && (
+                <div className="grid grid-cols-2 gap-4 mt-3">
+                  <ImageSlot label="Angled front (holo glare)" preview={previews.angled_front} onPick={(f) => setSlot("angled_front", f)} onClear={() => setSlot("angled_front", null)} />
+                  <ImageSlot label="Angled back" preview={previews.angled_back} onPick={(f) => setSlot("angled_back", f)} onClear={() => setSlot("angled_back", null)} />
+                </div>
+              )}
+            </div>
+
+            {!files.back && files.front && (
+              <p className="flex items-center gap-2 text-xs text-amber-300/90">
+                <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                No back image — confidence will be capped and it can't be a strong gem-grade call.
+              </p>
+            )}
+
+            {files.front && (
+              <CenteringPanel
+                side="front"
+                label="Front"
+                proc={proc.front}
+                displaySrc={proc.front.src ?? previews.front}
+                box={boxes.front}
+                onBox={(b) => setBoxes((prev) => ({ ...prev, front: b }))}
+                skip={skip.front}
+                onSkip={(v) => setSkip((s) => ({ ...s, front: v }))}
+              />
+            )}
+            {files.back && (
+              <CenteringPanel
+                side="back"
+                label="Back"
+                proc={proc.back}
+                displaySrc={proc.back.src ?? previews.back}
+                box={boxes.back}
+                onBox={(b) => setBoxes((prev) => ({ ...prev, back: b }))}
+                skip={skip.back}
+                onSkip={(v) => setSkip((s) => ({ ...s, back: v }))}
+              />
+            )}
+
+            <div className="flex items-center gap-3">
+              <button
+                onClick={run}
+                disabled={!files.front || running || outOfQuota}
+                className="inline-flex items-center gap-2 rounded-lg bg-accent px-5 py-2.5 text-sm font-medium text-white hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                {running ? "Inspecting…" : outOfQuota ? "No grades left" : "Run pre-grade"}
+              </button>
+              {(proc.front.loading || proc.back.loading) && (
+                <span className="text-xs text-text-muted inline-flex items-center gap-1.5">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" /> Straightening card…
+                </span>
+              )}
+            </div>
+
+            {error && (
+              <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+                {error}
+              </div>
+            )}
+          </div>
+
+          <aside className="lg:col-span-2 space-y-5">
+            <WhatWeCheck />
+            <PhotoTips />
+            <CenteringGuide />
+            <ScaleLegend />
+          </aside>
         </div>
       )}
 
-      {!files.back && files.front && (
-        <p className="mb-4 flex items-center gap-2 text-xs text-amber-300/90">
-          <AlertTriangle className="w-3.5 h-3.5" />
-          No back image — confidence will be capped and it can't be a strong PSA 10 call.
-        </p>
+      {result && (
+        <>
+          <button
+            onClick={reset}
+            className="mb-5 inline-flex items-center gap-2 rounded-lg border border-border-strong px-4 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-surface-overlay transition-colors"
+          >
+            <RotateCcw className="w-4 h-4" />
+            Grade another card
+          </button>
+          <GradeReport result={result} />
+        </>
       )}
-
-      <button
-        onClick={run}
-        disabled={!files.front || running || outOfQuota}
-        className="inline-flex items-center gap-2 rounded-lg bg-accent px-5 py-2.5 text-sm font-medium text-white hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-      >
-        {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-        {running ? "Inspecting…" : outOfQuota ? "No grades left" : "Run pre-grade"}
-      </button>
-
-      {error && (
-        <div className="mt-6 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-          {error}
-        </div>
-      )}
-
-      {result && <GradeReport result={result} />}
     </div>
+    </div>
+  );
+}
+
+function CenteringPanel({
+  side,
+  label,
+  proc,
+  displaySrc,
+  box,
+  onBox,
+  skip,
+  onSkip,
+}: {
+  side: CardSlot;
+  label: string;
+  proc: SideProc;
+  displaySrc?: string;
+  box: InnerBox | null;
+  onBox: (b: InnerBox) => void;
+  skip: boolean;
+  onSkip: (v: boolean) => void;
+}) {
+  if (!displaySrc && !proc.loading) return null;
+  return (
+    <div className="rounded-xl border border-border-subtle bg-surface-raised p-4">
+      <h3 className="text-sm font-medium text-text-primary flex items-center gap-2 mb-3">
+        <ScanSearch className="w-4 h-4 text-accent" />
+        Measure centering — {label}
+      </h3>
+      {proc.loading ? (
+        <div className="flex items-center justify-center gap-2 py-10 text-sm text-text-secondary">
+          <Loader2 className="w-4 h-4 animate-spin" /> Straightening…
+        </div>
+      ) : displaySrc ? (
+        <>
+          {proc.failed && (
+            <p className="mb-2 flex items-center gap-1.5 text-xs text-amber-300/90">
+              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+              Couldn't auto-straighten — measure on the original or tick "No clear border".
+            </p>
+          )}
+          <CenteringTool
+            side={side}
+            imageSrc={displaySrc}
+            box={box}
+            onBox={onBox}
+            skipped={skip}
+            onSkip={onSkip}
+          />
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+function WhatWeCheck() {
+  const rows = [
+    { icon: ScanSearch, t: "Centering", d: "How even the borders are, front and back." },
+    { icon: Square, t: "Corners", d: "Sharpness, whitening, rounding or dents." },
+    { icon: Crop, t: "Edges", d: "Whitening, chips, nicks and rough cuts." },
+    { icon: Layers, t: "Surface", d: "Scratches, print lines, dents and creases." },
+  ];
+  return (
+    <div className="rounded-xl border border-border-subtle bg-surface-raised p-5">
+      <h3 className="text-sm font-semibold text-text-primary mb-3">What we check</h3>
+      <ul className="space-y-3">
+        {rows.map((r) => (
+          <li key={r.t} className="flex items-start gap-3">
+            <span className="mt-0.5 w-8 h-8 rounded-lg bg-accent/15 flex items-center justify-center shrink-0">
+              <r.icon className="w-4 h-4 text-accent" />
+            </span>
+            <div>
+              <div className="text-sm text-text-primary">{r.t}</div>
+              <div className="text-xs text-text-secondary">{r.d}</div>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function PhotoTips() {
+  const tips = [
+    { icon: Sun, t: "Flat, even light", d: "Avoid glare and harsh shadows." },
+    { icon: Camera, t: "Fill the frame", d: "Shoot square-on, card flat, in focus." },
+    { icon: Layers, t: "Front and back", d: "Both sides — a missing back caps the grade." },
+  ];
+  return (
+    <div className="rounded-xl border border-border-subtle bg-surface-raised p-5">
+      <h3 className="text-sm font-semibold text-text-primary mb-3">Photo tips</h3>
+      <ul className="space-y-3">
+        {tips.map((r) => (
+          <li key={r.t} className="flex items-start gap-3">
+            <span className="mt-0.5 w-8 h-8 rounded-lg bg-surface-overlay flex items-center justify-center shrink-0">
+              <r.icon className="w-4 h-4 text-text-secondary" />
+            </span>
+            <div>
+              <div className="text-sm text-text-primary">{r.t}</div>
+              <div className="text-xs text-text-secondary">{r.d}</div>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+// Small SVG card illustrating an inner design box offset from centre.
+function CenterEg({ dx, dy, label, ok }: { dx: number; dy: number; label: string; ok: "good" | "ok" | "bad" }) {
+  const tone =
+    ok === "good" ? "fill-emerald-400/30" : ok === "ok" ? "fill-accent/30" : "fill-amber-400/30";
+  const stroke =
+    ok === "good" ? "stroke-emerald-400" : ok === "ok" ? "stroke-accent" : "stroke-amber-400";
+  return (
+    <div className="flex flex-col items-center gap-1.5">
+      <svg viewBox="0 0 60 84" className="w-14 h-[4.7rem]">
+        <rect x="1" y="1" width="58" height="82" rx="4" className="fill-surface-overlay stroke-border-strong" strokeWidth="1.5" />
+        <rect
+          x={14 + dx}
+          y={14 + dy}
+          width="32"
+          height="56"
+          rx="2"
+          className={`${tone} ${stroke}`}
+          strokeWidth="1.5"
+        />
+      </svg>
+      <span className="text-[11px] text-text-secondary">{label}</span>
+    </div>
+  );
+}
+
+function CenteringGuide() {
+  return (
+    <div className="rounded-xl border border-border-subtle bg-surface-raised p-5">
+      <h3 className="text-sm font-semibold text-text-primary mb-1">How centering works</h3>
+      <p className="text-xs text-text-secondary mb-4">
+        We compare the border widths on opposite sides. The worst axis sets the ceiling —
+        PSA 10 needs 55/45 or better on the front.
+      </p>
+      <div className="flex items-end justify-between gap-2">
+        <CenterEg dx={0} dy={0} label="50/50" ok="good" />
+        <CenterEg dx={5} dy={2} label="60/40" ok="ok" />
+        <CenterEg dx={10} dy={4} label="70/30" ok="bad" />
+      </div>
+      <div className="mt-4 rounded-lg bg-surface-overlay/60 p-3 flex items-center gap-3">
+        <svg viewBox="0 0 60 84" className="w-12 shrink-0">
+          <rect x="1" y="1" width="58" height="82" rx="4" className="fill-surface stroke-border-strong" strokeWidth="1.5" />
+          <rect x="12" y="12" width="36" height="60" rx="2" className="fill-accent/20 stroke-accent" strokeWidth="1.5" />
+          <line x1="1" y1="42" x2="12" y2="42" className="stroke-accent" strokeWidth="1.5" />
+          <line x1="48" y1="42" x2="59" y2="42" className="stroke-accent" strokeWidth="1.5" />
+        </svg>
+        <p className="text-xs text-text-secondary">
+          Drag the lines onto the edge of the printed design — not the card edge. We measure
+          the gaps for you.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function ScaleLegend() {
+  const rows = [
+    ["PSA", "Whole grades 1–10, Gem Mint 10"],
+    ["Beckett", "Half grades + subgrades, Black Label = all 10s"],
+    ["CGC", "Half grades, Pristine 10"],
+    ["TAG", "One-decimal grades (e.g. 9.4)"],
+    ["ACE", "One-decimal grades + subgrades"],
+  ];
+  return (
+    <div className="rounded-xl border border-border-subtle bg-surface-raised p-5">
+      <h3 className="text-sm font-semibold text-text-primary mb-3">The graders we compare</h3>
+      <ul className="space-y-2">
+        {rows.map(([k, v]) => (
+          <li key={k} className="flex items-baseline gap-3 text-xs">
+            <span className="w-16 shrink-0 font-semibold text-text-primary">{k}</span>
+            <span className="text-text-secondary">{v}</span>
+          </li>
+        ))}
+      </ul>
+      <p className="mt-4 text-[11px] text-text-muted">
+        Estimates only. Official grades are decided by each company after inspecting the
+        physical card.
+      </p>
     </div>
   );
 }
@@ -216,7 +563,9 @@ function ImageSlot({
 }
 
 const REC_LABELS: Record<string, string> = {
-  strong_psa_candidate: "Strong PSA candidate",
+  strong_candidate: "Strong candidate",
+  // legacy value kept so older responses still render
+  strong_psa_candidate: "Strong candidate",
   possible_candidate_inspect_first: "Possible — inspect first",
   only_if_value_justifies: "Only if value justifies it",
   sell_raw: "Sell raw instead",
@@ -224,6 +573,7 @@ const REC_LABELS: Record<string, string> = {
   needs_better_photos: "Needs better photos",
 };
 const REC_TONE: Record<string, string> = {
+  strong_candidate: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
   strong_psa_candidate: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
   possible_candidate_inspect_first: "bg-accent/15 text-accent border-accent/30",
   only_if_value_justifies: "bg-amber-500/15 text-amber-300 border-amber-500/30",
@@ -232,28 +582,85 @@ const REC_TONE: Record<string, string> = {
   needs_better_photos: "bg-surface-overlay text-text-secondary border-border-subtle",
 };
 
+const LIKELIHOOD_LABELS: Record<string, string> = {
+  high: "High",
+  medium: "Medium",
+  low: "Low",
+  very_low: "Very low",
+  cannot_assess: "Can't assess",
+};
+
+function CompanyEstimate({ obj }: { obj: unknown }) {
+  const o = asObj(obj);
+  const subs = asObj(o.subgrades);
+  const hasSubs = Object.keys(subs).length > 0;
+  const likelihood = asStr(o.top_grade_likelihood);
+  return (
+    <div className="rounded-xl border border-border-subtle bg-surface-raised p-4">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="text-sm font-medium text-text-primary">{asStr(o.company) || "—"}</span>
+        {likelihood && (
+          <span className="text-[11px] text-text-muted">
+            Gem: {LIKELIHOOD_LABELS[likelihood] ?? likelihood}
+          </span>
+        )}
+      </div>
+      <div className="mt-1 text-2xl font-semibold text-text-primary">{asStr(o.likely) || "—"}</div>
+      <div className="text-xs text-text-secondary mt-0.5">
+        Range {asStr(o.low) || "?"} – {asStr(o.high) || "?"}
+      </div>
+      {hasSubs && (
+        <div className="mt-3 grid grid-cols-4 gap-1 text-center">
+          {(["centering", "corners", "edges", "surface"] as const).map((k) => (
+            <div key={k}>
+              <div className="text-[10px] uppercase tracking-wide text-text-muted">{k.slice(0, 4)}</div>
+              <div className="text-xs text-text-primary">{asStr(subs[k]) || "—"}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function GradeReport({ result }: { result: GradeResult }) {
-  const range = asObj(result.estimated_grade_range);
   const rec = asObj(result.submission_recommendation);
   const confidence = asObj(result.confidence);
   const blockers = asObj(result.grade_blockers);
   const caps = asArr(result.hard_grade_caps);
   const ident = asObj(result.card_identification);
   const recVerdict = asStr(rec.verdict);
+  const companies = asArr(result.company_estimates);
+  const bestFor = asStr(rec.best_for);
+  const authentic = asObj(result.authentic);
+  const isAuthenticOnly = authentic.is_authentic_only === true;
 
   return (
     <div className="mt-8 space-y-5 animate-[fade-in_0.25s_ease-out]">
+      {isAuthenticOnly && (
+        <div className="rounded-xl border border-red-500/40 bg-red-500/10 p-5">
+          <div className="flex items-center gap-2 text-red-300 font-semibold">
+            <AlertTriangle className="w-5 h-5" />
+            Authentic / Altered — not gradeable as Mint
+          </div>
+          <p className="mt-2 text-sm text-red-200/90">
+            {asStr(authentic.reason) ||
+              "Structural damage or alteration was detected (e.g. a tear, missing piece, or trimming). This card cannot receive a numeric mint grade."}
+          </p>
+        </div>
+      )}
       <div className="rounded-xl border border-border-subtle bg-surface-raised p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <div className="text-xs uppercase tracking-wide text-text-muted">Most likely</div>
-            <div className="text-3xl font-semibold text-text-primary">
-              {asStr(range.most_likely) || "—"}
+            <div className="text-xs uppercase tracking-wide text-text-muted">Recommendation</div>
+            <div className="text-2xl font-semibold text-text-primary mt-1">
+              {REC_LABELS[recVerdict] ?? recVerdict ?? "—"}
             </div>
-            <div className="text-sm text-text-secondary mt-1">
-              Range {asStr(range.conservative) || "?"} – {asStr(range.optimistic) || "?"} · PSA 10
-              likelihood: <span className="text-text-primary">{asStr(range.psa10_likelihood) || "—"}</span>
-            </div>
+            {bestFor && (
+              <div className="text-sm text-text-secondary mt-1">
+                Best fit: <span className="text-text-primary">{bestFor}</span>
+              </div>
+            )}
           </div>
           {recVerdict && (
             <span
@@ -270,6 +677,19 @@ function GradeReport({ result }: { result: GradeResult }) {
         )}
       </div>
 
+      {companies.length > 0 && (
+        <div>
+          <h3 className="text-xs uppercase tracking-wide text-text-muted mb-2">
+            Estimated grade by company
+          </h3>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+            {companies.map((c, i) => (
+              <CompanyEstimate key={i} obj={c} />
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <ScoreCard label="Corners" obj={result.corners} />
         <ScoreCard label="Edges" obj={result.edges} />
@@ -278,9 +698,9 @@ function GradeReport({ result }: { result: GradeResult }) {
       </div>
 
       <div className="grid md:grid-cols-3 gap-3">
-        <BlockerList title="Blocks PSA 10" items={asArr(blockers.psa10)} tone="red" />
-        <BlockerList title="Blocks PSA 9" items={asArr(blockers.psa9)} tone="amber" />
-        <BlockerList title="Blocks PSA 8" items={asArr(blockers.psa8)} tone="muted" />
+        <BlockerList title="Blocks gem mint" items={asArr(blockers.gem_mint)} tone="red" />
+        <BlockerList title="Blocks mint (≈9)" items={asArr(blockers.mint)} tone="amber" />
+        <BlockerList title="Blocks near-mint (≈8)" items={asArr(blockers.near_mint)} tone="muted" />
       </div>
 
       {caps.length > 0 && (
@@ -389,9 +809,17 @@ function BlockerList({
 
 function Centering({ obj }: { obj: unknown }) {
   const o = asObj(obj);
+  const measured = o.measured === true;
   return (
     <div className="rounded-xl border border-border-subtle bg-surface-raised p-5">
-      <h3 className="text-sm font-medium text-text-primary mb-2">Centering</h3>
+      <h3 className="text-sm font-medium text-text-primary mb-2 flex items-center gap-2">
+        Centering
+        {measured && (
+          <span className="rounded-full bg-emerald-500/15 text-emerald-300 text-[10px] font-semibold px-2 py-0.5">
+            MEASURED
+          </span>
+        )}
+      </h3>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
         <Field k="Front L/R" v={asStr(o.front_left_right)} />
         <Field k="Front T/B" v={asStr(o.front_top_bottom)} />

@@ -16,6 +16,14 @@ export interface GradeImageInput {
   dataUrl: string;
 }
 
+// Exact centering ratios measured client-side on the straightened card
+// (e.g. "55/45"). When supplied they are treated as ground truth and override
+// the model's eyeball estimate.
+export interface MeasuredCentering {
+  front?: { leftRight?: string; topBottom?: string };
+  back?: { leftRight?: string; topBottom?: string };
+}
+
 const INSPECT_SYSTEM =
   "You are CardCrop AI Pre-Grader, a strict Pokémon/TCG card pre-grading " +
   "inspector. You report only what is visible. You do NOT assign a final grade " +
@@ -28,6 +36,7 @@ const INSPECT_PROMPT = `Inspect the supplied card image(s) and return ONLY this 
   "card_identification": { "name": "", "set": "", "number": "", "variant": "", "language": "", "confidence": "low|medium|high" },
   "image_suitability": { "rating": "excellent|good|limited|poor", "limitations": [] },
   "views_present": { "front": true, "back": false, "angled": false, "closeups": false },
+  "structural_damage": [ { "type": "tear|rip|hole|missing_piece|paper_loss|crease|fold|bend|indentation|water_damage|tape|adhesive|stain|writing|trimmed|altered", "where": "", "severity": "minor|moderate|major", "confidence": "low|medium|high" } ],
   "centering": { "front_left_right": "", "front_top_bottom": "", "back_left_right": "", "back_top_bottom": "", "verdict": "", "psa10_compatible": true },
   "corners": { "front_top_left": "", "front_top_right": "", "front_bottom_left": "", "front_bottom_right": "", "back_top_left": "", "back_top_right": "", "back_bottom_left": "", "back_bottom_right": "", "score": 0, "verdict": "" },
   "edges": { "findings": [], "score": 0, "verdict": "" },
@@ -35,33 +44,70 @@ const INSPECT_PROMPT = `Inspect the supplied card image(s) and return ONLY this 
   "eye_appeal": { "findings": [], "score": 0 },
   "observations": [ { "issue": "", "where": "", "severity": "minor|moderate|major", "likely": "damage|factory|unsure" } ]
 }
-Rules: each corner gets "Clean", "Minor concern", "Moderate concern", "Major concern", or "Cannot assess". Scores are 0-10. Separate likely physical damage from likely factory print defects in observations. For holo/textured/full-art cards, note that surface confidence is limited without an angled-light image. Centering tolerance: PSA 10 front <= ~55/45, back <= ~75/25.`;
+Rules: each corner gets "Clean", "Minor concern", "Moderate concern", "Major concern", or "Cannot assess". Scores are 0-10 where 10 is flawless under close inspection — deduct for every visible defect and again when inspection is limited by photo quality. Separate likely physical damage from likely factory print defects in observations. For holo/textured/full-art cards, note that surface confidence is limited without an angled-light image. Centering tolerance: PSA 10 front <= ~55/45, back <= ~75/25.
+
+STRUCTURAL DAMAGE IS THE MOST IMPORTANT THING TO REPORT. Before anything else, look at the whole outline and surface for any break in the card itself:
+- A tear, rip, split, hole, missing piece, or paper loss is catastrophic — if you see the card edge or body broken, torn, notched, or a chunk missing, you MUST add a structural_damage entry with the matching type and severity "major". Never describe this as mere "edge wear".
+- Also report creases/folds (a full bend-line through the stock), bends, indentations, water damage/staining, tape or adhesive residue, and any writing.
+- If none is visible, return an empty structural_damage array — but only after actually checking the full outline.
+
+Inspect for and report each of these wherever visible:
+- Corners: whitening, softness, rounding, chipping, fraying, bends, corner lift, dents, crushing, peeling.
+- Edges: whitening, chipping, silvering, rough or uneven cut, nicks, dents, lifted foil, edge wear, dark damage, AND any tear/split/missing material.
+- Surface: scratches, holo scratches, print lines, roller lines, dents, indentations, stains, fingerprints, scuffs, gloss loss, clouding, pressure marks, bends, creases, texture damage, ink spots, whitening on dark areas, and factory print defects.
+Do not invent defects, but do not skip a category — if a region cannot be judged, mark it "Cannot assess" rather than "Clean".`;
 
 const ADJUDICATE_SYSTEM =
   "You are the final grading adjudicator for CardCrop. You are given structured " +
   "condition findings from a vision inspection. Do NOT inspect any image. Use " +
-  "ONLY the findings. Apply hard caps BEFORE estimating a grade. Be conservative " +
-  "and anti-hype: never output a single certain grade — always a range and a " +
-  "PSA 10 likelihood. Output ONLY a strict JSON object.";
+  "ONLY the findings. Apply hard caps BEFORE estimating any grade. Be " +
+  "conservative and anti-hype: never output a single certain grade — always a " +
+  "range per company and a top-grade likelihood. You estimate across multiple " +
+  "grading companies (PSA, Beckett/BGS, CGC, TAG, ACE), each with its own scale. " +
+  "Output ONLY a strict JSON object.";
 
 const ADJUDICATE_PROMPT = `Given the inspection findings, return ONLY this JSON shape:
 {
+  "authentic": { "is_authentic_only": false, "reason": "" },
   "hard_grade_caps": [ { "cap": "", "reason": "" } ],
-  "grade_blockers": { "psa10": [], "psa9": [], "psa8": [] },
-  "estimated_grade_range": { "optimistic": "", "realistic": "", "conservative": "", "most_likely": "", "psa10_likelihood": "high|medium|low|very_low|cannot_assess" },
-  "submission_recommendation": { "verdict": "strong_psa_candidate|possible_candidate_inspect_first|only_if_value_justifies|sell_raw|do_not_grade|needs_better_photos", "reason": "" },
+  "grade_blockers": { "gem_mint": [], "mint": [], "near_mint": [] },
+  "company_estimates": [
+    { "company": "PSA", "scale": "", "low": "", "likely": "", "high": "", "top_grade_likelihood": "high|medium|low|very_low|cannot_assess", "subgrades": null },
+    { "company": "Beckett (BGS)", "scale": "", "low": "", "likely": "", "high": "", "top_grade_likelihood": "high|medium|low|very_low|cannot_assess", "subgrades": { "centering": "", "corners": "", "edges": "", "surface": "" } },
+    { "company": "CGC", "scale": "", "low": "", "likely": "", "high": "", "top_grade_likelihood": "high|medium|low|very_low|cannot_assess", "subgrades": { "centering": "", "corners": "", "edges": "", "surface": "" } },
+    { "company": "TAG", "scale": "", "low": "", "likely": "", "high": "", "top_grade_likelihood": "high|medium|low|very_low|cannot_assess", "subgrades": { "centering": "", "corners": "", "edges": "", "surface": "" } },
+    { "company": "ACE", "scale": "", "low": "", "likely": "", "high": "", "top_grade_likelihood": "high|medium|low|very_low|cannot_assess", "subgrades": { "centering": "", "corners": "", "edges": "", "surface": "" } }
+  ],
+  "submission_recommendation": { "verdict": "strong_candidate|possible_candidate_inspect_first|only_if_value_justifies|sell_raw|do_not_grade|needs_better_photos", "best_for": "", "reason": "" },
   "confidence": { "rating": "high|medium|low", "improve_with": [] },
   "summary": ""
 }
-Hard caps to apply:
-- Clear crease/bend/dent/indentation/stain/water damage/peeling/structural damage -> cap at PSA 7 or lower by severity.
-- Multiple surface or holo scratches -> cap at PSA 8 or lower.
-- Visible whitening on multiple back corners/edges -> cap at PSA 8; never call PSA 10.
-- One tiny corner/edge flaw, otherwise clean -> cap at PSA 9.
-- Front centering worse than ~55/45 -> cap at PSA 9; ~65/35 or worse -> PSA 8 or lower.
-- Back image missing -> confidence Low, PSA 10 likelihood cannot be high, never "strong" candidate.
-- Card in sleeve/toploader/slab so surface cannot be assessed, or poor image quality -> confidence Low.
-List every cap you apply. If a category has no visible blocker, say so but note it is limited by photo quality. Never inflate a grade due to card value or rarity.`;
+
+Company scales — map the SAME condition onto each scale; do not invent different defects per company:
+- PSA: whole numbers 1-10, top grade "Gem Mint 10". No subgrades (use null). Strictest on centering (PSA 10 front <= ~55/45) and surface. Write grades as "PSA N".
+- Beckett (BGS): 0.5 steps 1-10, four subgrades (centering/corners/edges/surface) in 0.5 steps. Final ~ the weighted blend, usually held down by the lowest subgrade. "Black Label" needs all four subgrades = 10; Pristine 10 needs subgrades 9.5/10. Write "BGS 8.5" and subgrades like "8.5".
+- CGC: 0.5 steps 1-10, top grade "Pristine 10" (perfect under magnification) then "Gem Mint 10". Provide subgrades in 0.5 steps. Write "CGC 9".
+- TAG: one-decimal 1-10 from a computer-vision point system (e.g. "TAG 8.7"); subgrades to one decimal. Very granular, generally aligns with or slightly stricter than PSA. 
+- ACE: one-decimal 1-10 AI grader with decimal subgrades (e.g. "ACE 8.6"). Provide subgrades to one decimal.
+
+Hard caps (apply to ALL companies, on each company's scale). The MOST SEVERE applicable cap is binding:
+- STRUCTURAL DAMAGE OVERRIDES EVERYTHING. Any tear, rip, split, hole, missing piece, or paper loss in structural_damage means the card CANNOT receive a numeric mint grade — cap the likely grade at the "1-2" tier (low="1", high no more than "2"). A torn or ripped card is NEVER a 7. If material is actually missing, or the card is trimmed/altered, set authentic.is_authentic_only=true, write every company's likely/high/low as "Authentic / Altered", and set every top_grade_likelihood to "very_low".
+- Major crease or fold (a full break in the stock, usually visible on both sides) -> cap around "5"; two or more creases -> "3-4".
+- Writing (pen/pencil) -> "1-3". Tape, adhesive, or sticker residue -> "1-4". Stain or water damage -> "1-4".
+- Bend, indentation, or pressure mark with NO break in the stock -> cap around "7-8" by severity. A minor surface-only wrinkle (top layer only) -> at most "6".
+- Multiple surface or holo scratches -> "8" or lower; a single light scratch -> "9" or lower.
+- Visible whitening on multiple corners or edges -> "8" or lower; never a gem grade.
+- One tiny corner/edge flaw, otherwise clean -> "9" tier (or one subgrade of 9 for BGS/CGC/TAG/ACE).
+- Centering (worst axis sets the ceiling). Front: <=55/45 allows 10; <=60/40 allows 9; <=65/35 allows 8; <=70/30 allows 7; worse -> 6 or lower. Back is more lenient: 10 allows up to 75/25. If the findings include a "measured_centering" object, TREAT IT AS GROUND TRUTH and apply these centering caps to the measured numbers; do not second-guess them.
+- Back image missing -> confidence Low, top-grade likelihood not "high", never "strong_candidate".
+- Card in sleeve/toploader/slab so surface cannot be assessed, or poor image quality -> confidence Low and widen every range.
+
+Weighting and consistency:
+- Weight structural integrity first (a damaged card cannot be mint), then surface and corners, then centering and edges, then eye appeal.
+- For each company: low = worst plausible, likely = most probable, high = best plausible, and low <= likely <= high on that company's scale. "likely" must respect every hard cap.
+- grade_blockers: gem_mint = what blocks the top gem grade on a strict grader (≈ PSA 10 / BGS 9.5+ / CGC Pristine), mint = what blocks a ~9, near_mint = what blocks a ~8. If a tier has no visible blocker, say so but note it is limited by photo quality.
+- submission_recommendation.best_for = which grader makes most sense and why (e.g. BGS/ACE/TAG when subgrades add value or the card is borderline; PSA for resale liquidity on a clean gem candidate; "none — sell raw" when grading isn't worth it). For a torn/ripped/altered card, recommend "do_not_grade".
+- Never inflate any grade due to card value or rarity.`;
 
 // Loosely-typed structured result; the model returns the shapes above.
 export type GradeResult = Record<string, unknown>;
@@ -75,9 +121,22 @@ function safeParse(content: string): Record<string, unknown> | null {
   }
 }
 
+// Build a flipped "wider/narrower" ratio string for display, plus a note for
+// the model. Input like "55/45" is already in larger/smaller order.
+function centeringNote(c?: MeasuredCentering): string | null {
+  if (!c) return null;
+  const parts: string[] = [];
+  if (c.front?.leftRight) parts.push(`front left/right ${c.front.leftRight}`);
+  if (c.front?.topBottom) parts.push(`front top/bottom ${c.front.topBottom}`);
+  if (c.back?.leftRight) parts.push(`back left/right ${c.back.leftRight}`);
+  if (c.back?.topBottom) parts.push(`back top/bottom ${c.back.topBottom}`);
+  return parts.length ? parts.join(", ") : null;
+}
+
 export async function gradeCard(
   images: GradeImageInput[],
-  userId: string
+  userId: string,
+  measuredCentering?: MeasuredCentering
 ): Promise<GradeResult | null> {
   if (!isOpenAiConfigured() || images.length === 0) return null;
 
@@ -92,6 +151,11 @@ export async function gradeCard(
     closeups: images.some((i) => i.label === "closeup"),
   };
 
+  const cNote = centeringNote(measuredCentering);
+  const cInstruction = cNote
+    ? `\nMEASURED CENTERING (ground truth, measured on the straightened card — do NOT re-estimate these, just copy them into the centering fields): ${cNote}.`
+    : "";
+
   // Pass 1: inspection.
   const inspect = await chatComplete({
     model: INSPECT_MODEL,
@@ -100,7 +164,8 @@ export async function gradeCard(
       INSPECT_PROMPT +
       `\nViews supplied: ${JSON.stringify(present)}. Images are provided in this order: ${images
         .map((i) => i.label)
-        .join(", ")}.`,
+        .join(", ")}.` +
+      cInstruction,
     images: visionImages,
     jsonObject: true,
     maxTokens: 1500,
@@ -112,13 +177,29 @@ export async function gradeCard(
   const findings = safeParse(inspect.content);
   if (!findings) return null;
 
+  // Overlay the measured centering as ground truth so the adjudicator's
+  // centering caps run on real numbers, and the UI can flag it as measured.
+  if (measuredCentering) {
+    const existing =
+      findings.centering && typeof findings.centering === "object"
+        ? (findings.centering as Record<string, unknown>)
+        : {};
+    const c: Record<string, unknown> = { ...existing, measured: true };
+    if (measuredCentering.front?.leftRight) c.front_left_right = measuredCentering.front.leftRight;
+    if (measuredCentering.front?.topBottom) c.front_top_bottom = measuredCentering.front.topBottom;
+    if (measuredCentering.back?.leftRight) c.back_left_right = measuredCentering.back.leftRight;
+    if (measuredCentering.back?.topBottom) c.back_top_bottom = measuredCentering.back.topBottom;
+    findings.centering = c;
+    (findings as Record<string, unknown>).measured_centering = measuredCentering;
+  }
+
   // Pass 2: adjudication (text-only).
   const adjudicate = await chatComplete({
     model: ADJUDICATE_MODEL,
     system: ADJUDICATE_SYSTEM,
     user: `${ADJUDICATE_PROMPT}\n\nINSPECTION FINDINGS:\n${JSON.stringify(findings)}`,
     jsonObject: true,
-    maxTokens: 1000,
+    maxTokens: 1800,
     feature: "grade_adjudicate",
     userId,
     timeoutMs: 45000,
@@ -129,7 +210,8 @@ export async function gradeCard(
     ...findings,
     ...(decision ?? {}),
     disclaimer:
-      "Not an official PSA grade. A pre-check estimate from photos to help you " +
-      "decide whether to submit, sell raw, or inspect further.",
+      "Not an official grade from PSA, Beckett, CGC, TAG, ACE or any grader. A " +
+      "pre-check estimate from photos to help you decide whether to submit, sell " +
+      "raw, or inspect further.",
   };
 }
