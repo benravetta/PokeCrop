@@ -154,7 +154,14 @@ def run_crop(
         res.edit_image = edit_bgr
         res.crop_corners = inset.astype(np.float64).tolist()
         res.edit_transform = [float(v) for v in np.asarray(h_edit2orig, np.float64).flatten()]
-    except Exception:
+    except Exception as exc:
+        # The editor is meant to draw on the straightened card; only the raw photo
+        # is left if this fails. Log loudly so a regression is visible in prod
+        # instead of silently degrading the adjust-crop experience.
+        import traceback
+
+        print(f"[edit-view] rectification failed, falling back to raw photo: {exc}", flush=True)
+        traceback.print_exc()
         res.edit_image = None
         res.crop_corners = (quad_full / float(scale)).astype(np.float64).tolist()
         res.edit_transform = []
@@ -211,6 +218,17 @@ def build_edit_view(original: np.ndarray, quad_full: np.ndarray):
     slightly outward to recover a clipped edge.
     """
     q = order_corners(quad_full.astype(np.float32)).astype(np.float32)
+    # If the ordered quad is non-finite or degenerate, recover an oriented box
+    # from the raw points (minAreaRect) so we STILL rectify to a straight card
+    # rather than dropping the editor back onto the raw angled photo.
+    if not np.all(np.isfinite(q)) or cv2.contourArea(q) < 100.0:
+        pts = np.asarray(quad_full, dtype=np.float32).reshape(-1, 2)
+        pts = pts[np.isfinite(pts).all(axis=1)]
+        if len(pts) >= 3:
+            box = cv2.boxPoints(cv2.minAreaRect(pts)).astype(np.float32)
+            q = order_corners(box).astype(np.float32)
+        if not np.all(np.isfinite(q)) or cv2.contourArea(q) < 100.0:
+            raise ValueError("degenerate quad — cannot build a straightened view")
     width = (np.linalg.norm(q[1] - q[0]) + np.linalg.norm(q[2] - q[3])) / 2.0
     height = (np.linalg.norm(q[3] - q[0]) + np.linalg.norm(q[2] - q[1])) / 2.0
     portrait = height >= width

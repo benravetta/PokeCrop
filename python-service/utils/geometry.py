@@ -72,13 +72,21 @@ def contour_iou(c1: np.ndarray, c2: np.ndarray, img_shape: Tuple[int, int]) -> f
 
 
 def order_corners(box: np.ndarray) -> np.ndarray:
-    """Order 4 corners as: top-left, top-right, bottom-right, bottom-left."""
-    pts = box.reshape(4, 2)
-    s = pts.sum(axis=1)
-    d = np.diff(pts, axis=1).flatten()
-    ordered = np.zeros((4, 2), dtype=np.float32)
-    ordered[0] = pts[np.argmin(s)]   # top-left
-    ordered[2] = pts[np.argmax(s)]   # bottom-right
-    ordered[1] = pts[np.argmin(d)]   # top-right
-    ordered[3] = pts[np.argmax(d)]   # bottom-left
-    return ordered
+    """Order 4 corners as: top-left, top-right, bottom-right, bottom-left.
+
+    Uses a left/right split rather than the classic sum/diff trick. The sum/diff
+    method (TL=min(x+y), TR=min(y-x), ...) can assign the SAME point to two roles
+    once the quad is noticeably rotated, yielding a degenerate quad with duplicate
+    corners — which makes cv2.getPerspectiveTransform raise. That broke the
+    straightened edit-preview for angled cards (it silently fell back to the raw
+    photo). Splitting the points into the two leftmost and two rightmost, then
+    ordering each pair top-to-bottom, is stable for any realistic in-plane
+    rotation and never duplicates a corner.
+    """
+    pts = np.asarray(box, dtype=np.float64).reshape(4, 2)
+    by_x = pts[np.argsort(pts[:, 0], kind="stable")]
+    left = by_x[:2]
+    right = by_x[2:]
+    tl, bl = left[np.argsort(left[:, 1], kind="stable")]
+    tr, br = right[np.argsort(right[:, 1], kind="stable")]
+    return np.array([tl, tr, br, bl], dtype=np.float32)
