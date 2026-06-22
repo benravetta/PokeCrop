@@ -1,11 +1,33 @@
 import { useState } from "react";
-import { Crop, SlidersHorizontal, ArrowLeft, Check, RotateCcw, X } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import {
+  Crop,
+  SlidersHorizontal,
+  ArrowLeft,
+  Check,
+  RotateCcw,
+  X,
+  ShieldCheck,
+  Loader2,
+} from "lucide-react";
 import { ResultStage } from "./ResultStage";
 import { CropPanel } from "./CropPanel";
 import { ProcessingStage } from "./ProcessingStage";
 import { AdvancedDrawer } from "./AdvancedDrawer";
 import { ExportControls } from "./ExportControls";
 import { useAppStore, paramsDiffer } from "../hooks/useProcessing";
+import { fetchExport } from "../lib/api";
+
+// Read a Blob back as raw base64 (no data: prefix), matching the store's
+// resultBase64 format.
+function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(String(reader.result).split(",")[1] ?? "");
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
 
 type Mode = "view" | "crop";
 
@@ -16,17 +38,22 @@ export function Workspace() {
     cropDirty,
     params,
     appliedParams,
+    sessionId,
     resultBase64,
+    filename,
     metadata,
     error,
     process,
     resetCrop,
     revertCrop,
     reset,
+    setGradePrefill,
   } = useAppStore();
 
+  const navigate = useNavigate();
   const [mode, setMode] = useState<Mode>("view");
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [sending, setSending] = useState(false);
 
   const busy = processing || uploading;
   const dirty = cropDirty || paramsDiffer(params, appliedParams);
@@ -45,6 +72,23 @@ export function Workspace() {
   const cancelCrop = () => {
     revertCrop();
     setMode("view");
+  };
+
+  // Stash the cropped card (full-res when available) and jump to the grader,
+  // which prefills the front slot. Falls back to the web preview on failure.
+  const sendToGrading = async () => {
+    if (!sessionId || !resultBase64 || sending) return;
+    setSending(true);
+    let pngBase64 = resultBase64;
+    try {
+      const blob = await fetchExport(sessionId, "original");
+      pngBase64 = await blobToBase64(blob);
+    } catch {
+      // keep the web-preview base64 fallback
+    }
+    setGradePrefill({ pngBase64, filename: filename ?? "card.png" });
+    setSending(false);
+    navigate("/grade");
   };
 
   return (
@@ -153,7 +197,24 @@ export function Workspace() {
                     Apply changes
                   </button>
                 ) : (
-                  <ExportControls />
+                  <>
+                    <button
+                      onClick={sendToGrading}
+                      disabled={busy || sending || !resultBase64 || !sessionId}
+                      title="Send this cropped card to the AI pre-grader"
+                      className="inline-flex items-center gap-1.5 px-3 py-2 text-sm text-text-primary
+                                 bg-surface-overlay rounded-lg hover:bg-border-subtle transition-colors
+                                 disabled:opacity-40"
+                    >
+                      {sending ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <ShieldCheck className="w-4 h-4" />
+                      )}
+                      <span className="hidden sm:inline">Send to grading</span>
+                    </button>
+                    <ExportControls />
+                  </>
                 )}
               </div>
             </>

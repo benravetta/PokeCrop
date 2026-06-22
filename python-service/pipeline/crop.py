@@ -30,6 +30,13 @@ from utils.geometry import order_corners
 
 CONFIDENCE_MANUAL_THRESHOLD = 0.45
 
+# The manual crop editor works on a straightened ("rectified") preview of the
+# cropped card rather than the raw photo, so adjusting feels like fine-tuning the
+# actual result. EDIT_MARGIN_FRAC leaves context around the card so a handle can
+# still be dragged outward to recover an edge the auto-detector clipped.
+EDIT_MARGIN_FRAC = 0.32
+EDIT_CARD_LONG = 1000
+
 
 @dataclass
 class CropOptions:
@@ -39,7 +46,8 @@ class CropOptions:
     background: Optional[Tuple[int, int, int]] = None
     roi_hint: Optional[Tuple[int, int, int, int]] = None
     output_rotation: int = 0
-    manual_corners: Optional[np.ndarray] = None  # (4,2) in working coords
+    manual_corners: Optional[np.ndarray] = None  # (4,2) in working coords (legacy)
+    manual_quad_full: Optional[np.ndarray] = None  # (4,2) in original coords
     crop_padding: int = 8
 
 
@@ -55,6 +63,10 @@ class CropResult:
     glare: float = 0.0
     damaged: bool = False
     crop_corners: List[List[float]] = field(default_factory=list)
+    # Straightened preview the manual editor draws on, plus the 3x3 homography
+    # (row-major) mapping edit-image pixels back to original-image pixels.
+    edit_image: Optional[np.ndarray] = None
+    edit_transform: List[float] = field(default_factory=list)
     reasons: List[str] = field(default_factory=list)
     stage_times: dict = field(default_factory=dict)
     error: Optional[str] = None
@@ -72,7 +84,16 @@ def run_crop(
     def _t(label, t0):
         times[label] = int((time.time() - t0) * 1000)
 
-    if opts.manual_corners is not None:
+    if opts.manual_quad_full is not None:
+        # Corners already mapped into original-image coordinates (the editor
+        # works in a rectified preview space; the caller applies the homography).
+        quad_full = order_corners(opts.manual_quad_full.astype(np.float32)).astype(np.float64)
+        res.confidence = 1.0
+        res.needs_manual = False
+        validation = validate_quad(quad_full, original.shape, [1.0, 1.0, 1.0, 1.0])
+        res.aspect = validation.aspect
+        damaged = False
+    elif opts.manual_corners is not None:
         quad_full = order_corners(opts.manual_corners.astype(np.float32)).astype(np.float64) * float(scale)
         res.confidence = 1.0
         res.needs_manual = False
@@ -118,8 +139,19 @@ def run_crop(
 
     res.damaged = damaged
 
-    # crop_corners reported in working (edit-image) coordinates.
-    res.crop_corners = (quad_full / float(scale)).astype(np.float64).tolist()
+    # Build the straightened preview the manual editor draws on, with the card's
+    # corners reported in that preview's pixel space and a homography back to the
+    # original. On any failure, fall back to working-image coordinates so the
+    # editor still functions on the raw photo.
+    try:
+        edit_bgr, inset, h_edit2orig = build_edit_view(original, quad_full)
+        res.edit_image = edit_bgr
+        res.crop_corners = inset.astype(np.float64).tolist()
+        res.edit_transform = [float(v) for v in np.asarray(h_edit2orig, np.float64).flatten()]
+    except Exception:
+        res.edit_image = None
+        res.crop_corners = (quad_full / float(scale)).astype(np.float64).tolist()
+        res.edit_transform = []
 
     t = time.time()
     warp = warp_card(original, quad_full, opts.output_size)
@@ -161,6 +193,51 @@ def run_crop(
     _t("export", t)
 
     return res
+
+
+def build_edit_view(original: np.ndarray, quad_full: np.ndarray):
+    """Rectify the card region of ``original`` into a straightened preview.
+
+    Returns ``(edit_bgr, inset_corners, H_edit2orig)`` where ``inset_corners`` are
+    the card's four corners (TL,TR,BR,BL) in the preview's pixel space and
+    ``H_edit2orig`` is the 3x3 homography mapping preview pixels back to original
+    pixels. The card is centred with a uniform margin so handles can be dragged
+    slightly outward to recover a clipped edge.
+    """
+    q = order_corners(quad_full.astype(np.float32)).astype(np.float32)
+    width = (np.linalg.norm(q[1] - q[0]) + np.linalg.norm(q[2] - q[3])) / 2.0
+    height = (np.linalg.norm(q[3] - q[0]) + np.linalg.norm(q[2] - q[1])) / 2.0
+    portrait = height >= width
+    long_side = max(width, height, 1.0)
+    short_side = max(min(width, height), 1.0)
+
+    sc = EDIT_CARD_LONG / long_side
+    card_long = EDIT_CARD_LONG
+    card_short = max(1, int(round(short_side * sc)))
+    cw, ch = (card_short, card_long) if portrait else (card_long, card_short)
+
+    mg = int(round(max(cw, ch) * EDIT_MARGIN_FRAC))
+    ew, eh = cw + 2 * mg, ch + 2 * mg
+    inset = np.array(
+        [
+            [mg, mg],
+            [mg + cw - 1, mg],
+            [mg + cw - 1, mg + ch - 1],
+            [mg, mg + ch - 1],
+        ],
+        dtype=np.float32,
+    )
+
+    m_orig2edit = cv2.getPerspectiveTransform(q, inset)
+    edit_bgr = cv2.warpPerspective(
+        original,
+        m_orig2edit,
+        (ew, eh),
+        flags=cv2.INTER_CUBIC,
+        borderMode=cv2.BORDER_REPLICATE,
+    )
+    h_edit2orig = cv2.getPerspectiveTransform(inset, q)
+    return edit_bgr, inset, h_edit2orig
 
 
 def _apply_manual_rotation(rgba_or_bgr: np.ndarray, output_rotation: int):

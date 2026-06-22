@@ -28,6 +28,9 @@ export interface AppState {
   // unapplied edits when the user cancels the crop editor.
   appliedCropCorners: CropCorners | null;
   editImageSize: [number, number] | null;
+  // 3x3 row-major homography mapping the current edit-preview's pixels back to
+  // the original image, so manual corner edits can be re-warped at full res.
+  editTransform: number[] | null;
   cropDirty: boolean;
   error: string | null;
   // Set when the daily free-crop limit is hit (drives the upgrade prompt).
@@ -39,6 +42,10 @@ export interface AppState {
   // UI can tell when the current settings differ and surface an "Apply" action.
   appliedParams: ProcessParams | null;
 
+  // Hand-off payload for "Send to grading": the cropped card (base64 PNG, no
+  // data: prefix) is stashed here and consumed once by the grade page on mount.
+  gradePrefill: { pngBase64: string; filename: string } | null;
+
   upload: (file: File) => Promise<void>;
   process: () => Promise<void>;
   setCropCorners: (corners: CropCorners) => void;
@@ -48,6 +55,8 @@ export interface AppState {
   rotateOutput: (deltaDeg: number) => void;
   resetParams: () => void;
   clearLimit: () => void;
+  setGradePrefill: (p: { pngBase64: string; filename: string }) => void;
+  clearGradePrefill: () => void;
   reset: () => void;
 }
 
@@ -62,12 +71,18 @@ function buildProcessParams(
   params: ProcessParams,
   cropCorners: CropCorners | null,
   cropDirty: boolean,
-  metadata: ProcessResult["metadata"] | null
+  metadata: ProcessResult["metadata"] | null,
+  editTransform: number[] | null
 ): ProcessParams {
   const payload: ProcessParams = { ...params };
   if (cropDirty && cropCorners) {
     payload.manual_corners = toCornerArrays(cropCorners);
     payload.rotation_deg = metadata?.rotation_deg ?? 0;
+    // Corners are in the rectified edit-preview space; pair them with the
+    // homography that maps that space back to the original image.
+    if (editTransform && editTransform.length === 9) {
+      payload.manual_transform = editTransform;
+    }
   }
   return payload;
 }
@@ -83,6 +98,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   autoCropCorners: null,
   appliedCropCorners: null,
   editImageSize: null,
+  editTransform: null,
   cropDirty: false,
   error: null,
   limitReached: false,
@@ -90,6 +106,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   processing: false,
   params: { ...DEFAULT_PARAMS },
   appliedParams: null,
+  gradePrefill: null,
 
   upload: async (file: File) => {
     set({
@@ -102,6 +119,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       autoCropCorners: null,
       appliedCropCorners: null,
       editImageSize: null,
+      editTransform: null,
       cropDirty: false,
     });
     try {
@@ -125,12 +143,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   process: async () => {
-    const { sessionId, params, cropCorners, cropDirty, metadata } = get();
+    const { sessionId, params, cropCorners, cropDirty, metadata, editTransform } = get();
     if (!sessionId) return;
 
     set({ processing: true, error: null });
     try {
-      const payload = buildProcessParams(params, cropCorners, cropDirty, metadata);
+      const payload = buildProcessParams(params, cropCorners, cropDirty, metadata, editTransform);
       const result = await processImage(sessionId, payload);
       if (result.error) {
         set({ processing: false, error: result.error });
@@ -146,6 +164,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         resultBase64: result.result_web_png,
         metadata: result.metadata,
         editImageSize: result.metadata.edit_image_size ?? null,
+        editTransform: result.metadata.edit_transform ?? null,
         cropCorners: corners,
         autoCropCorners: get().autoCropCorners ?? corners,
         appliedCropCorners: corners ? cloneCorners(corners) : null,
@@ -209,6 +228,10 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   clearLimit: () => set({ limitReached: false }),
 
+  setGradePrefill: (p) => set({ gradePrefill: p }),
+
+  clearGradePrefill: () => set({ gradePrefill: null }),
+
   reset: () => {
     const { sessionId } = get();
     if (sessionId) {
@@ -225,6 +248,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       autoCropCorners: null,
       appliedCropCorners: null,
       editImageSize: null,
+      editTransform: null,
       cropDirty: false,
       error: null,
       limitReached: false,

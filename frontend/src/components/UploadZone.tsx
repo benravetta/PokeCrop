@@ -19,6 +19,8 @@ export function UploadZone({ onHelp }: { onHelp?: () => void }) {
       "image/jpeg": [".jpg", ".jpeg"],
       "image/png": [".png"],
       "image/webp": [".webp"],
+      "image/heic": [".heic"],
+      "image/heif": [".heif"],
       "application/pdf": [".pdf"],
     },
     maxFiles: 1,

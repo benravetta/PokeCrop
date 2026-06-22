@@ -35,6 +35,33 @@ def health():
     return {"status": "ok"}
 
 
+@app.post("/transcode")
+async def transcode_image(image: UploadFile = File(...)):
+    """Decode any supported input (incl. HEIC/HEIF, PDF page 1) and re-encode it
+    as a plain JPEG. Used to normalise phone formats that downstream consumers
+    (e.g. the OpenAI vision API) cannot read directly. No cropping is applied."""
+    data = await image.read()
+    if not data:
+        return JSONResponse(status_code=400, content={"error": "Empty file."})
+    if len(data) > MAX_UPLOAD_BYTES:
+        return JSONResponse(status_code=413, content={"error": "File too large."})
+    try:
+        _working, original, _scale = normalise_input(data, image.filename or "image")
+        jpeg = exp.white_jpeg(_to_rgba(original), quality=90)
+        return {"jpeg": exp.to_base64(jpeg)}
+    except Exception:
+        traceback.print_exc()
+        return JSONResponse(status_code=422, content={"error": "Could not read image."})
+
+
+def _to_rgba(bgr: np.ndarray) -> np.ndarray:
+    """BGR -> RGBA so it can flow through the JPEG encoder (which flattens alpha)."""
+    rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
+    h, w = rgb.shape[:2]
+    rgba = np.dstack([rgb, np.full((h, w), 255, np.uint8)])
+    return rgba
+
+
 def _clamp(val, lo, hi, default):
     try:
         v = float(val)
@@ -70,6 +97,28 @@ def _roi_hint_pixels(val, w, h):
     return (int(round(x)), int(round(y)), int(round(bw)), int(round(bh)))
 
 
+def _manual_quad_from_transform(manual_raw, transform_raw):
+    """Map four edit-preview corners to original-image coordinates.
+
+    ``manual_raw`` is a 4-point list in the rectified edit preview's pixel space;
+    ``transform_raw`` is the 9-element row-major homography (edit -> original)
+    that accompanied that preview. Returns a (4,2) float32 array or None.
+    """
+    if not isinstance(manual_raw, (list, tuple)) or len(manual_raw) != 4:
+        return None
+    if not isinstance(transform_raw, (list, tuple)) or len(transform_raw) != 9:
+        return None
+    try:
+        pts = np.array([[float(c[0]), float(c[1])] for c in manual_raw], dtype=np.float64)
+        H = np.array([float(v) for v in transform_raw], dtype=np.float64).reshape(3, 3)
+        mapped = cv2.perspectiveTransform(pts.reshape(-1, 1, 2), H).reshape(-1, 2)
+        if not np.all(np.isfinite(mapped)):
+            return None
+        return mapped.astype(np.float32)
+    except (TypeError, ValueError, IndexError, cv2.error):
+        return None
+
+
 @app.post("/process")
 async def process_card(
     image: UploadFile = File(...),
@@ -100,6 +149,7 @@ async def process_card(
     identify = _as_bool(p.get("identify", False))
 
     manual_raw = p.get("manual_corners")
+    manual_transform_raw = p.get("manual_transform")
 
     try:
         file_bytes = await image.read()
@@ -119,10 +169,16 @@ async def process_card(
         roi_hint = _roi_hint_pixels(roi_raw, ww, wh)
 
         manual_corners = None
+        manual_quad_full = None
         if manual_raw is not None:
-            parsed = parse_manual_corners(manual_raw, ww, wh)
-            if parsed is not None:
-                manual_corners = parsed.reshape(4, 2).astype(np.float32)
+            # New flow: corners come from the rectified edit preview; map them to
+            # original-image coordinates with the supplied homography.
+            manual_quad_full = _manual_quad_from_transform(manual_raw, manual_transform_raw)
+            if manual_quad_full is None:
+                # Legacy flow: corners already in working-image coordinates.
+                parsed = parse_manual_corners(manual_raw, ww, wh)
+                if parsed is not None:
+                    manual_corners = parsed.reshape(4, 2).astype(np.float32)
 
         opts = CropOptions(
             corner_radius=corner_radius,
@@ -132,6 +188,7 @@ async def process_card(
             roi_hint=roi_hint,
             output_rotation=output_rotation,
             manual_corners=manual_corners,
+            manual_quad_full=manual_quad_full,
             crop_padding=crop_padding,
         )
 
@@ -146,10 +203,13 @@ async def process_card(
         result.stage_times["normalise"] = normalise_ms
         rgba = result.rgba
 
-        # Build the edit image (working photo) for the manual crop editor.
-        edit_h, edit_w = working.shape[:2]
+        # Build the edit image for the manual crop editor. Prefer the rectified
+        # ("already cropped") preview from the pipeline; fall back to the raw
+        # working photo if rectification was unavailable.
+        edit_src = result.edit_image if result.edit_image is not None else working
+        edit_h, edit_w = edit_src.shape[:2]
         edit_buf = io.BytesIO()
-        Image.fromarray(cv2.cvtColor(working, cv2.COLOR_BGR2RGB)).save(
+        Image.fromarray(cv2.cvtColor(edit_src, cv2.COLOR_BGR2RGB)).save(
             edit_buf, format="JPEG", quality=88
         )
         edit_image_jpeg = exp.to_base64(edit_buf.getvalue())
@@ -180,6 +240,7 @@ async def process_card(
                 "pipeline_time_ms": elapsed,
                 "stage_times_ms": result.stage_times,
                 "crop_corners": result.crop_corners,
+                "edit_transform": result.edit_transform,
                 "edit_image_size": [int(edit_w), int(edit_h)],
                 "output_size": list(result.output_size_px),
                 "aspect": result.aspect,

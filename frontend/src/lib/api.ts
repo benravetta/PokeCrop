@@ -41,7 +41,11 @@ export interface ProcessParams {
   output_rotation: number;
   // "standard" (1260x1760) or "high" (1890x2640) output resolution.
   output_size?: "standard" | "high";
+  // Manual crop corners, expressed in the rectified edit-preview's pixel space.
   manual_corners?: number[][];
+  // 3x3 row-major homography mapping edit-preview pixels back to the original
+  // image, paired with manual_corners so the server can re-warp from full res.
+  manual_transform?: number[];
   rotation_deg?: number;
 }
 
@@ -79,6 +83,7 @@ export interface ProcessResult {
     selected_candidate_index: number;
     pipeline_time_ms: number;
     crop_corners?: number[][];
+    edit_transform?: number[];
     edit_image_size?: [number, number];
     output_size?: [number, number];
     aspect?: number;
@@ -480,6 +485,28 @@ export interface Preparation {
   avoidCount: number;
   summary: string;
   disclaimer: string;
+}
+
+// Rough AI-estimated market value attached to a grade result. Ballpark figures
+// in the given currency (GBP), not live market data.
+export interface PriceRange {
+  low: number;
+  high: number;
+}
+
+export interface GradedPrice {
+  company: string;
+  grade: string;
+  low: number;
+  high: number;
+}
+
+export interface CardPricing {
+  currency: string;
+  raw: PriceRange;
+  graded: GradedPrice[];
+  confidence: "low" | "medium" | "high";
+  note: string;
 }
 
 export interface GradeImages {

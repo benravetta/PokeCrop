@@ -23,8 +23,15 @@ const router = Router();
 const tmpDir = path.join(os.tmpdir(), "cardcrop-api");
 fs.mkdirSync(tmpDir, { recursive: true });
 
-const ALLOWED_EXT = [".jpg", ".jpeg", ".png", ".webp", ".pdf"];
-const ALLOWED_MIME = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
+const ALLOWED_EXT = [".jpg", ".jpeg", ".png", ".webp", ".pdf", ".heic", ".heif"];
+const ALLOWED_MIME = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "application/pdf",
+  "image/heic",
+  "image/heif",
+];
 
 const upload = multer({
   storage: multer.diskStorage({
@@ -37,7 +44,9 @@ const upload = multer({
   limits: { fileSize: MAX_REMOTE_BYTES },
   fileFilter: (_req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
-    if (ALLOWED_EXT.includes(ext) && ALLOWED_MIME.includes(file.mimetype)) {
+    // HEIC uploads sometimes arrive with an empty/generic mimetype.
+    const genericMime = !file.mimetype || file.mimetype === "application/octet-stream";
+    if (ALLOWED_EXT.includes(ext) && (ALLOWED_MIME.includes(file.mimetype) || genericMime)) {
       cb(null, true);
     } else {
       cb(new Error(`Unsupported file type: ${ext || file.mimetype}`));
@@ -59,6 +68,11 @@ function extFromMagic(buf: Buffer): string {
       buf.toString("ascii", 8, 12) === "WEBP"
     )
       return ".webp";
+    // HEIC/HEIF: ISO-BMFF with an "ftyp" box and a heic/heif-family brand.
+    if (buf.length >= 12 && buf.toString("ascii", 4, 8) === "ftyp") {
+      const brand = buf.toString("ascii", 8, 12);
+      if (["heic", "heix", "heif", "mif1", "msf1", "hevc"].includes(brand)) return ".heic";
+    }
   }
   return "";
 }

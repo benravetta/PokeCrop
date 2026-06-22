@@ -34,15 +34,20 @@ const upload = multer({
   storage,
   limits: { fileSize: 50 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
-    const allowed = [".jpg", ".jpeg", ".png", ".webp", ".pdf"];
+    const allowed = [".jpg", ".jpeg", ".png", ".webp", ".pdf", ".heic", ".heif"];
     const ext = path.extname(file.originalname).toLowerCase();
     const allowedMimes = [
       "image/jpeg",
       "image/png",
       "image/webp",
       "application/pdf",
+      "image/heic",
+      "image/heif",
     ];
-    if (allowed.includes(ext) && allowedMimes.includes(file.mimetype)) {
+    // Browsers often send HEIC with an empty/generic mimetype; trust the
+    // extension when the mimetype is unhelpful.
+    const genericMime = !file.mimetype || file.mimetype === "application/octet-stream";
+    if (allowed.includes(ext) && (allowedMimes.includes(file.mimetype) || genericMime)) {
       cb(null, true);
     } else {
       cb(new Error(`Unsupported file type: ${ext}`));

@@ -14,7 +14,7 @@ import {
 import { getGradeQuota, incrementGrade } from "../lib/gradeQuota.js";
 import { isSuspended } from "../lib/usage.js";
 import { logActivity } from "../lib/activity.js";
-import { sendToPython } from "../services/pythonBridge.js";
+import { sendToPython, transcodeViaPython } from "../services/pythonBridge.js";
 import { validateParams } from "../lib/cropParams.js";
 
 const router = Router();
@@ -22,17 +22,55 @@ const router = Router();
 const tmpDir = path.join(os.tmpdir(), "cardcrop-grade");
 fs.mkdirSync(tmpDir, { recursive: true });
 
+const GRADE_EXT = [".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"];
+const GRADE_MIME = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/heic",
+  "image/heif",
+];
+
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 8 * 1024 * 1024, files: 10 },
+  // Phone HEIC/large JPEGs can exceed the old 8MB cap.
+  limits: { fileSize: 25 * 1024 * 1024, files: 10 },
   fileFilter: (_req, file, cb) => {
-    if (["image/jpeg", "image/png", "image/webp"].includes(file.mimetype)) {
+    const ext = path.extname(file.originalname || "").toLowerCase();
+    // Some browsers send HEIC with an empty/generic mimetype; trust the
+    // extension in that case.
+    const genericMime = !file.mimetype || file.mimetype === "application/octet-stream";
+    if (GRADE_MIME.includes(file.mimetype) || (GRADE_EXT.includes(ext) && genericMime)) {
       cb(null, true);
     } else {
       cb(new Error("Unsupported file type"));
     }
   },
 });
+
+// Formats the OpenAI vision API can read directly. Anything else (HEIC/HEIF)
+// is transcoded to JPEG first.
+const VISION_READY = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+
+function isHeic(file: Express.Multer.File): boolean {
+  const ext = path.extname(file.originalname || "").toLowerCase();
+  return (
+    file.mimetype === "image/heic" ||
+    file.mimetype === "image/heif" ||
+    ext === ".heic" ||
+    ext === ".heif"
+  );
+}
+
+// Build a vision-ready data URL, transcoding HEIC/unknown formats to JPEG via
+// the Python service so OpenAI never receives a format it can't decode.
+async function fileToVisionDataUrl(file: Express.Multer.File): Promise<string> {
+  if (VISION_READY.has(file.mimetype) && !isHeic(file)) {
+    return `data:${file.mimetype};base64,${file.buffer.toString("base64")}`;
+  }
+  const jpeg = await transcodeViaPython(file.buffer, file.originalname || "image");
+  return `data:image/jpeg;base64,${jpeg.toString("base64")}`;
+}
 
 // Parse the optional `centering` form field (JSON) into a MeasuredCentering.
 function parseCentering(raw: unknown): MeasuredCentering | undefined {
@@ -65,22 +103,24 @@ const gradeUpload = upload.fields([
 
 type FileMap = Record<string, Express.Multer.File[]>;
 
-function toImages(files: FileMap | undefined): GradeImageInput[] {
+async function toImages(files: FileMap | undefined): Promise<GradeImageInput[]> {
   if (!files) return [];
   const images: GradeImageInput[] = [];
-  const add = (label: GradeImageInput["label"], f?: Express.Multer.File) => {
-    if (f) {
-      images.push({
-        label,
-        dataUrl: `data:${f.mimetype};base64,${f.buffer.toString("base64")}`,
-      });
+  const add = async (label: GradeImageInput["label"], f?: Express.Multer.File) => {
+    if (!f) return;
+    try {
+      images.push({ label, dataUrl: await fileToVisionDataUrl(f) });
+    } catch (err) {
+      // A transcode failure on one image must not kill the whole grade; the
+      // required-front check below surfaces a clear error if the front drops.
+      console.error(`grade: failed to prepare ${label} image:`, err);
     }
   };
-  add("front", files.front?.[0]);
-  add("back", files.back?.[0]);
-  add("angled_front", files.angled_front?.[0]);
-  add("angled_back", files.angled_back?.[0]);
-  for (const f of files.closeups ?? []) add("closeup", f);
+  await add("front", files.front?.[0]);
+  await add("back", files.back?.[0]);
+  await add("angled_front", files.angled_front?.[0]);
+  await add("angled_back", files.angled_back?.[0]);
+  for (const f of files.closeups ?? []) await add("closeup", f);
   return images;
 }
 
@@ -141,7 +181,7 @@ router.post("/grade", requireAuth, gradeUpload, async (req: Request, res: Respon
     return;
   }
 
-  const images = toImages(req.files as FileMap | undefined);
+  const images = await toImages(req.files as FileMap | undefined);
   if (!images.some((i) => i.label === "front")) {
     res.status(400).json({ error: "A front image is required." });
     return;

@@ -15,6 +15,15 @@ function parseManualCorners(raw: unknown): number[][] | undefined {
   return corners;
 }
 
+// The manual editor sends a 3x3 homography (row-major, 9 numbers) mapping its
+// rectified preview pixels back to the original image, alongside manual_corners.
+function parseManualTransform(raw: unknown): number[] | undefined {
+  if (!Array.isArray(raw) || raw.length !== 9) return undefined;
+  const m = raw.map((v) => Number(v));
+  if (m.some((n) => !Number.isFinite(n))) return undefined;
+  return m;
+}
+
 function parseRoi(raw: unknown): number[] | undefined {
   if (!Array.isArray(raw) || raw.length !== 4) return undefined;
   const box = raw.map((v) => Number(v));
@@ -49,6 +58,7 @@ export function validateParams(raw: unknown): Record<string, unknown> {
     background: parseBackground(p.background),
     roi: parseRoi(p.roi),
     manual_corners: parseManualCorners(p.manual_corners),
+    manual_transform: parseManualTransform(p.manual_transform),
     // Legacy knobs kept (ignored by the new pipeline) for API compatibility.
     edge_sensitivity: clamp(p.edge_sensitivity, 0, 1, 0.5),
     contour_threshold: clamp(p.contour_threshold, 0, 1, 0.5),

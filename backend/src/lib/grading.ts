@@ -1,5 +1,6 @@
 import { chatComplete, isOpenAiConfigured, type ChatImage } from "./openai.js";
 import { buildPreparation } from "./preparation.js";
+import { estimateCardPrices } from "./cardPricing.js";
 
 // Strict, anti-hype PSA-style pre-grader. Two passes:
 //   1) inspection — vision model reports structured condition findings, no grade
@@ -216,13 +217,35 @@ export async function gradeCard(
   });
   const decision = adjudicate ? safeParse(adjudicate.content) : null;
 
+  // Rough AI value estimate (raw + graded, GBP). Depends on the adjudicated
+  // company estimates, so it runs last. Wrapped + time-boxed so a slow or
+  // failed pricing call never fails or noticeably delays the grade — on any
+  // problem we simply omit the pricing field.
+  let pricing = null;
+  try {
+    const identity = (findings as Record<string, unknown>).card_identification;
+    const companyEstimates = decision?.company_estimates;
+    if (identity && typeof identity === "object") {
+      pricing = await estimateCardPrices(
+        identity as Record<string, unknown>,
+        companyEstimates,
+        userId,
+        { timeoutMs: 20000 }
+      );
+    }
+  } catch {
+    pricing = null;
+  }
+
   return {
     ...findings,
     ...(decision ?? {}),
     preparation: buildPreparation((findings as Record<string, unknown>).defects),
+    ...(pricing ? { pricing } : {}),
     disclaimer:
       "Not an official grade from PSA, Beckett, CGC, TAG, ACE or any grader. A " +
       "pre-check estimate from photos to help you decide whether to submit, sell " +
-      "raw, or inspect further.",
+      "raw, or inspect further. Any values shown are rough AI estimates, not live " +
+      "market prices.",
   };
 }

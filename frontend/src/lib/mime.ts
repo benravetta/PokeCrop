@@ -7,6 +7,10 @@ export function mimeFromFilename(name: string | null): string {
       return "image/jpeg";
     case "webp":
       return "image/webp";
+    case "heic":
+      return "image/heic";
+    case "heif":
+      return "image/heif";
     case "pdf":
       return "application/pdf";
     default:

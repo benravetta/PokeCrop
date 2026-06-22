@@ -18,6 +18,7 @@ import {
   ShieldAlert,
   CheckCircle2,
   RotateCw,
+  Tag,
 } from "lucide-react";
 import {
   gradeCard,
@@ -29,10 +30,12 @@ import {
   type MeasuredCentering,
   type Preparation,
   type PrepItem,
+  type CardPricing,
 } from "../lib/api";
 import { CenteringTool } from "../components/grade/CenteringTool";
 import { borderRatios, type Box } from "../lib/centering";
 import { loadImage, cropFromImage, resolveRect } from "../lib/cardRegions";
+import { useAppStore } from "../hooks/useProcessing";
 
 // ---- helpers to read the loosely-typed model result ----
 const asObj = (v: unknown): Record<string, unknown> =>
@@ -119,6 +122,28 @@ export function GradePage() {
       .then((r) => setQuota(r.quota))
       .catch(() => {});
   }, []);
+
+  // Consume a "Send to grading" hand-off from the crop tool: prefill the front
+  // slot with the already-cropped/straightened card and skip re-straightening.
+  const gradePrefill = useAppStore((s) => s.gradePrefill);
+  const clearGradePrefill = useAppStore((s) => s.clearGradePrefill);
+  const prefillConsumed = useRef(false);
+  useEffect(() => {
+    if (prefillConsumed.current || !gradePrefill) return;
+    prefillConsumed.current = true;
+    const dataUrl = `data:image/png;base64,${gradePrefill.pngBase64}`;
+    const base = gradePrefill.filename.replace(/\.[^/.]+$/, "") || "card";
+    const file = dataUrlToFile(dataUrl, `${base}.png`);
+    setFiles((prev) => ({ ...prev, front: file }));
+    setPreviews((prev) => {
+      if (prev.front) URL.revokeObjectURL(prev.front);
+      return { ...prev, front: URL.createObjectURL(file) };
+    });
+    // The crop is already straightened, so use it directly for centering and
+    // do not re-run straightenForGrade.
+    setProc((p) => ({ ...p, front: { src: dataUrl, loading: false, failed: false } }));
+    clearGradePrefill();
+  }, [gradePrefill, clearGradePrefill]);
 
   // Straighten a freshly-picked front/back so centering can be measured on a
   // clean card. Falls back to the original photo if no card is detected.
@@ -217,7 +242,7 @@ export function GradePage() {
 
   return (
     <div className="flex-1 min-h-0 overflow-y-auto">
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 w-full">
+    <div className={`mx-auto px-4 sm:px-6 py-8 w-full ${result ? "max-w-6xl xl:max-w-7xl" : "max-w-6xl"}`}>
       <div className="flex items-center gap-3 mb-1">
         <ShieldCheck className="w-6 h-6 text-accent" />
         <h1 className="text-2xl font-semibold text-text-primary">AI Pre-Grader</h1>
@@ -267,33 +292,37 @@ export function GradePage() {
               </p>
             )}
 
-            {files.front && (
-              <CenteringPanel
-                side="front"
-                label="Front"
-                proc={proc.front}
-                displaySrc={proc.front.src ?? previews.front}
-                outer={outers.front}
-                inner={inners.front}
-                onOuter={(b) => setOuters((prev) => ({ ...prev, front: b }))}
-                onInner={(b) => setInners((prev) => ({ ...prev, front: b }))}
-                skip={skip.front}
-                onSkip={(v) => setSkip((s) => ({ ...s, front: v }))}
-              />
-            )}
-            {files.back && (
-              <CenteringPanel
-                side="back"
-                label="Back"
-                proc={proc.back}
-                displaySrc={proc.back.src ?? previews.back}
-                outer={outers.back}
-                inner={inners.back}
-                onOuter={(b) => setOuters((prev) => ({ ...prev, back: b }))}
-                onInner={(b) => setInners((prev) => ({ ...prev, back: b }))}
-                skip={skip.back}
-                onSkip={(v) => setSkip((s) => ({ ...s, back: v }))}
-              />
+            {(files.front || files.back) && (
+              <div className="grid xl:grid-cols-2 gap-4">
+                {files.front && (
+                  <CenteringPanel
+                    side="front"
+                    label="Front"
+                    proc={proc.front}
+                    displaySrc={proc.front.src ?? previews.front}
+                    outer={outers.front}
+                    inner={inners.front}
+                    onOuter={(b) => setOuters((prev) => ({ ...prev, front: b }))}
+                    onInner={(b) => setInners((prev) => ({ ...prev, front: b }))}
+                    skip={skip.front}
+                    onSkip={(v) => setSkip((s) => ({ ...s, front: v }))}
+                  />
+                )}
+                {files.back && (
+                  <CenteringPanel
+                    side="back"
+                    label="Back"
+                    proc={proc.back}
+                    displaySrc={proc.back.src ?? previews.back}
+                    outer={outers.back}
+                    inner={inners.back}
+                    onOuter={(b) => setOuters((prev) => ({ ...prev, back: b }))}
+                    onInner={(b) => setInners((prev) => ({ ...prev, back: b }))}
+                    skip={skip.back}
+                    onSkip={(v) => setSkip((s) => ({ ...s, back: v }))}
+                  />
+                )}
+              </div>
             )}
 
             <div className="flex items-center gap-3">
@@ -560,7 +589,7 @@ function ImageSlot({
       <input
         ref={inputRef}
         type="file"
-        accept="image/png,image/jpeg,image/webp"
+        accept="image/png,image/jpeg,image/webp,image/heic,image/heif,.heic,.heif"
         className="hidden"
         onChange={(e) => {
           const f = e.target.files?.[0];
@@ -652,6 +681,77 @@ function CompanyEstimate({ obj }: { obj: unknown }) {
   );
 }
 
+function CardImages({ images }: { images?: { front?: string; back?: string } }) {
+  const shots = [
+    { label: "Front", src: images?.front },
+    { label: "Back", src: images?.back },
+  ].filter((s): s is { label: string; src: string } => Boolean(s.src));
+  if (shots.length === 0) return null;
+  return (
+    <div className="rounded-xl border border-border-subtle bg-surface-raised p-3">
+      <div className={`grid gap-3 ${shots.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}>
+        {shots.map((s) => (
+          <div key={s.label}>
+            <div className="rounded-lg overflow-hidden border border-border-subtle bg-surface-overlay">
+              <img src={s.src} alt={s.label} className="w-full h-auto object-contain" />
+            </div>
+            <div className="mt-1.5 text-center text-[11px] text-text-muted">{s.label}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function fmtMoney(n: number, currency: string): string {
+  const sym = currency === "GBP" ? "£" : currency === "USD" ? "$" : currency === "EUR" ? "€" : "";
+  return `${sym}${Math.round(n).toLocaleString()}`;
+}
+
+function fmtRange(low: number, high: number, currency: string): string {
+  if (Math.round(low) === Math.round(high)) return fmtMoney(low, currency);
+  return `${fmtMoney(low, currency)}–${fmtMoney(high, currency)}`;
+}
+
+function PriceEstimate({ pricing }: { pricing?: CardPricing }) {
+  if (!pricing || !pricing.raw) return null;
+  return (
+    <div className="rounded-xl border border-border-subtle bg-surface-raised p-5">
+      <h3 className="text-sm font-medium text-text-primary mb-3 flex items-center gap-2">
+        <Tag className="w-4 h-4 text-accent" />
+        Estimated value
+        <span className="rounded-full bg-amber-500/15 text-amber-300 text-[10px] font-semibold px-2 py-0.5">
+          ESTIMATE
+        </span>
+      </h3>
+      <div className="flex items-baseline justify-between border-b border-border-subtle pb-2">
+        <span className="text-sm text-text-secondary">Raw / ungraded</span>
+        <span className="text-base font-semibold text-text-primary">
+          {fmtRange(pricing.raw.low, pricing.raw.high, pricing.currency)}
+        </span>
+      </div>
+      {pricing.graded.length > 0 && (
+        <ul className="divide-y divide-border-subtle">
+          {pricing.graded.map((g, i) => (
+            <li key={i} className="flex items-baseline justify-between py-2">
+              <span className="text-sm text-text-secondary">
+                {g.company}
+                {g.grade ? <span className="text-text-muted"> · {g.grade}</span> : null}
+              </span>
+              <span className="text-sm font-medium text-text-primary">
+                {fmtRange(g.low, g.high, pricing.currency)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="mt-3 text-[11px] leading-snug text-text-muted">
+        Rough estimate (confidence: {pricing.confidence}){pricing.note ? ` — ${pricing.note}` : ""}
+      </p>
+    </div>
+  );
+}
+
 function GradeReport({
   result,
   images,
@@ -671,9 +771,9 @@ function GradeReport({
   const isAuthenticOnly = authentic.is_authentic_only === true;
 
   return (
-    <div className="mt-8 space-y-5 animate-[fade-in_0.25s_ease-out]">
+    <div className="mt-8 animate-[fade-in_0.25s_ease-out]">
       {isAuthenticOnly && (
-        <div className="rounded-xl border border-red-500/40 bg-red-500/10 p-5">
+        <div className="mb-5 rounded-xl border border-red-500/40 bg-red-500/10 p-5">
           <div className="flex items-center gap-2 text-red-300 font-semibold">
             <AlertTriangle className="w-5 h-5" />
             Authentic / Altered — not gradeable as Mint
@@ -684,112 +784,124 @@ function GradeReport({
           </p>
         </div>
       )}
-      <div className="rounded-xl border border-border-subtle bg-surface-raised p-5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <div className="text-xs uppercase tracking-wide text-text-muted">Recommendation</div>
-            <div className="text-2xl font-semibold text-text-primary mt-1">
-              {REC_LABELS[recVerdict] ?? recVerdict ?? "—"}
-            </div>
-            {bestFor && (
-              <div className="text-sm text-text-secondary mt-1">
-                Best fit: <span className="text-text-primary">{bestFor}</span>
+
+      <div className="grid lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)] xl:grid-cols-[minmax(0,380px)_minmax(0,1fr)] gap-5 items-start">
+        {/* Left rail: the card, what it is, what it's worth, centering */}
+        <div className="space-y-5 lg:sticky lg:top-4">
+          <CardImages images={images} />
+
+          <div className="rounded-xl border border-border-subtle bg-surface-raised p-5">
+            <h3 className="text-sm font-medium text-text-primary mb-2">Card</h3>
+            <dl className="text-sm space-y-1">
+              <Field k="Name" v={asStr(ident.name)} />
+              <Field k="Set" v={asStr(ident.set)} />
+              <Field k="Number" v={asStr(ident.number)} />
+              <Field k="Variant" v={asStr(ident.variant)} />
+            </dl>
+          </div>
+
+          <PriceEstimate pricing={result.pricing as CardPricing | undefined} />
+
+          <Centering obj={result.centering} />
+        </div>
+
+        {/* Right column: the verdict and condition breakdown */}
+        <div className="space-y-5 min-w-0">
+          <div className="rounded-xl border border-border-subtle bg-surface-raised p-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div className="text-xs uppercase tracking-wide text-text-muted">Recommendation</div>
+                <div className="text-2xl font-semibold text-text-primary mt-1">
+                  {REC_LABELS[recVerdict] ?? recVerdict ?? "—"}
+                </div>
+                {bestFor && (
+                  <div className="text-sm text-text-secondary mt-1">
+                    Best fit: <span className="text-text-primary">{bestFor}</span>
+                  </div>
+                )}
               </div>
+              {recVerdict && (
+                <span
+                  className={`rounded-full border px-3 py-1.5 text-sm font-medium ${
+                    REC_TONE[recVerdict] ?? REC_TONE.needs_better_photos
+                  }`}
+                >
+                  {REC_LABELS[recVerdict] ?? recVerdict}
+                </span>
+              )}
+            </div>
+            {asStr(rec.reason) && (
+              <p className="mt-3 text-sm text-text-secondary">{asStr(rec.reason)}</p>
             )}
           </div>
-          {recVerdict && (
-            <span
-              className={`rounded-full border px-3 py-1.5 text-sm font-medium ${
-                REC_TONE[recVerdict] ?? REC_TONE.needs_better_photos
-              }`}
-            >
-              {REC_LABELS[recVerdict] ?? recVerdict}
-            </span>
-          )}
-        </div>
-        {asStr(rec.reason) && (
-          <p className="mt-3 text-sm text-text-secondary">{asStr(rec.reason)}</p>
-        )}
-      </div>
 
-      {companies.length > 0 && (
-        <div>
-          <h3 className="text-xs uppercase tracking-wide text-text-muted mb-2">
-            Estimated grade by company
-          </h3>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-            {companies.map((c, i) => (
-              <CompanyEstimate key={i} obj={c} />
-            ))}
+          {companies.length > 0 && (
+            <div>
+              <h3 className="text-xs uppercase tracking-wide text-text-muted mb-2">
+                Estimated grade by company
+              </h3>
+              <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3">
+                {companies.map((c, i) => (
+                  <CompanyEstimate key={i} obj={c} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <ScoreCard label="Corners" obj={result.corners} />
+            <ScoreCard label="Edges" obj={result.edges} />
+            <ScoreCard label="Surface" obj={result.surface} />
+            <ScoreCard label="Eye appeal" obj={result.eye_appeal} />
           </div>
-        </div>
-      )}
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <ScoreCard label="Corners" obj={result.corners} />
-        <ScoreCard label="Edges" obj={result.edges} />
-        <ScoreCard label="Surface" obj={result.surface} />
-        <ScoreCard label="Eye appeal" obj={result.eye_appeal} />
-      </div>
+          <div className="grid sm:grid-cols-3 gap-3">
+            <BlockerList title="Blocks gem mint" items={asArr(blockers.gem_mint)} tone="red" />
+            <BlockerList title="Blocks mint (≈9)" items={asArr(blockers.mint)} tone="amber" />
+            <BlockerList title="Blocks near-mint (≈8)" items={asArr(blockers.near_mint)} tone="muted" />
+          </div>
 
-      <div className="grid md:grid-cols-3 gap-3">
-        <BlockerList title="Blocks gem mint" items={asArr(blockers.gem_mint)} tone="red" />
-        <BlockerList title="Blocks mint (≈9)" items={asArr(blockers.mint)} tone="amber" />
-        <BlockerList title="Blocks near-mint (≈8)" items={asArr(blockers.near_mint)} tone="muted" />
-      </div>
+          {caps.length > 0 && (
+            <div className="rounded-xl border border-border-subtle bg-surface-raised p-5">
+              <h3 className="text-sm font-medium text-text-primary mb-2">Hard caps applied</h3>
+              <ul className="space-y-1.5">
+                {caps.map((c, i) => {
+                  const o = asObj(c);
+                  return (
+                    <li key={i} className="text-sm text-text-secondary">
+                      <span className="text-text-primary">{asStr(o.cap)}</span>
+                      {asStr(o.reason) ? ` — ${asStr(o.reason)}` : ""}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
 
-      {caps.length > 0 && (
-        <div className="rounded-xl border border-border-subtle bg-surface-raised p-5">
-          <h3 className="text-sm font-medium text-text-primary mb-2">Hard caps applied</h3>
-          <ul className="space-y-1.5">
-            {caps.map((c, i) => {
-              const o = asObj(c);
-              return (
-                <li key={i} className="text-sm text-text-secondary">
-                  <span className="text-text-primary">{asStr(o.cap)}</span>
-                  {asStr(o.reason) ? ` — ${asStr(o.reason)}` : ""}
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      )}
+          <PreparationSection preparation={result.preparation as Preparation | undefined} images={images} />
 
-      <Centering obj={result.centering} />
+          <div className="rounded-xl border border-border-subtle bg-surface-raised p-5">
+            <h3 className="text-sm font-medium text-text-primary mb-2">
+              Confidence: <span className="capitalize text-text-primary">{asStr(confidence.rating) || "—"}</span>
+            </h3>
+            {asArr(confidence.improve_with).length > 0 && (
+              <ul className="text-sm text-text-secondary list-disc list-inside space-y-1">
+                {asArr(confidence.improve_with).map((x, i) => (
+                  <li key={i}>{asStr(x)}</li>
+                ))}
+              </ul>
+            )}
+          </div>
 
-      <PreparationSection preparation={result.preparation as Preparation | undefined} images={images} />
-
-      <div className="grid md:grid-cols-2 gap-3">
-        <div className="rounded-xl border border-border-subtle bg-surface-raised p-5">
-          <h3 className="text-sm font-medium text-text-primary mb-2">Card</h3>
-          <dl className="text-sm space-y-1">
-            <Field k="Name" v={asStr(ident.name)} />
-            <Field k="Set" v={asStr(ident.set)} />
-            <Field k="Number" v={asStr(ident.number)} />
-            <Field k="Variant" v={asStr(ident.variant)} />
-          </dl>
-        </div>
-        <div className="rounded-xl border border-border-subtle bg-surface-raised p-5">
-          <h3 className="text-sm font-medium text-text-primary mb-2">
-            Confidence: <span className="capitalize text-text-primary">{asStr(confidence.rating) || "—"}</span>
-          </h3>
-          {asArr(confidence.improve_with).length > 0 && (
-            <ul className="text-sm text-text-secondary list-disc list-inside space-y-1">
-              {asArr(confidence.improve_with).map((x, i) => (
-                <li key={i}>{asStr(x)}</li>
-              ))}
-            </ul>
+          {asStr(result.summary) && (
+            <p className="text-sm text-text-secondary border-l-2 border-accent/40 pl-4">
+              {asStr(result.summary)}
+            </p>
           )}
         </div>
       </div>
 
-      {asStr(result.summary) && (
-        <p className="text-sm text-text-secondary border-l-2 border-accent/40 pl-4">
-          {asStr(result.summary)}
-        </p>
-      )}
-
-      <p className="text-xs text-text-muted">{asStr(result.disclaimer)}</p>
+      <p className="mt-5 text-xs text-text-muted">{asStr(result.disclaimer)}</p>
     </div>
   );
 }

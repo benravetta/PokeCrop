@@ -6,6 +6,15 @@ import cv2
 from PIL import Image
 from typing import Tuple
 
+# Let Pillow decode HEIC/HEIF (the iPhone default "High Efficiency" format).
+# Registered once at import; a missing plugin must never crash the service.
+try:
+    import pillow_heif  # type: ignore
+
+    pillow_heif.register_heif_opener()
+except Exception:  # pragma: no cover - optional dependency
+    pass
+
 MAX_WORKING_DIM = 2000
 MAX_ORIGINAL_DIM = 10000
 MAX_PDF_DPI = 600

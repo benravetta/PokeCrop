@@ -36,3 +36,29 @@ export async function sendToPython(
   }
   return data as Record<string, any>;
 }
+
+// Decode any supported upload (incl. HEIC/HEIF) and return it re-encoded as a
+// plain JPEG buffer. Used to normalise phone formats that the OpenAI vision API
+// cannot read directly. No cropping is applied.
+export async function transcodeViaPython(
+  buffer: Buffer,
+  filename: string
+): Promise<Buffer> {
+  const formData = new FormData();
+  formData.append("image", new Blob([new Uint8Array(buffer)]), filename || "image");
+
+  const response = await fetch(`${PYTHON_URL}/transcode`, {
+    method: "POST",
+    body: formData,
+    signal: AbortSignal.timeout(PYTHON_TIMEOUT_MS),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Python transcode error (${response.status}): ${text}`);
+  }
+
+  const data = (await response.json()) as { jpeg?: string };
+  if (!data.jpeg) throw new Error("Python transcode returned no image");
+  return Buffer.from(data.jpeg, "base64");
+}
