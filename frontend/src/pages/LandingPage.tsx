@@ -24,8 +24,8 @@ import { useAuth } from "../hooks/useAuth";
 import { useMe } from "../hooks/useMe";
 import { startCheckout } from "../lib/api";
 
-const BEFORE_IMG = "/demo-before.jpg";
-const AFTER_IMG = "/demo-after.png";
+const BEFORE_IMG = "/demo-before.jpg?v=rowlet";
+const AFTER_IMG = "/demo-after.png?v=rowlet";
 
 type Plan = "free" | "unlimited" | "api" | null;
 
