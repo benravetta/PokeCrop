@@ -11,6 +11,8 @@ export function mimeFromFilename(name: string | null): string {
       return "image/heic";
     case "heif":
       return "image/heif";
+    case "dng":
+      return "image/x-adobe-dng";
     case "pdf":
       return "application/pdf";
     default:

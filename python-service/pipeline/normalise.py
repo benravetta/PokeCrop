@@ -19,6 +19,10 @@ MAX_WORKING_DIM = 2000
 MAX_ORIGINAL_DIM = 10000
 MAX_PDF_DPI = 600
 
+# Camera raw formats decoded via rawpy/LibRaw. DNG is the one phones produce
+# (Apple ProRAW / Android pro modes); the rest come along for free.
+RAW_EXTS = {"dng", "cr2", "cr3", "nef", "arw", "raf", "orf", "rw2", "srw", "pef"}
+
 
 def normalise_input(file_bytes: bytes, filename: str, dpi: int = 300) -> Tuple[np.ndarray, np.ndarray, float]:
     """Normalise input to a BGR numpy array.
@@ -33,6 +37,8 @@ def normalise_input(file_bytes: bytes, filename: str, dpi: int = 300) -> Tuple[n
 
     if ext == "pdf":
         original = _rasterise_pdf(file_bytes, dpi)
+    elif ext in RAW_EXTS:
+        original = _decode_raw(file_bytes)
     else:
         original = _decode_image(file_bytes)
 
@@ -83,6 +89,19 @@ def _rasterise_pdf(file_bytes: bytes, dpi: int) -> np.ndarray:
         doc.close()
 
 
+def _decode_raw(file_bytes: bytes) -> np.ndarray:
+    """Decode a camera raw (DNG, CR2, NEF, ...) to BGR via rawpy/LibRaw."""
+    import rawpy
+
+    with rawpy.imread(io.BytesIO(file_bytes)) as raw:
+        rgb = raw.postprocess(
+            use_camera_wb=True,
+            output_bps=8,
+            no_auto_bright=False,
+        )
+    return cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
+
+
 def _decode_image(file_bytes: bytes) -> np.ndarray:
     """Decode an image from bytes, applying EXIF orientation when present."""
     try:
@@ -99,6 +118,10 @@ def _decode_image(file_bytes: bytes) -> np.ndarray:
     except Exception:
         arr = np.frombuffer(file_bytes, dtype=np.uint8)
         img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
-        if img is None:
+        if img is not None:
+            return img
+        # Last resort: a raw file that arrived without a recognised extension.
+        try:
+            return _decode_raw(file_bytes)
+        except Exception:
             raise ValueError("Could not decode image file")
-        return img

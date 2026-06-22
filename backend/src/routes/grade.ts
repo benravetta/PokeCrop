@@ -22,13 +22,15 @@ const router = Router();
 const tmpDir = path.join(os.tmpdir(), "cardcrop-grade");
 fs.mkdirSync(tmpDir, { recursive: true });
 
-const GRADE_EXT = [".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"];
+const GRADE_EXT = [".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif", ".dng"];
 const GRADE_MIME = [
   "image/jpeg",
   "image/png",
   "image/webp",
   "image/heic",
   "image/heif",
+  "image/x-adobe-dng",
+  "image/dng",
 ];
 
 const upload = multer({

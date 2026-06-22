@@ -34,7 +34,7 @@ const upload = multer({
   storage,
   limits: { fileSize: 50 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
-    const allowed = [".jpg", ".jpeg", ".png", ".webp", ".pdf", ".heic", ".heif"];
+    const allowed = [".jpg", ".jpeg", ".png", ".webp", ".pdf", ".heic", ".heif", ".dng"];
     const ext = path.extname(file.originalname).toLowerCase();
     const allowedMimes = [
       "image/jpeg",
@@ -43,6 +43,8 @@ const upload = multer({
       "application/pdf",
       "image/heic",
       "image/heif",
+      "image/x-adobe-dng",
+      "image/dng",
     ];
     // Browsers often send HEIC with an empty/generic mimetype; trust the
     // extension when the mimetype is unhelpful.

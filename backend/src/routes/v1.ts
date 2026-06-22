@@ -23,7 +23,7 @@ const router = Router();
 const tmpDir = path.join(os.tmpdir(), "cardcrop-api");
 fs.mkdirSync(tmpDir, { recursive: true });
 
-const ALLOWED_EXT = [".jpg", ".jpeg", ".png", ".webp", ".pdf", ".heic", ".heif"];
+const ALLOWED_EXT = [".jpg", ".jpeg", ".png", ".webp", ".pdf", ".heic", ".heif", ".dng"];
 const ALLOWED_MIME = [
   "image/jpeg",
   "image/png",
@@ -31,6 +31,8 @@ const ALLOWED_MIME = [
   "application/pdf",
   "image/heic",
   "image/heif",
+  "image/x-adobe-dng",
+  "image/dng",
 ];
 
 const upload = multer({
@@ -73,6 +75,13 @@ function extFromMagic(buf: Buffer): string {
       const brand = buf.toString("ascii", 8, 12);
       if (["heic", "heix", "heif", "mif1", "msf1", "hevc"].includes(brand)) return ".heic";
     }
+    // DNG is TIFF-based ("II*\0" little-endian or "MM\0*" big-endian). We don't
+    // accept plain TIFF, so treat a TIFF header as a raw DNG.
+    if (
+      (buf[0] === 0x49 && buf[1] === 0x49 && buf[2] === 0x2a && buf[3] === 0x00) ||
+      (buf[0] === 0x4d && buf[1] === 0x4d && buf[2] === 0x00 && buf[3] === 0x2a)
+    )
+      return ".dng";
   }
   return "";
 }
