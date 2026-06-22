@@ -214,6 +214,19 @@ router.post("/grade", requireAuth, gradeUpload, async (req: Request, res: Respon
       return;
     }
 
+    // The upload wasn't a trading card — don't spend the user's grade allowance
+    // on it. Return the unchanged quota with a clear signal for the UI.
+    if ((result as Record<string, unknown>).not_a_card === true) {
+      logActivity({
+        userId,
+        action: "grade.web.not_a_card",
+        actorId: userId,
+        detail: { images: images.length },
+      });
+      res.json({ result, quota });
+      return;
+    }
+
     await incrementGrade(userId);
     logActivity({
       userId,

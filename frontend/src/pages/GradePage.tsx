@@ -408,7 +408,27 @@ export function GradePage() {
         </div>
       )}
 
-      {result && (
+      {result && result.not_a_card === true && (
+        <div className="max-w-xl mx-auto text-center rounded-2xl border border-border-subtle bg-surface-raised p-8 animate-[fade-in_0.25s_ease-out]">
+          <div className="w-14 h-14 rounded-2xl bg-amber-500/15 flex items-center justify-center mx-auto mb-4">
+            <AlertTriangle className="w-7 h-7 text-amber-300" />
+          </div>
+          <h2 className="text-lg font-semibold text-text-primary">That doesn't look like a trading card</h2>
+          <p className="mt-2 text-sm text-text-secondary">{asStr(result.reason)}</p>
+          <p className="mt-1 text-xs text-text-muted">
+            No grade was used. Upload a clear, square-on photo of the card front (and back).
+          </p>
+          <button
+            onClick={reset}
+            className="mt-5 inline-flex items-center gap-2 rounded-lg bg-accent px-5 py-2.5 text-sm font-medium text-white hover:bg-accent-hover transition-colors"
+          >
+            <RotateCcw className="w-4 h-4" />
+            Try another image
+          </button>
+        </div>
+      )}
+
+      {result && result.not_a_card !== true && (
         <>
           <div className="mb-5 flex flex-wrap items-center gap-3">
             <button

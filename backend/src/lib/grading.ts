@@ -36,6 +36,8 @@ const INSPECT_SYSTEM =
 
 const INSPECT_PROMPT = `Inspect the supplied card image(s) and return ONLY this JSON shape:
 {
+  "is_trading_card": true,
+  "not_card_reason": "",
   "card_identification": { "name": "", "set": "", "number": "", "variant": "", "language": "", "confidence": "low|medium|high" },
   "image_suitability": { "rating": "excellent|good|limited|poor", "limitations": [] },
   "views_present": { "front": true, "back": false, "angled": false, "closeups": false },
@@ -48,7 +50,7 @@ const INSPECT_PROMPT = `Inspect the supplied card image(s) and return ONLY this 
   "defects": [ { "kind": "dust|fingerprint|surface_residue|foil_scrape|surface_scratch|holo_scratch|print_line|gloss_loss|edge_whitening|corner_whitening|indentation|scuff|stain|crease|bend|tear|hole|writing|tape", "side": "front|back", "region": "top_left_corner|top_right_corner|bottom_left_corner|bottom_right_corner|top_edge|bottom_edge|left_edge|right_edge|top_left|top_center|top_right|center_left|center|center_right|bottom_left|bottom_center|bottom_right|holo_area|full", "bbox": [0,0,0,0], "severity": "minor|moderate|major", "note": "" } ],
   "observations": [ { "issue": "", "where": "", "severity": "minor|moderate|major", "likely": "damage|factory|unsure" } ]
 }
-Rules: each corner gets "Clean", "Minor concern", "Moderate concern", "Major concern", or "Cannot assess". ALWAYS fill corners.score, edges.score, surface.score and eye_appeal.score with a number 0-10 (one decimal is fine) — never leave one blank. Calibrate every axis the same way: 10 = flawless under a loupe; 9 = one tiny flaw only a grader would catch; 8 = a few minor flaws; 7 = clearly visible wear; 5-6 = heavy/obvious wear; 3-4 = major damage; 0-2 = destroyed/structural break. Reserve 0 for a destroyed axis, NOT as a default — a clean-looking card should score high. Deduct for every visible defect and deduct again (and lower confidence) when photo quality limits inspection. Separate likely physical damage from likely factory print defects in observations. For holo/textured/full-art cards, note that surface confidence is limited without an angled-light image. Centering tolerance: PSA 10 front <= ~55/45, back <= ~75/25.
+Rules: FIRST decide whether the image actually shows a trading card (Pokémon, other TCG, or sports card). If it clearly does NOT — e.g. a person, animal, landscape, food, screenshot, document, blank page, or some random object — set "is_trading_card": false, give a short "not_card_reason" (what it looks like instead), and you may leave the remaining condition fields at their defaults. Only set "is_trading_card": true when a card is genuinely present. A sealed pack, a sleeved/slabbed card, or a card photographed at an angle still counts as a card. each corner gets "Clean", "Minor concern", "Moderate concern", "Major concern", or "Cannot assess". ALWAYS fill corners.score, edges.score, surface.score and eye_appeal.score with a number 0-10 (one decimal is fine) — never leave one blank. Calibrate every axis the same way: 10 = flawless under a loupe; 9 = one tiny flaw only a grader would catch; 8 = a few minor flaws; 7 = clearly visible wear; 5-6 = heavy/obvious wear; 3-4 = major damage; 0-2 = destroyed/structural break. Reserve 0 for a destroyed axis, NOT as a default — a clean-looking card should score high. Deduct for every visible defect and deduct again (and lower confidence) when photo quality limits inspection. Separate likely physical damage from likely factory print defects in observations. For holo/textured/full-art cards, note that surface confidence is limited without an angled-light image. Centering tolerance: PSA 10 front <= ~55/45, back <= ~75/25.
 
 STRUCTURAL DAMAGE IS THE MOST IMPORTANT THING TO REPORT. Before anything else, look at the whole outline and surface for any break in the card itself:
 - A tear, rip, split, hole, missing piece, or paper loss is catastrophic — if you see the card edge or body broken, torn, notched, or a chunk missing, you MUST add a structural_damage entry with the matching type and severity "major". Never describe this as mere "edge wear".
@@ -188,6 +190,24 @@ export async function gradeCard(
   if (!inspect) return null;
   const findings = safeParse(inspect.content);
   if (!findings) return null;
+
+  // Gate: if the upload obviously isn't a trading card, stop here. We skip the
+  // adjudication, scoring and pricing calls (cheaper) and return a clear signal
+  // so the UI explains the problem instead of inventing a grade for a non-card.
+  if (findings.is_trading_card === false) {
+    const reason =
+      typeof findings.not_card_reason === "string" && findings.not_card_reason.trim()
+        ? findings.not_card_reason.trim()
+        : "This image doesn't appear to show a trading card.";
+    return {
+      not_a_card: true,
+      reason,
+      image_suitability: findings.image_suitability,
+      disclaimer:
+        "We couldn't find a trading card in this photo, so there's nothing to grade. " +
+        "Upload a clear, square-on photo of the card's front (and back).",
+    };
+  }
 
   // Overlay the measured centering as ground truth so the adjudicator's
   // centering caps run on real numbers, and the UI can flag it as measured.
