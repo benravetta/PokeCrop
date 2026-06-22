@@ -59,7 +59,19 @@ def refine_quad(quad_working: np.ndarray, original: np.ndarray, scale: float) ->
             best_val = -1.0
             for d in np.arange(-band, band + 0.5, 0.5):
                 q = base + normal * d
-                v = _bilinear(mag, q, W, H)
+                m = _bilinear(mag, q, W, H)
+                if m <= 0:
+                    continue
+                # Weight by how perpendicular the gradient is to this side. A real
+                # card edge runs parallel to the side, so its gradient points along
+                # the side's normal; background clutter (wood grain, fabric, other
+                # straight lines at an angle) is suppressed. This keeps the snap on
+                # the true boundary instead of the strongest nearby texture edge.
+                gxv = _bilinear(gx, q, W, H)
+                gyv = _bilinear(gy, q, W, H)
+                gn = float(np.hypot(gxv, gyv)) or 1.0
+                cons = abs((gxv * normal[0] + gyv * normal[1]) / gn)
+                v = m * (cons * cons)
                 if v > best_val:
                     best_val = v
                     best_pt = q

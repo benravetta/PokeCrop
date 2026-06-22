@@ -20,14 +20,6 @@ from pipeline.corners import handle_corners
 Rect = Tuple[int, int, int, int]
 
 
-# Pull the alpha boundary this fraction of the card's short side inside the
-# detected rectangle. Edge/corner detection is never pixel-perfect, so a slightly
-# loose quad otherwise leaves a sliver of desk background around the card. The
-# card's outer border is a uniform band, so a sub-percent inset is invisible while
-# guaranteeing no background bleeds through.
-EDGE_INSET_FRAC = 0.012
-
-
 def build_alpha(
     warped: np.ndarray,
     card_rect: Rect,
@@ -35,18 +27,10 @@ def build_alpha(
     damaged: bool,
     median_px: int = 3,
     feather_px: float = 0.8,
-    edge_inset_frac: float = EDGE_INSET_FRAC,
 ) -> Tuple[np.ndarray, float]:
     """Return (RGBA uint8, estimated_corner_radius_px)."""
     h, w = warped.shape[:2]
     x, y, cw, ch = card_rect
-
-    # Inset the rectangle slightly (regular path only — the damaged path keeps the
-    # true torn outline via GrabCut and must not be shrunk).
-    if not damaged and edge_inset_frac > 0:
-        inset = int(round(min(cw, ch) * edge_inset_frac))
-        if inset > 0 and cw - 2 * inset > 4 and ch - 2 * inset > 4:
-            x, y, cw, ch = x + inset, y + inset, cw - 2 * inset, ch - 2 * inset
 
     contour = np.array(
         [[[x, y]], [[x + cw - 1, y]], [[x + cw - 1, y + ch - 1]], [[x, y + ch - 1]]],
