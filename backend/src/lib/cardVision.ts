@@ -52,7 +52,7 @@ function buildGuidance(a: Omit<CardAssessment, "guidance">): string[] {
   if (!a.present) g.push("We couldn't see a card. Place the card flat and fill most of the frame.");
   else {
     if (!a.single) g.push("We see more than one card. Photograph a single card at a time.");
-    if (a.touches_edge || !a.fully_visible)
+    if (a.touches_edge)
       g.push("Part of the card is cut off. Include the whole card with a little space around it.");
     if (a.blurry) g.push("The photo looks blurry. Hold steady and tap to focus, then retake.");
     if (a.glare) g.push("There's glare on the card. Tilt away from direct light to reduce reflections.");

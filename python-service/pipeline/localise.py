@@ -34,13 +34,24 @@ def rough_roi(
     h, w = image.shape[:2]
     full: Box = (0, 0, w, h)
 
-    if roi_hint is not None:
-        box = _clamp_box(roi_hint, w, h)
-        if box is not None and box[2] > w * 0.04 and box[3] > h * 0.04:
-            return _pad_box(box, w, h, pad_frac)
+    # Computer-vision foreground evidence is the trusted signal. The GPT hint is
+    # only ever allowed to *expand* the search box, never to shrink it — a hint
+    # that lands slightly inside the card must never chop the real card edges.
+    fg = _foreground_bbox(image)
 
-    box = _foreground_bbox(image)
-    if box is None:
+    hint: Optional[Box] = None
+    if roi_hint is not None:
+        clamped = _clamp_box(roi_hint, w, h)
+        if clamped is not None and clamped[2] > w * 0.04 and clamped[3] > h * 0.04:
+            hint = clamped
+
+    if fg is not None and hint is not None:
+        box = _union_box(fg, hint)
+    elif fg is not None:
+        box = fg
+    elif hint is not None:
+        box = hint
+    else:
         return full
     return _pad_box(box, w, h, pad_frac)
 
@@ -85,6 +96,16 @@ def _foreground_bbox(image: np.ndarray) -> Optional[Box]:
     x, y, bw, bh = cv2.boundingRect(c)
     inv = 1.0 / small_scale
     return (int(x * inv), int(y * inv), int(bw * inv), int(bh * inv))
+
+
+def _union_box(a: Box, b: Box) -> Box:
+    ax, ay, aw, ah = a
+    bx, by, bw, bh = b
+    x1 = min(ax, bx)
+    y1 = min(ay, by)
+    x2 = max(ax + aw, bx + bw)
+    y2 = max(ay + ah, by + bh)
+    return (x1, y1, x2 - x1, y2 - y1)
 
 
 def _pad_box(box: Box, w: int, h: int, pad_frac: float) -> Box:
