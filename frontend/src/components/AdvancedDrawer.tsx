@@ -124,74 +124,46 @@ export function AdvancedDrawer({
 
           <div className="border-t border-border-subtle" />
 
-          <label className="flex items-center justify-between gap-3 cursor-pointer">
-            <div>
-              <span className="text-sm text-text-primary">Auto-straighten</span>
-              <p className="text-[11px] text-text-muted">Rotate tilted cards level.</p>
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-text-primary">Output resolution</span>
             </div>
-            <input
-              type="checkbox"
-              checked={params.rotate_correction}
-              onChange={(e) => setParam("rotate_correction", e.target.checked)}
-              className="w-4 h-4 rounded border-border-subtle bg-surface-overlay accent-accent"
-            />
-          </label>
-
-          <div className="flex flex-col gap-5 pt-1">
-            <p className="text-[11px] font-medium uppercase tracking-wider text-text-muted">
-              Edge clean-up
+            <div className="grid grid-cols-2 gap-2">
+              {(["standard", "high"] as const).map((size) => (
+                <button
+                  key={size}
+                  onClick={() => setParam("output_size", size)}
+                  className={`px-3 py-2 text-xs rounded-lg transition-colors ${
+                    (params.output_size ?? "standard") === size
+                      ? "bg-accent text-white"
+                      : "bg-surface-overlay text-text-primary hover:bg-border-subtle"
+                  }`}
+                >
+                  {size === "standard" ? "Standard (1260px)" : "High (1890px)"}
+                </button>
+              ))}
+            </div>
+            <p className="text-[11px] text-text-muted leading-snug">
+              Higher resolution is sharper but slower to process and download.
             </p>
-            <Slider
-              label="Background removal"
-              hint="Erase leftover table or scan colour bleeding in from the edges."
-              value={params.bg_removal}
-              onChange={(v) => setParam("bg_removal", v)}
-            />
-            <Slider
-              label="Edge trim"
-              hint="Shave the outer edge inward to remove a thin background ring."
-              value={params.edge_trim}
-              onChange={(v) => setParam("edge_trim", v)}
-              min={0}
-              max={40}
-              step={1}
-            />
           </div>
 
           <div className="border-t border-border-subtle" />
 
           <Slider
-            label="Edge detection"
-            hint="Higher finds faint edges; lower ignores busy backgrounds."
-            value={params.edge_sensitivity}
-            onChange={(v) => setParam("edge_sensitivity", v)}
-          />
-          <Slider
-            label="Detection strictness"
-            hint="How card-shaped a region must be to count as the card."
-            value={params.contour_threshold}
-            onChange={(v) => setParam("contour_threshold", v)}
+            label="Corner rounding"
+            hint="Match the card's rounded-corner radius."
+            value={params.corner_radius}
+            onChange={(v) => setParam("corner_radius", v)}
           />
           <Slider
             label="Border padding"
-            hint="Extra pixels kept around the card edge."
+            hint="Transparent margin kept around the card."
             value={params.crop_padding}
             onChange={(v) => setParam("crop_padding", v)}
             min={0}
             max={40}
             step={1}
-          />
-          <Slider
-            label="Top-edge cleanup"
-            hint="Trims glare or background bleeding over the top edge."
-            value={params.top_edge_cleanup}
-            onChange={(v) => setParam("top_edge_cleanup", v)}
-          />
-          <Slider
-            label="Corner rounding"
-            hint="Match the card's rounded-corner radius."
-            value={params.corner_radius}
-            onChange={(v) => setParam("corner_radius", v)}
           />
         </div>
 

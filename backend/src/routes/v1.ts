@@ -14,6 +14,7 @@ import { archiveCropAsync } from "../lib/catalog.js";
 import { fetchRemoteImage, RemoteFetchError, MAX_REMOTE_BYTES } from "../lib/ssrf.js";
 import { rateLimit, rateLimitHeaders, DAILY_SOFT_CAP } from "../lib/rateLimit.js";
 import { openApiSpec } from "../openapi.js";
+import { assessCard } from "../lib/cardVision.js";
 
 export const API_VERSION = "v1";
 
@@ -113,6 +114,7 @@ function shapeMetadata(
     out.height = size.height;
   }
   if (typeof m.confidence === "number") out.confidence = m.confidence;
+  if (typeof m.needs_manual === "boolean") out.needs_manual = m.needs_manual;
   if (typeof m.rotation_deg === "number") out.rotation_deg = m.rotation_deg;
   if (typeof m.estimated_corner_radius_px === "number")
     out.corner_radius_px = m.estimated_corner_radius_px;
@@ -204,6 +206,13 @@ router.post(
       }
 
       const params = parseParams(req.body?.params);
+
+      // Best-effort suitability + rough ROI hint (cost-logged). Never blocks.
+      const assessment = await assessCard(tempPath, req.apiUser!.userId).catch(() => null);
+      if (assessment?.roi && params.roi === undefined) {
+        const r = assessment.roi;
+        params.roi = [r.x, r.y, r.w, r.h];
+      }
 
       let result: Record<string, unknown>;
       try {

@@ -15,6 +15,7 @@ import {
 } from "../lib/usage.js";
 import { logActivity } from "../lib/activity.js";
 import { archiveCropAsync, pngDimensions } from "../lib/catalog.js";
+import { assessCard, CardAssessment } from "../lib/cardVision.js";
 
 const router = Router();
 
@@ -65,6 +66,10 @@ interface Session {
   // True once this upload's crop has been archived to the catalog, so it's
   // catalogued at most once (one R2 object + one paid identify call) per upload.
   archived?: boolean;
+  // GPT-4o-mini pre-crop assessment, computed at most once per upload and reused
+  // across re-processing so we never pay for it more than once per photo.
+  assessment?: CardAssessment | null;
+  assessed?: boolean;
   result?: {
     result_web_png: string;
     // Full-resolution PNG: produced lazily on the first original-size export
@@ -247,6 +252,18 @@ router.post("/process", requireAuth, async (req: Request, res: Response) => {
   session.processing = true;
 
   try {
+    // Assess suitability + rough ROI once per upload (cached), then pass the ROI
+    // as a hint to the Python pipeline. Never blocks on failure.
+    if (!session.assessed) {
+      session.assessed = true;
+      session.assessment = await assessCard(session.filePath, userId).catch(() => null);
+    }
+    const assessment = session.assessment ?? null;
+    if (assessment?.roi && validatedParams.roi === undefined) {
+      const r = assessment.roi;
+      validatedParams.roi = [r.x, r.y, r.w, r.h];
+    }
+
     const result = await sendToPython(
       session.filePath,
       session.filename,
@@ -257,8 +274,13 @@ router.post("/process", requireAuth, async (req: Request, res: Response) => {
       res.json({
         error: result.error,
         candidates_found: result.candidates_found || 0,
+        suitability: assessment ?? undefined,
       });
       return;
+    }
+
+    if (assessment && result.metadata && typeof result.metadata === "object") {
+      result.metadata.suitability = assessment;
     }
 
     session.lastParams = validatedParams;

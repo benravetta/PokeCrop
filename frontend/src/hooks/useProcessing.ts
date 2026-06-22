@@ -52,15 +52,10 @@ export interface AppState {
 }
 
 const DEFAULT_PARAMS: ProcessParams = {
-  edge_sensitivity: 0.5,
-  contour_threshold: 0.5,
-  crop_padding: 0,
-  edge_trim: 0,
-  bg_removal: 0,
-  top_edge_cleanup: 0.7,
   corner_radius: 0.5,
-  rotate_correction: true,
+  crop_padding: 8,
   output_rotation: 0,
+  output_size: "standard",
 };
 
 function buildProcessParams(
@@ -242,15 +237,10 @@ export const useAppStore = create<AppState>((set, get) => ({
 }));
 
 export const PROCESS_PARAM_KEYS: (keyof ProcessParams)[] = [
-  "edge_sensitivity",
-  "contour_threshold",
-  "crop_padding",
-  "edge_trim",
-  "bg_removal",
-  "top_edge_cleanup",
   "corner_radius",
-  "rotate_correction",
+  "crop_padding",
   "output_rotation",
+  "output_size",
 ];
 
 export function paramsDiffer(

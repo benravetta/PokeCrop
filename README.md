@@ -493,19 +493,25 @@ PokeCrop/
 │   └── package.json
 │
 ├── python-service/            FastAPI image processing microservice
-│   ├── app.py                 FastAPI entry, pipeline orchestrator
-│   ├── pipeline/
-│   │   ├── normalise.py       Input normalisation (image/PDF → BGR array)
-│   │   ├── detect.py          Multi-pass candidate detection
-│   │   ├── score.py           Candidate scoring & front-card discrimination
-│   │   ├── border_expand.py   Gradient-based border expansion
-│   │   ├── refine.py          Edge refinement & rotation correction
-│   │   ├── top_edge.py        Top-edge rear-card cleanup
-│   │   ├── corners.py         Rounded-corner detection & supersampled mask
-│   │   └── mask.py            Alpha compositing, overlay, PNG export
+│   ├── app.py                 FastAPI entry, maps /process onto the pipeline
+│   ├── pipeline/              Staged crop pipeline
+│   │   ├── crop.py            Orchestrator (localise→…→export)
+│   │   ├── normalise.py       Input normalisation (image/PDF → BGR + full-res)
+│   │   ├── localise.py        Rough ROI (GPT hint + CV evidence)
+│   │   ├── boundary.py        Physical card mask (GrabCut + colour/edge)
+│   │   ├── edges.py           RANSAC four-edge fit, corner intersections
+│   │   ├── refine_edges.py    Full-res perpendicular-strip edge refinement
+│   │   ├── validate.py        Geometry validation + confidence score
+│   │   ├── warp.py            Single perspective transform to card dims
+│   │   ├── orientation.py     Upright orientation (OCR + layout heuristic)
+│   │   ├── corners.py         Rounded-corner radius + supersampled mask
+│   │   ├── alpha.py           Regular/damaged alpha + cleanup
+│   │   ├── enhance.py         White balance, lighting, sharpen, glare flag
+│   │   ├── export.py          Trim/pad, PNG, grading-safe & solid-bg variants
+│   │   └── manual_crop.py     Manual corner parsing
 │   ├── utils/
-│   │   ├── geometry.py        Shape analysis helpers
-│   │   └── colour.py          Colour analysis (LAB, k-means)
+│   │   └── geometry.py        Shape analysis helpers
+│   ├── tests/                 pytest regression suite + metrics harness
 │   └── requirements.txt
 │
 ├── docker-compose.yml         Production 3-container stack

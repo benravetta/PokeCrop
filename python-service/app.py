@@ -14,11 +14,9 @@ from fastapi.responses import JSONResponse
 from PIL import Image
 
 from pipeline.normalise import normalise_input
-from pipeline.find_card import find_card, straighten_card
-from pipeline.extract import extract_warped_card
-from pipeline.manual_crop import parse_manual_corners, build_edit_frame
-from pipeline.mask import create_web_from_rgba, encode_rgba_png, to_base64
-from utils.geometry import order_corners
+from pipeline.manual_crop import parse_manual_corners
+from pipeline.crop import run_crop, CropOptions
+from pipeline import export as exp
 
 MAX_UPLOAD_BYTES = 50 * 1024 * 1024
 
@@ -47,6 +45,31 @@ def _clamp(val, lo, hi, default):
         return default
 
 
+def _as_bool(val, default=False):
+    if isinstance(val, str):
+        return val.lower() in ("true", "1", "yes")
+    if val is None:
+        return default
+    return bool(val)
+
+
+def _roi_hint_pixels(val, w, h):
+    """Resolve an ROI hint to working-image pixels.
+
+    Accepts either pixel coordinates or fractions of the image (0..1), which is
+    what the GPT assessor returns. Returns (x, y, w, h) or None.
+    """
+    if not isinstance(val, (list, tuple)) or len(val) != 4:
+        return None
+    try:
+        x, y, bw, bh = (float(v) for v in val)
+    except (TypeError, ValueError):
+        return None
+    if max(x, y, bw, bh) <= 1.5:  # normalised fractions
+        x, y, bw, bh = x * w, y * h, bw * w, bh * h
+    return (int(round(x)), int(round(y)), int(round(bw)), int(round(bh)))
+
+
 @app.post("/process")
 async def process_card(
     image: UploadFile = File(...),
@@ -58,46 +81,25 @@ async def process_card(
         p = json.loads(params)
     except json.JSONDecodeError:
         p = {}
-
     if not isinstance(p, dict):
         p = {}
 
-    edge_sensitivity = _clamp(p.get("edge_sensitivity", 0.5), 0, 1, 0.5)
-    contour_threshold = _clamp(p.get("contour_threshold", 0.5), 0, 1, 0.5)
-    crop_padding = int(_clamp(p.get("crop_padding", 0), 0, 100, 0))
-    edge_trim = int(_clamp(p.get("edge_trim", 0), 0, 40, 0))
-    bg_removal = _clamp(p.get("bg_removal", 0.0), 0, 1, 0.0)
-    top_edge_cleanup = _clamp(p.get("top_edge_cleanup", 0.7), 0, 1, 0.7)
     corner_radius = _clamp(p.get("corner_radius", 0.5), 0, 1, 0.5)
-    rotate_correction = p.get("rotate_correction", True)
-    if isinstance(rotate_correction, str):
-        rotate_correction = rotate_correction.lower() not in ("false", "0", "no")
-    else:
-        rotate_correction = bool(rotate_correction)
+    crop_padding = int(_clamp(p.get("crop_padding", 8), 0, 100, 8))
 
-    rotation_override = p.get("rotation_deg")
-    try:
-        rotation_override = float(rotation_override) if rotation_override is not None else None
-    except (TypeError, ValueError):
-        rotation_override = None
+    output_size = str(p.get("output_size", "standard")).lower()
+    if output_size not in ("standard", "high"):
+        output_size = "standard"
+
+    grading_safe = _as_bool(p.get("grading_safe", False))
+    background = exp.parse_background(p.get("background"))
+    roi_raw = p.get("roi")
+
+    output_rotation = int(_clamp(p.get("output_rotation", 0), 0, 270, 0))
+    full_resolution = _as_bool(p.get("full_resolution", False))
+    identify = _as_bool(p.get("identify", False))
 
     manual_raw = p.get("manual_corners")
-
-    # Full-resolution PNG is only needed for the original-size download, so the
-    # interactive /process loop skips it and just returns a web-sized preview.
-    full_resolution = p.get("full_resolution", False)
-    if isinstance(full_resolution, str):
-        full_resolution = full_resolution.lower() in ("true", "1", "yes")
-    else:
-        full_resolution = bool(full_resolution)
-
-    # Card identification (TCG/set/number) is OCR-based and only needed when a
-    # crop is being archived to the catalog, so it's opt-in per request.
-    identify = p.get("identify", False)
-    if isinstance(identify, str):
-        identify = identify.lower() in ("true", "1", "yes")
-    else:
-        identify = bool(identify)
 
     try:
         file_bytes = await image.read()
@@ -109,177 +111,97 @@ async def process_card(
 
         filename = image.filename or "upload.png"
 
-        stage_times: dict = {}
-
-        def _stage(label, t0):
-            stage_times[label] = int((time.time() - t0) * 1000)
-
         t = time.time()
         working, original, scale = normalise_input(file_bytes, filename)
-        _stage("normalise", t)
+        normalise_ms = int((time.time() - t) * 1000)
 
-        manual_contour = None
-        edit_preview = None
+        wh, ww = working.shape[:2]
+        roi_hint = _roi_hint_pixels(roi_raw, ww, wh)
+
+        manual_corners = None
         if manual_raw is not None:
-            edit_preview = build_edit_frame(working, rotation_override or 0.0, rotate_correction)
-            eh, ew = edit_preview.shape[:2]
-            manual_contour = parse_manual_corners(manual_raw, ew, eh)
+            parsed = parse_manual_corners(manual_raw, ww, wh)
+            if parsed is not None:
+                manual_corners = parsed.reshape(4, 2).astype(np.float32)
 
-        t = time.time()
-        card_contour, all_rects, selected_idx = find_card(
-            working, edge_sensitivity, contour_threshold
+        opts = CropOptions(
+            corner_radius=corner_radius,
+            output_size=output_size,
+            grading_safe=grading_safe,
+            background=background,
+            roi_hint=roi_hint,
+            output_rotation=output_rotation,
+            manual_corners=manual_corners,
+            crop_padding=crop_padding,
         )
-        _stage("detect", t)
 
-        if manual_contour is None and card_contour is None:
+        result = run_crop(working, original, scale, opts)
+
+        if result.error is not None and result.rgba is None:
             return JSONResponse(
                 status_code=200,
-                content={
-                    "error": "No trading card detected. Try adjusting settings.",
-                    "candidates_found": len(all_rects),
-                },
+                content={"error": result.error, "candidates_found": 0},
             )
 
-        t = time.time()
-        rotation_angle = 0.0
-        if manual_contour is not None:
-            # Reuse the edit frame already built above instead of recomputing it.
-            processed_image = edit_preview
-            refined_contour = manual_contour.astype(np.int32)
-            rotation_angle = float(rotation_override or 0.0)
-        elif rotate_correction:
-            refined_contour, processed_image, rotation_angle = straighten_card(
-                card_contour, working
-            )
-        else:
-            rect = cv2.minAreaRect(card_contour)
-            box = cv2.boxPoints(rect).astype(np.float64)
-            refined_contour = order_corners(box.astype(np.float32)).reshape(-1, 1, 2).astype(np.int32)
-            processed_image = working
-            rotation_angle = 0.0
-        _stage("straighten", t)
+        result.stage_times["normalise"] = normalise_ms
+        rgba = result.rgba
 
-        t = time.time()
-        result_rgba, estimated_radius = extract_warped_card(
-            processed_image,
-            refined_contour,
-            corner_radius,
-            top_edge_cleanup,
-            crop_padding,
-            edge_trim,
-            bg_removal,
-        )
-        _stage("extract", t)
-
-        # Manual orientation override (in 90-degree steps), applied on top of the
-        # automatic upright detection so the user can always correct it.
-        output_rotation = int(_clamp(p.get("output_rotation", 0), 0, 270, 0))
-        manual_rot = (round(output_rotation / 90) * 90) % 360
-        if manual_rot == 90:
-            result_rgba = cv2.rotate(result_rgba, cv2.ROTATE_90_CLOCKWISE)
-        elif manual_rot == 180:
-            result_rgba = cv2.rotate(result_rgba, cv2.ROTATE_180)
-        elif manual_rot == 270:
-            result_rgba = cv2.rotate(result_rgba, cv2.ROTATE_90_COUNTERCLOCKWISE)
-
-        t_encode = time.time()
-        edit_h, edit_w = processed_image.shape[:2]
+        # Build the edit image (working photo) for the manual crop editor.
+        edit_h, edit_w = working.shape[:2]
         edit_buf = io.BytesIO()
-        Image.fromarray(cv2.cvtColor(processed_image, cv2.COLOR_BGR2RGB)).save(
+        Image.fromarray(cv2.cvtColor(working, cv2.COLOR_BGR2RGB)).save(
             edit_buf, format="JPEG", quality=88
         )
-        edit_image_jpeg = to_base64(edit_buf.getvalue())
+        edit_image_jpeg = exp.to_base64(edit_buf.getvalue())
 
-        crop_corners = order_corners(
-            refined_contour.reshape(4, 2).astype(np.float32)
-        ).tolist()
-
-        # Web-sized preview is built directly from the (working-resolution) RGBA
-        # array — a single resize + encode, no full-res round-trip.
-        web_png = create_web_from_rgba(result_rgba)
-
-        # The full-resolution PNG (for original-size download) is expensive to
-        # build and is only needed at export time, so we skip it during the
-        # interactive loop and produce it lazily when full_resolution is set.
-        result_png_b64 = None
-        if full_resolution:
-            export_rgba = result_rgba
-            if scale > 1.0:
-                target_h = min(int(round(result_rgba.shape[0] * scale)), original.shape[0])
-                target_w = min(int(round(result_rgba.shape[1] * scale)), original.shape[1])
-                if target_h > result_rgba.shape[0] and target_w > result_rgba.shape[1]:
-                    export_rgba = cv2.resize(
-                        result_rgba,
-                        (target_w, target_h),
-                        interpolation=cv2.INTER_CUBIC,
-                    )
-            result_png_b64 = to_base64(encode_rgba_png(export_rgba))
-
-        bbox = (0, 0, result_rgba.shape[1], result_rgba.shape[0])
-        _stage("encode", t_encode)
+        web_png = exp.web_png(rgba)
+        result_png_b64 = exp.to_base64(exp.encode_png(rgba)) if full_resolution else None
 
         elapsed = int((time.time() - start) * 1000)
         print(
-            f"[process] total={elapsed}ms "
-            + " ".join(f"{k}={v}ms" for k, v in stage_times.items()),
+            f"[process] total={elapsed}ms conf={result.confidence} "
+            + " ".join(f"{k}={v}ms" for k, v in result.stage_times.items()),
             flush=True,
         )
 
-        card_rect = cv2.minAreaRect(
-            card_contour if card_contour is not None else refined_contour
-        )
-        rw, rh = card_rect[1]
-        short, long = sorted([rw, rh])
-        ratio = short / long if long > 0 else 0
-
         response_content = {
-            "result_web_png": to_base64(web_png),
+            "result_web_png": exp.to_base64(web_png),
             "edit_image_jpeg": edit_image_jpeg,
             "metadata": {
-                "bbox": list(bbox),
-                "confidence": round(1.0 - abs(ratio - 0.716) * 5, 3),
-                "estimated_corner_radius_px": round(estimated_radius, 1),
-                "rotation_deg": round(rotation_angle, 2),
-                "output_rotation": manual_rot,
-                "candidates_found": len(all_rects),
-                "selected_candidate_index": selected_idx,
+                "bbox": [0, 0, int(rgba.shape[1]), int(rgba.shape[0])],
+                "confidence": result.confidence,
+                "needs_manual": result.needs_manual,
+                "estimated_corner_radius_px": round(result.estimated_radius, 1),
+                "rotation_deg": 0.0,
+                "output_rotation": output_rotation,
+                "orientation_deg": result.orientation_deg,
+                "candidates_found": 1,
+                "selected_candidate_index": 0,
                 "pipeline_time_ms": elapsed,
-                "stage_times_ms": stage_times,
-                "crop_corners": crop_corners,
+                "stage_times_ms": result.stage_times,
+                "crop_corners": result.crop_corners,
                 "edit_image_size": [int(edit_w), int(edit_h)],
+                "output_size": list(result.output_size_px),
+                "aspect": result.aspect,
+                "damaged": result.damaged,
+                "glare": result.glare,
+                "grading_safe": grading_safe,
                 "score_breakdown": {
-                    "aspect_ratio": round(ratio, 4),
+                    "aspect_ratio": result.aspect,
                     "card_target": 0.716,
                 },
             },
         }
+        if result.reasons:
+            response_content["metadata"]["detection_notes"] = result.reasons
         if result_png_b64 is not None:
             response_content["result_png"] = result_png_b64
 
-        # For catalog identification (opt-in), emit a small, white-flattened JPEG
-        # of the final upright crop. The backend feeds this to the vision model —
-        # it's far cheaper to send than the full-resolution PNG and ample for
-        # reading a card's name/set/number.
         if identify:
             try:
-                rgba = result_rgba
-                h2, w2 = rgba.shape[:2]
-                longest = max(h2, w2)
-                if longest > 900:
-                    sc = 900.0 / longest
-                    rgba = cv2.resize(
-                        rgba, (max(1, int(w2 * sc)), max(1, int(h2 * sc))),
-                        interpolation=cv2.INTER_AREA,
-                    )
-                if rgba.ndim == 3 and rgba.shape[2] == 4:
-                    alpha = rgba[:, :, 3:4].astype(np.float32) / 255.0
-                    rgb = rgba[:, :, :3].astype(np.float32)
-                    flat = (rgb * alpha + 255.0 * (1.0 - alpha)).astype(np.uint8)
-                else:
-                    flat = rgba[:, :, :3]
-                id_buf = io.BytesIO()
-                Image.fromarray(flat).save(id_buf, format="JPEG", quality=85)
-                response_content["id_image_jpeg"] = to_base64(id_buf.getvalue())
+                response_content["id_image_jpeg"] = exp.to_base64(
+                    exp.white_jpeg(_downscale_rgba(rgba, 900), quality=85)
+                )
             except Exception:
                 traceback.print_exc()
 
@@ -291,6 +213,15 @@ async def process_card(
             status_code=500,
             content={"error": "Processing failed. Please try again."},
         )
+
+
+def _downscale_rgba(rgba: np.ndarray, max_dim: int) -> np.ndarray:
+    h, w = rgba.shape[:2]
+    longest = max(h, w)
+    if longest <= max_dim:
+        return rgba
+    sc = max_dim / float(longest)
+    return cv2.resize(rgba, (max(1, int(w * sc)), max(1, int(h * sc))), interpolation=cv2.INTER_AREA)
 
 
 if __name__ == "__main__":

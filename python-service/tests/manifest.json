@@ -1,0 +1,65 @@
+{
+  "_doc": "Regression dataset for the staged crop pipeline. Each case lists the fixture image, its category, and expectations. `verified_corners` (working-image px) are filled only where a human has confirmed them; otherwise null and we assert looser invariants. See README notes for gaps.",
+  "cases": [
+    {
+      "id": "rowlet_wood_angle",
+      "file": "fixtures/rowlet_wood_angle.png",
+      "category": "wood",
+      "description": "Real photo: Pokemon Rowlet on a wooden table, slight tilt, bent top-left corner.",
+      "expect": {
+        "card_found": true,
+        "min_confidence": 0.6,
+        "aspect_tolerance": 0.06,
+        "portrait": true,
+        "max_processing_ms": 6000
+      },
+      "verified_corners": null
+    },
+    {
+      "id": "gengar_fullbleed",
+      "file": "fixtures/gengar_fullbleed.png",
+      "category": "legacy-crop",
+      "description": "Legacy debug crop (already cropped, partial art). Smoke-only fixture.",
+      "expect": {
+        "card_found": true,
+        "min_confidence": 0.3,
+        "aspect_tolerance": 0.3,
+        "portrait": true,
+        "max_processing_ms": 6000
+      },
+      "verified_corners": null
+    },
+    {
+      "id": "shanks_fullbleed",
+      "file": "fixtures/shanks_fullbleed.png",
+      "category": "fullbleed",
+      "description": "One Piece full-bleed art card filling the frame.",
+      "expect": {
+        "card_found": true,
+        "min_confidence": 0.5,
+        "aspect_tolerance": 0.12,
+        "portrait": true,
+        "max_processing_ms": 6000
+      },
+      "verified_corners": null
+    },
+    {
+      "id": "shanks_crop",
+      "file": "fixtures/shanks_crop.png",
+      "category": "legacy-crop",
+      "description": "Legacy tight crop output. Smoke-only fixture.",
+      "expect": {
+        "card_found": true,
+        "min_confidence": 0.3,
+        "aspect_tolerance": 0.3,
+        "portrait": true,
+        "max_processing_ms": 6000
+      },
+      "verified_corners": null
+    }
+  ],
+  "gaps": [
+    "No fixtures yet for: dark background, light/white background, playmat, heavy glare, hard shadow, sleeved/toploader, torn/damaged, clipped/off-frame, card back, blurry, no-card, multi-card.",
+    "Seed these as real photos become available; the harness already supports per-case categories and verified_corners."
+  ]
+}

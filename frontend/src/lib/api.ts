@@ -33,19 +33,29 @@ async function fail(res: Response, fallback: string): Promise<never> {
 }
 
 export interface ProcessParams {
-  edge_sensitivity: number;
-  contour_threshold: number;
-  crop_padding: number;
-  edge_trim: number;
-  bg_removal: number;
-  top_edge_cleanup: number;
+  // Active controls for the staged pipeline.
   corner_radius: number;
-  rotate_correction: boolean;
+  crop_padding: number;
   // Manual orientation override in 90-degree steps (0|90|180|270), applied on
   // top of the automatic upright detection.
   output_rotation: number;
+  // "standard" (1260x1760) or "high" (1890x2640) output resolution.
+  output_size?: "standard" | "high";
   manual_corners?: number[][];
   rotation_deg?: number;
+}
+
+export interface Suitability {
+  present: boolean;
+  single: boolean;
+  fully_visible: boolean;
+  touches_edge: boolean;
+  blurry: boolean;
+  glare: boolean;
+  sleeved: boolean;
+  side: "front" | "back" | "unknown";
+  orientation: "upright" | "rotated" | "upside_down" | "unknown";
+  guidance: string[];
 }
 
 export interface UploadResult {
@@ -60,17 +70,25 @@ export interface ProcessResult {
   metadata: {
     bbox: number[];
     confidence: number;
+    needs_manual?: boolean;
+    suitability?: Suitability;
     estimated_corner_radius_px: number;
     rotation_deg: number;
+    orientation_deg?: number;
     candidates_found: number;
     selected_candidate_index: number;
     pipeline_time_ms: number;
     crop_corners?: number[][];
     edit_image_size?: [number, number];
+    output_size?: [number, number];
+    aspect?: number;
+    damaged?: boolean;
+    glare?: number;
     score_breakdown: Record<string, number>;
   };
   error?: string;
   candidates_found?: number;
+  suitability?: Suitability;
 }
 
 export async function uploadFile(file: File): Promise<UploadResult> {

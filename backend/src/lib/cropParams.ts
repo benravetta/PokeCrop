@@ -15,6 +15,22 @@ function parseManualCorners(raw: unknown): number[][] | undefined {
   return corners;
 }
 
+function parseRoi(raw: unknown): number[] | undefined {
+  if (!Array.isArray(raw) || raw.length !== 4) return undefined;
+  const box = raw.map((v) => Number(v));
+  if (box.some((n) => !Number.isFinite(n))) return undefined;
+  return box;
+}
+
+function parseBackground(raw: unknown): string | undefined {
+  if (typeof raw !== "string") return undefined;
+  const s = raw.trim().toLowerCase();
+  if (s === "" || s === "none" || s === "transparent") return undefined;
+  if (["white", "black", "grey", "gray"].includes(s)) return s;
+  if (/^#[0-9a-f]{6}$/.test(s)) return s;
+  return undefined;
+}
+
 export function validateParams(raw: unknown): Record<string, unknown> {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return defaults();
   const p = raw as Record<string, unknown>;
@@ -24,21 +40,27 @@ export function validateParams(raw: unknown): Record<string, unknown> {
     return Math.max(min, Math.min(max, n));
   };
   return {
+    // Active params for the staged pipeline.
+    corner_radius: clamp(p.corner_radius, 0, 1, 0.5),
+    crop_padding: Math.round(clamp(p.crop_padding, 0, 100, 8)),
+    output_rotation: normalizeRotation(p.output_rotation),
+    output_size: p.output_size === "high" ? "high" : "standard",
+    grading_safe: p.grading_safe === true || p.grading_safe === "true",
+    background: parseBackground(p.background),
+    roi: parseRoi(p.roi),
+    manual_corners: parseManualCorners(p.manual_corners),
+    // Legacy knobs kept (ignored by the new pipeline) for API compatibility.
     edge_sensitivity: clamp(p.edge_sensitivity, 0, 1, 0.5),
     contour_threshold: clamp(p.contour_threshold, 0, 1, 0.5),
-    crop_padding: Math.round(clamp(p.crop_padding, 0, 100, 0)),
     edge_trim: Math.round(clamp(p.edge_trim, 0, 40, 0)),
     bg_removal: clamp(p.bg_removal, 0, 1, 0),
     top_edge_cleanup: clamp(p.top_edge_cleanup, 0, 1, 0.7),
-    corner_radius: clamp(p.corner_radius, 0, 1, 0.5),
     rotate_correction:
       p.rotate_correction !== false && p.rotate_correction !== "false",
-    output_rotation: normalizeRotation(p.output_rotation),
     rotation_deg:
       typeof p.rotation_deg === "number" && Number.isFinite(p.rotation_deg)
         ? p.rotation_deg
         : undefined,
-    manual_corners: parseManualCorners(p.manual_corners),
   };
 }
 

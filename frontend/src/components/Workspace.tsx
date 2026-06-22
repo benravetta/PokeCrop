@@ -63,6 +63,29 @@ export function Workspace() {
         )}
       </div>
 
+      {/* Guidance: low-confidence auto-crop or photo-quality tips */}
+      {mode === "view" && !busy && metadata && (() => {
+        const tips = metadata.suitability?.guidance ?? [];
+        if (!metadata.needs_manual && tips.length === 0) return null;
+        return (
+          <div className="mx-4 sm:mx-5 mb-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2">
+            {metadata.needs_manual && (
+              <p className="text-[12px] text-amber-200 leading-snug">
+                We couldn't clearly see every edge. Tap <span className="font-medium">Adjust crop</span> and
+                drag the corners to line them up with the card.
+              </p>
+            )}
+            {tips.length > 0 && (
+              <ul className="mt-1 list-disc pl-4 space-y-0.5">
+                {tips.map((t, i) => (
+                  <li key={i} className="text-[11px] text-amber-200/90 leading-snug">{t}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+        );
+      })()}
+
       {/* Main stage */}
       <div className="flex-1 min-h-0 px-4 sm:px-5 flex flex-col">
         {busy ? (

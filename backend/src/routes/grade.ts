@@ -100,7 +100,13 @@ router.post(
     const tempPath = path.join(tmpDir, `${uuid()}-${file.originalname || "card"}`);
     try {
       await fs.promises.writeFile(tempPath, file.buffer);
-      const result = await sendToPython(tempPath, file.originalname || "card", validateParams({}));
+      // Grading needs an honest, perspective-corrected card with no
+      // beautification that could mask condition, so request the grading-safe
+      // variant from the staged pipeline.
+      const result = await sendToPython(tempPath, file.originalname || "card", {
+        ...validateParams({}),
+        grading_safe: true,
+      });
       if (result.error || !result.result_web_png) {
         res.status(422).json({ error: "Could not detect a card to straighten." });
         return;

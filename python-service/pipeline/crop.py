@@ -1,0 +1,183 @@
+"""Staged card crop orchestrator.
+
+Runs the full pipeline:
+  normalise (caller) -> localise -> boundary -> edges -> refine ->
+  validate/confidence -> warp -> orient -> alpha -> enhance -> trim -> export.
+
+Returns a structured result; the FastAPI layer maps it onto the (additive,
+backward-compatible) HTTP response. Image-level failures are reported as a
+user-facing ``error`` string rather than raised, so the API stays 200-friendly.
+"""
+
+import time
+from dataclasses import dataclass, field
+from typing import List, Optional, Tuple
+
+import cv2
+import numpy as np
+
+from pipeline.localise import rough_roi
+from pipeline.boundary import card_boundary
+from pipeline.edges import fit_card_quad
+from pipeline.refine_edges import refine_quad
+from pipeline.validate import validate_quad
+from pipeline.warp import warp_card, OUTPUT_SIZES
+from pipeline.orientation import orient_upright
+from pipeline.alpha import build_alpha
+from pipeline.enhance import enhance_clean, glare_fraction
+from pipeline import export as exp
+from utils.geometry import order_corners
+
+CONFIDENCE_MANUAL_THRESHOLD = 0.45
+
+
+@dataclass
+class CropOptions:
+    corner_radius: float = 0.5
+    output_size: str = "standard"
+    grading_safe: bool = False
+    background: Optional[Tuple[int, int, int]] = None
+    roi_hint: Optional[Tuple[int, int, int, int]] = None
+    output_rotation: int = 0
+    manual_corners: Optional[np.ndarray] = None  # (4,2) in working coords
+    crop_padding: int = 8
+
+
+@dataclass
+class CropResult:
+    rgba: Optional[np.ndarray] = None
+    confidence: float = 0.0
+    needs_manual: bool = False
+    aspect: float = 0.0
+    estimated_radius: float = 0.0
+    orientation_deg: int = 0
+    output_size_px: Tuple[int, int] = (0, 0)
+    glare: float = 0.0
+    damaged: bool = False
+    crop_corners: List[List[float]] = field(default_factory=list)
+    reasons: List[str] = field(default_factory=list)
+    stage_times: dict = field(default_factory=dict)
+    error: Optional[str] = None
+
+
+def run_crop(
+    working: np.ndarray,
+    original: np.ndarray,
+    scale: float,
+    opts: CropOptions,
+) -> CropResult:
+    res = CropResult()
+    times = res.stage_times
+
+    def _t(label, t0):
+        times[label] = int((time.time() - t0) * 1000)
+
+    if opts.manual_corners is not None:
+        quad_full = order_corners(opts.manual_corners.astype(np.float32)).astype(np.float64) * float(scale)
+        res.confidence = 1.0
+        res.needs_manual = False
+        validation = validate_quad(quad_full, original.shape, [1.0, 1.0, 1.0, 1.0])
+        res.aspect = validation.aspect
+        damaged = False
+    else:
+        t = time.time()
+        roi = rough_roi(working, opts.roi_hint)
+        _t("localise", t)
+
+        t = time.time()
+        boundary = card_boundary(working, roi)
+        _t("boundary", t)
+        if boundary is None:
+            res.error = "No trading card detected. Make sure the whole card is visible."
+            return res
+
+        t = time.time()
+        fit = fit_card_quad(boundary.mask)
+        _t("edges", t)
+        if fit is None:
+            quad_working = _fallback_quad(boundary.mask)
+            support = [0.2, 0.2, 0.2, 0.2]
+        else:
+            quad_working = fit.quad
+            support = fit.support
+        if quad_working is None:
+            res.error = "Could not find the card edges clearly. Try a plainer background."
+            return res
+
+        t = time.time()
+        quad_full = refine_quad(quad_working, original, scale)
+        _t("refine", t)
+
+        validation = validate_quad(quad_full, original.shape, support, boundary.area_frac)
+        res.confidence = validation.confidence
+        res.aspect = validation.aspect
+        res.reasons = validation.reasons
+        res.needs_manual = (not validation.ok) or validation.confidence < CONFIDENCE_MANUAL_THRESHOLD
+        quad_full = validation.quad
+        damaged = boundary.damaged
+
+    res.damaged = damaged
+
+    # crop_corners reported in working (edit-image) coordinates.
+    res.crop_corners = (quad_full / float(scale)).astype(np.float64).tolist()
+
+    t = time.time()
+    warp = warp_card(original, quad_full, opts.output_size)
+    _t("warp", t)
+
+    t = time.time()
+    upright, deg = orient_upright(warp.image)
+    res.orientation_deg = deg
+    # 90-degree swap moves the card rect dimensions but keeps the uniform margin.
+    m = warp.card_rect[0]
+    ch, cw = upright.shape[0] - 2 * m, upright.shape[1] - 2 * m
+    card_rect = (m, m, cw, ch)
+    upright, manual_deg = _apply_manual_rotation(upright, opts.output_rotation)
+    if manual_deg in (90, 270):
+        card_rect = (m, m, upright.shape[1] - 2 * m, upright.shape[0] - 2 * m)
+    _t("orient", t)
+
+    t = time.time()
+    rgba, est_radius = build_alpha(upright, card_rect, opts.corner_radius, damaged)
+    res.estimated_radius = est_radius
+    _t("alpha", t)
+
+    res.glare = glare_fraction(rgba)
+
+    if not opts.grading_safe:
+        t = time.time()
+        rgba = enhance_clean(rgba)
+        _t("enhance", t)
+
+    t = time.time()
+    pad = max(4, int(round(min(warp.image.shape[:2]) * 0.006)))
+    rgba = exp.trim_and_pad(rgba, pad=pad)
+    if opts.background is not None:
+        rgb = exp.composite_solid(rgba, opts.background)
+        rgba[:, :, :3] = rgb
+        rgba[:, :, 3] = 255
+    res.rgba = rgba
+    res.output_size_px = (rgba.shape[1], rgba.shape[0])
+    _t("export", t)
+
+    return res
+
+
+def _apply_manual_rotation(rgba_or_bgr: np.ndarray, output_rotation: int):
+    deg = (round(int(output_rotation) / 90) * 90) % 360
+    if deg == 90:
+        return cv2.rotate(rgba_or_bgr, cv2.ROTATE_90_CLOCKWISE), 90
+    if deg == 180:
+        return cv2.rotate(rgba_or_bgr, cv2.ROTATE_180), 180
+    if deg == 270:
+        return cv2.rotate(rgba_or_bgr, cv2.ROTATE_90_COUNTERCLOCKWISE), 270
+    return rgba_or_bgr, 0
+
+
+def _fallback_quad(mask: np.ndarray) -> Optional[np.ndarray]:
+    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    if not contours:
+        return None
+    c = max(contours, key=cv2.contourArea)
+    box = cv2.boxPoints(cv2.minAreaRect(c)).astype(np.float32)
+    return order_corners(box).astype(np.float64)
