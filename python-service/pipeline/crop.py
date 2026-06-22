@@ -126,7 +126,13 @@ def run_crop(
             return res
 
         t = time.time()
-        quad_full = refine_quad(quad_working, original, scale)
+        if boundary.from_segment:
+            # The learned segmentation mask already hugs the true card edge.
+            # Gradient refinement here can snap outward onto background texture
+            # (wood grain), so trust the segmentation-derived quad instead.
+            quad_full = order_corners(quad_working.astype(np.float32)).astype(np.float64) * float(scale)
+        else:
+            quad_full = refine_quad(quad_working, original, scale)
         _t("refine", t)
 
         validation = validate_quad(quad_full, original.shape, support, boundary.area_frac)

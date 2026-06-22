@@ -37,4 +37,6 @@ primary_region = 'lhr'
 [[vm]]
   # Card extraction is CPU-bound (OpenCV); 2x shared CPUs roughly halve compute time.
   size = 'shared-cpu-2x'
-  memory = '1gb'
+  # 2GB headroom: a high-res crop peaks around ~1.2GB on its own, and the learned
+  # segmentation model (onnxruntime) adds ~100MB resident on top of that.
+  memory = '2gb'

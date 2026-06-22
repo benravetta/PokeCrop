@@ -17,10 +17,22 @@ from pipeline.normalise import normalise_input
 from pipeline.manual_crop import parse_manual_corners
 from pipeline.crop import run_crop, CropOptions
 from pipeline import export as exp
+from pipeline import segment
 
 MAX_UPLOAD_BYTES = 50 * 1024 * 1024
 
 app = FastAPI(title="CardCrop Processing Service")
+
+
+@app.on_event("startup")
+def _warm_segmentation() -> None:
+    """Load the card segmentation model once at startup so the first crop isn't
+    slowed by a cold model load. Failure is non-fatal — the pipeline falls back
+    to classical boundary detection."""
+    try:
+        segment.warmup()
+    except Exception:
+        pass
 
 app.add_middleware(
     CORSMiddleware,

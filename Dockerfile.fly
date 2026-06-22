@@ -39,7 +39,11 @@ ENV PYTHONUNBUFFERED=1 \
     PATH=/opt/venv/bin:$PATH \
     UVICORN_WORKERS=1 \
     PYTHON_TIMEOUT_MS=180000 \
-    CORS_ORIGIN=*
+    CORS_ORIGIN=* \
+    # Where rembg looks for / caches model weights. Bundled at build time below
+    # so the container never downloads a model at runtime.
+    U2NET_HOME=/app/models \
+    CARD_SEG_MODEL=u2netp
 
 # Python 3.11 (bookworm default), nginx, supervisor, and the OpenCV/scikit-image libs.
 RUN apt-get update \
@@ -53,6 +57,11 @@ RUN apt-get update \
 
 COPY python-service/requirements.txt /tmp/requirements.txt
 RUN /opt/venv/bin/pip install --no-cache-dir -r /tmp/requirements.txt
+
+# Pre-download the card segmentation model weight into the image so the first
+# request (and every cold start) is fast and works without network access.
+RUN mkdir -p /app/models \
+ && /opt/venv/bin/python3 -c "from rembg import new_session; new_session('u2netp')"
 
 WORKDIR /app
 COPY python-service/ /app/python-service/

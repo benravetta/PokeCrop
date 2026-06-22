@@ -17,6 +17,8 @@ from typing import Optional
 import cv2
 import numpy as np
 
+from pipeline import segment
+
 
 @dataclass
 class Boundary:
@@ -24,11 +26,22 @@ class Boundary:
     fills_frame: bool         # card occupies essentially the whole image
     damaged: bool             # irregular outline (torn / crushed corners)
     area_frac: float          # mask area / image area
+    from_segment: bool = False  # mask came from the learned segmentation model
 
 
 def card_boundary(image: np.ndarray, roi) -> Optional[Boundary]:
     """Estimate the physical card mask within ``roi`` (x, y, w, h)."""
     h, w = image.shape[:2]
+
+    # Primary signal: a learned foreground segmentation. It cleanly isolates the
+    # card from any background (textured desks, busy playmats, low contrast)
+    # where GrabCut/colour heuristics fail. Used only when it returns a single
+    # card-sized blob that does not fill the frame; full-bleed scans (where
+    # salient segmentation can clip the border) defer to the classical path.
+    seg = _segment_boundary(image)
+    if seg is not None:
+        return seg
+
     rx, ry, rw, rh = roi
     rx2, ry2 = rx + rw, ry + rh
 
@@ -82,6 +95,36 @@ def card_boundary(image: np.ndarray, roi) -> Optional[Boundary]:
     damaged = (not fills_frame) and area_frac < 0.85 and _is_damaged(c)
 
     return Boundary(mask=full, fills_frame=fills_frame, damaged=damaged, area_frac=area_frac)
+
+
+def _segment_boundary(image: np.ndarray) -> Optional[Boundary]:
+    """Build a Boundary from the learned segmentation mask, or None to fall back."""
+    try:
+        mask = segment.card_mask(image)
+    except Exception:
+        mask = None
+    if mask is None:
+        return None
+
+    h, w = image.shape[:2]
+    area_frac = float(np.count_nonzero(mask)) / float(h * w)
+    # A mask that fills the frame or hugs all four borders is most likely a scan
+    # or full-bleed card; salient segmentation can clip such a card's own border,
+    # so defer to the classical whole-region behaviour.
+    if area_frac > 0.92 or _touches_all_sides(mask):
+        return None
+
+    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    if not contours:
+        return None
+    c = max(contours, key=cv2.contourArea)
+    if cv2.contourArea(c) < (h * w) * 0.05:
+        return None
+
+    damaged = area_frac < 0.85 and _is_damaged(c)
+    return Boundary(
+        mask=mask, fills_frame=False, damaged=damaged, area_frac=area_frac, from_segment=True
+    )
 
 
 def _grabcut_mask(roi_img: np.ndarray) -> Optional[np.ndarray]:
