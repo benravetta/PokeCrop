@@ -19,7 +19,9 @@ import {
   CheckCircle2,
   RotateCw,
   Tag,
+  FileDown,
 } from "lucide-react";
+import { buildGradeReportPdf } from "../lib/gradeReportPdf";
 import {
   gradeCard,
   getGradeQuota,
@@ -33,6 +35,7 @@ import {
   type CardPricing,
 } from "../lib/api";
 import { CenteringTool } from "../components/grade/CenteringTool";
+import { GradeProgress } from "../components/grade/GradeProgress";
 import { borderRatios, type Box } from "../lib/centering";
 import { loadImage, cropFromImage, resolveRect } from "../lib/cardRegions";
 import { useAppStore } from "../hooks/useProcessing";
@@ -98,6 +101,25 @@ export function GradePage() {
   const [result, setResult] = useState<GradeResult | null>(null);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pdfBusy, setPdfBusy] = useState(false);
+
+  // Optional close-up photos of problem areas — sharpen the surface/defect read.
+  const [closeups, setCloseups] = useState<File[]>([]);
+  const [closeupPreviews, setCloseupPreviews] = useState<string[]>([]);
+  const addCloseup = useCallback((f: File) => {
+    setCloseups((prev) => (prev.length >= 4 ? prev : [...prev, f]));
+    setCloseupPreviews((prev) =>
+      prev.length >= 4 ? prev : [...prev, URL.createObjectURL(f)]
+    );
+  }, []);
+  const removeCloseup = useCallback((i: number) => {
+    setCloseupPreviews((prev) => {
+      const url = prev[i];
+      if (url) URL.revokeObjectURL(url);
+      return prev.filter((_, j) => j !== i);
+    });
+    setCloseups((prev) => prev.filter((_, j) => j !== i));
+  }, []);
 
   // Centering measurement state, per side.
   const [proc, setProc] = useState<Record<CardSlot, SideProc>>({
@@ -223,6 +245,8 @@ export function GradePage() {
       if (back) payload.back = back;
       if (files.angled_front) payload.angled_front = await downscale(files.angled_front);
       if (files.angled_back) payload.angled_back = await downscale(files.angled_back);
+      if (closeups.length)
+        payload.closeups = await Promise.all(closeups.map((f) => downscale(f, 2000)));
       const res = await gradeCard(payload, buildCentering());
       setResult(res.result);
       setQuota(res.quota);
@@ -231,7 +255,7 @@ export function GradePage() {
     } finally {
       setRunning(false);
     }
-  }, [files, imageFor, buildCentering]);
+  }, [files, imageFor, buildCentering, closeups]);
 
   const reset = useCallback(() => {
     setResult(null);
@@ -261,7 +285,13 @@ export function GradePage() {
         </div>
       )}
 
-      {!result && (
+      {running && (
+        <div className="max-w-2xl mx-auto">
+          <GradeProgress />
+        </div>
+      )}
+
+      {!result && !running && (
         <div className="grid lg:grid-cols-5 gap-6">
           <div className="lg:col-span-3 space-y-5">
             <div className="grid grid-cols-2 gap-4">
@@ -278,9 +308,30 @@ export function GradePage() {
                 Angled / holo shots (improve surface accuracy)
               </button>
               {showAdvanced && (
-                <div className="grid grid-cols-2 gap-4 mt-3">
-                  <ImageSlot label="Angled front (holo glare)" preview={previews.angled_front} onPick={(f) => setSlot("angled_front", f)} onClear={() => setSlot("angled_front", null)} />
-                  <ImageSlot label="Angled back" preview={previews.angled_back} onPick={(f) => setSlot("angled_back", f)} onClear={() => setSlot("angled_back", null)} />
+                <div className="mt-3 space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <ImageSlot label="Angled front (holo glare)" preview={previews.angled_front} onPick={(f) => setSlot("angled_front", f)} onClear={() => setSlot("angled_front", null)} />
+                    <ImageSlot label="Angled back" preview={previews.angled_back} onPick={(f) => setSlot("angled_back", f)} onClear={() => setSlot("angled_back", null)} />
+                  </div>
+                  <div>
+                    <div className="text-xs text-text-secondary mb-2">
+                      Close-ups of any problem areas (optional, up to 4) — sharpens the surface and defect read.
+                    </div>
+                    <div className="grid grid-cols-4 gap-3">
+                      {closeups.map((_, i) => (
+                        <ImageSlot
+                          key={i}
+                          label={`Close-up ${i + 1}`}
+                          preview={closeupPreviews[i]}
+                          onPick={() => {}}
+                          onClear={() => removeCloseup(i)}
+                        />
+                      ))}
+                      {closeups.length < 4 && (
+                        <ImageSlot label="Add close-up" onPick={addCloseup} onClear={() => {}} />
+                      )}
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -359,13 +410,35 @@ export function GradePage() {
 
       {result && (
         <>
-          <button
-            onClick={reset}
-            className="mb-5 inline-flex items-center gap-2 rounded-lg border border-border-strong px-4 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-surface-overlay transition-colors"
-          >
-            <RotateCcw className="w-4 h-4" />
-            Grade another card
-          </button>
+          <div className="mb-5 flex flex-wrap items-center gap-3">
+            <button
+              onClick={reset}
+              className="inline-flex items-center gap-2 rounded-lg border border-border-strong px-4 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-surface-overlay transition-colors"
+            >
+              <RotateCcw className="w-4 h-4" />
+              Grade another card
+            </button>
+            <button
+              onClick={async () => {
+                setPdfBusy(true);
+                try {
+                  await buildGradeReportPdf(result, {
+                    front: proc.front.src ?? previews.front,
+                    back: proc.back.src ?? previews.back,
+                  });
+                } catch {
+                  setError("Couldn't build the PDF report.");
+                } finally {
+                  setPdfBusy(false);
+                }
+              }}
+              disabled={pdfBusy}
+              className="inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-hover disabled:opacity-50 transition-colors"
+            >
+              {pdfBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}
+              {pdfBusy ? "Building PDF…" : "Download PDF report"}
+            </button>
+          </div>
           <GradeReport
             result={result}
             images={{
@@ -878,6 +951,8 @@ function GradeReport({
             </div>
           )}
 
+          <InspectionNotes result={result} />
+
           <PreparationSection preparation={result.preparation as Preparation | undefined} images={images} />
 
           <div className="rounded-xl border border-border-subtle bg-surface-raised p-5">
@@ -1119,6 +1194,70 @@ function Centering({ obj }: { obj: unknown }) {
         <Field k="Back T/B" v={asStr(o.back_top_bottom)} />
       </div>
       {asStr(o.verdict) && <p className="mt-3 text-sm text-text-secondary">{asStr(o.verdict)}</p>}
+    </div>
+  );
+}
+
+const SEV_TONE: Record<string, string> = {
+  major: "bg-red-500/15 text-red-300",
+  moderate: "bg-amber-500/15 text-amber-300",
+  minor: "bg-surface-overlay text-text-secondary",
+};
+
+// Surfaces the raw inspection findings the model reported: structural damage
+// (breaks in the card itself) and broader observations, so nothing is hidden.
+function InspectionNotes({ result }: { result: GradeResult }) {
+  const structural = asArr(result.structural_damage).map(asObj);
+  const obs = asArr(result.observations).map(asObj);
+  if (structural.length === 0 && obs.length === 0) return null;
+  return (
+    <div className="rounded-xl border border-border-subtle bg-surface-raised p-5">
+      <div className="flex items-center gap-2 mb-3">
+        <ScanSearch className="w-5 h-5 text-accent" />
+        <h3 className="text-lg font-semibold text-text-primary">Inspection notes</h3>
+      </div>
+
+      {structural.length > 0 && (
+        <div className="mb-4">
+          <h4 className="text-xs uppercase tracking-wide text-red-300/90 mb-2 flex items-center gap-1.5">
+            <AlertTriangle className="w-3.5 h-3.5" />
+            Structural damage ({structural.length})
+          </h4>
+          <ul className="space-y-2">
+            {structural.map((d, i) => (
+              <li key={i} className="flex items-start gap-2 text-sm">
+                <span className={`mt-0.5 text-[10px] rounded-full px-2 py-0.5 font-medium shrink-0 ${SEV_TONE[asStr(d.severity)] ?? SEV_TONE.minor}`}>
+                  {asStr(d.severity) || "—"}
+                </span>
+                <span className="text-text-secondary">
+                  <span className="text-text-primary capitalize">{asStr(d.type).replace(/_/g, " ") || "Damage"}</span>
+                  {asStr(d.where) ? ` — ${asStr(d.where)}` : ""}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {obs.length > 0 && (
+        <div>
+          <h4 className="text-xs uppercase tracking-wide text-text-muted mb-2">Other observations</h4>
+          <ul className="space-y-2">
+            {obs.map((o, i) => (
+              <li key={i} className="flex items-start gap-2 text-sm">
+                <span className={`mt-0.5 text-[10px] rounded-full px-2 py-0.5 font-medium shrink-0 ${SEV_TONE[asStr(o.severity)] ?? SEV_TONE.minor}`}>
+                  {asStr(o.severity) || "note"}
+                </span>
+                <span className="text-text-secondary">
+                  <span className="text-text-primary">{asStr(o.issue) || "Observation"}</span>
+                  {asStr(o.where) ? ` — ${asStr(o.where)}` : ""}
+                  {asStr(o.likely) ? <span className="text-text-muted"> ({asStr(o.likely)})</span> : null}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }

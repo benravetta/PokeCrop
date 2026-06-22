@@ -1,6 +1,7 @@
 import { chatComplete, isOpenAiConfigured, type ChatImage } from "./openai.js";
 import { buildPreparation } from "./preparation.js";
 import { estimateCardPrices } from "./cardPricing.js";
+import { scoreGrades } from "./gradeScoring.js";
 
 // Strict, anti-hype PSA-style pre-grader. Two passes:
 //   1) inspection — vision model reports structured condition findings, no grade
@@ -47,7 +48,7 @@ const INSPECT_PROMPT = `Inspect the supplied card image(s) and return ONLY this 
   "defects": [ { "kind": "dust|fingerprint|surface_residue|foil_scrape|surface_scratch|holo_scratch|print_line|gloss_loss|edge_whitening|corner_whitening|indentation|scuff|stain|crease|bend|tear|hole|writing|tape", "side": "front|back", "region": "top_left_corner|top_right_corner|bottom_left_corner|bottom_right_corner|top_edge|bottom_edge|left_edge|right_edge|top_left|top_center|top_right|center_left|center|center_right|bottom_left|bottom_center|bottom_right|holo_area|full", "bbox": [0,0,0,0], "severity": "minor|moderate|major", "note": "" } ],
   "observations": [ { "issue": "", "where": "", "severity": "minor|moderate|major", "likely": "damage|factory|unsure" } ]
 }
-Rules: each corner gets "Clean", "Minor concern", "Moderate concern", "Major concern", or "Cannot assess". Scores are 0-10 where 10 is flawless under close inspection — deduct for every visible defect and again when inspection is limited by photo quality. Separate likely physical damage from likely factory print defects in observations. For holo/textured/full-art cards, note that surface confidence is limited without an angled-light image. Centering tolerance: PSA 10 front <= ~55/45, back <= ~75/25.
+Rules: each corner gets "Clean", "Minor concern", "Moderate concern", "Major concern", or "Cannot assess". ALWAYS fill corners.score, edges.score, surface.score and eye_appeal.score with a number 0-10 (one decimal is fine) — never leave one blank. Calibrate every axis the same way: 10 = flawless under a loupe; 9 = one tiny flaw only a grader would catch; 8 = a few minor flaws; 7 = clearly visible wear; 5-6 = heavy/obvious wear; 3-4 = major damage; 0-2 = destroyed/structural break. Reserve 0 for a destroyed axis, NOT as a default — a clean-looking card should score high. Deduct for every visible defect and deduct again (and lower confidence) when photo quality limits inspection. Separate likely physical damage from likely factory print defects in observations. For holo/textured/full-art cards, note that surface confidence is limited without an angled-light image. Centering tolerance: PSA 10 front <= ~55/45, back <= ~75/25.
 
 STRUCTURAL DAMAGE IS THE MOST IMPORTANT THING TO REPORT. Before anything else, look at the whole outline and surface for any break in the card itself:
 - A tear, rip, split, hole, missing piece, or paper loss is catastrophic — if you see the card edge or body broken, torn, notched, or a chunk missing, you MUST add a structural_damage entry with the matching type and severity "major". Never describe this as mere "edge wear".
@@ -217,18 +218,74 @@ export async function gradeCard(
   });
   const decision = adjudicate ? safeParse(adjudicate.content) : null;
 
-  // Rough AI value estimate (raw + graded, GBP). Depends on the adjudicated
-  // company estimates, so it runs last. Wrapped + time-boxed so a slow or
-  // failed pricing call never fails or noticeably delays the grade — on any
-  // problem we simply omit the pricing field.
+  // Deterministic scoring. The vision pass perceives condition and the text pass
+  // writes the reasoning, but the headline NUMBERS (subgrades + final grade per
+  // company) are computed here from the axis scores, measured centering and the
+  // structural caps so they are internally consistent and can never contradict
+  // the findings (e.g. a torn card is forced to "Authentic / Altered"). This
+  // also means a grade is still produced even if the adjudication call failed.
+  const scored = scoreGrades(findings as Record<string, unknown>);
+  const base: Record<string, unknown> = decision ?? {};
+
+  // Always surface the detected structural/condition caps, merged ahead of any
+  // the adjudicator described.
+  const llmCaps = Array.isArray(base.hard_grade_caps) ? base.hard_grade_caps : [];
+  const detCap: { cap: string; reason: string }[] = [];
+  if (scored.caps.authenticOnly) {
+    detCap.push({
+      cap: "Authentic / Altered",
+      reason: scored.caps.reasons.join("; ") || "Structural damage or alteration detected.",
+    });
+  } else if (scored.caps.overallCap != null) {
+    detCap.push({
+      cap: `Capped around ${scored.caps.overallCap}`,
+      reason: scored.caps.reasons.join("; "),
+    });
+  }
+
+  const mergedDecision: Record<string, unknown> = {
+    ...base,
+    company_estimates: scored.company_estimates,
+    hard_grade_caps: [...detCap, ...llmCaps],
+  };
+
+  if (scored.caps.authenticOnly) {
+    const existingAuth =
+      base.authentic && typeof base.authentic === "object"
+        ? (base.authentic as Record<string, unknown>)
+        : {};
+    mergedDecision.authentic = {
+      is_authentic_only: true,
+      reason:
+        (typeof existingAuth.reason === "string" && existingAuth.reason) ||
+        scored.caps.reasons.join("; ") ||
+        "Structural damage or alteration was detected (e.g. a tear, missing piece, or trimming). This card cannot receive a numeric mint grade.",
+    };
+    const existingRec =
+      base.submission_recommendation && typeof base.submission_recommendation === "object"
+        ? (base.submission_recommendation as Record<string, unknown>)
+        : {};
+    mergedDecision.submission_recommendation = {
+      ...existingRec,
+      verdict: "do_not_grade",
+      best_for: "none — not gradeable as mint",
+      reason:
+        (typeof existingRec.reason === "string" && existingRec.reason) ||
+        "Structural damage means a numeric grade isn't possible; it would come back as an Authentic / Altered label.",
+    };
+  }
+
+  // Rough AI value estimate (raw + graded, GBP). Depends on the final company
+  // estimates, so it runs last. Wrapped + time-boxed so a slow or failed pricing
+  // call never fails or noticeably delays the grade — on any problem we simply
+  // omit the pricing field.
   let pricing = null;
   try {
     const identity = (findings as Record<string, unknown>).card_identification;
-    const companyEstimates = decision?.company_estimates;
     if (identity && typeof identity === "object") {
       pricing = await estimateCardPrices(
         identity as Record<string, unknown>,
-        companyEstimates,
+        scored.company_estimates,
         userId,
         { timeoutMs: 20000 }
       );
@@ -239,7 +296,7 @@ export async function gradeCard(
 
   return {
     ...findings,
-    ...(decision ?? {}),
+    ...mergedDecision,
     preparation: buildPreparation((findings as Record<string, unknown>).defects),
     ...(pricing ? { pricing } : {}),
     disclaimer:
