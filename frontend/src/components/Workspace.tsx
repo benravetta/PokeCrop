@@ -133,7 +133,7 @@ export function Workspace() {
       {/* Main stage */}
       <div className="flex-1 min-h-0 px-4 sm:px-5 flex flex-col">
         {busy ? (
-          <ProcessingStage label={uploading ? "Reading your file…" : "Finding your card…"} />
+          <ProcessingStage phase={uploading ? "uploading" : "processing"} />
         ) : mode === "crop" ? (
           <CropPanel />
         ) : (
