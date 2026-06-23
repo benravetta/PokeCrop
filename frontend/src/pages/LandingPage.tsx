@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import {
   Upload,
@@ -506,79 +506,82 @@ const EXAMPLE_COMPANIES = [
   { name: "TAG", likely: "8.2", low: "7.6", high: "8.8", gem: "Low", subs: ["8.4", "7.8", "8.3", "8.5"] },
 ];
 
-function ExampleScore({ label, grade, note }: { label: string; grade: string; note: string }) {
+// Example figures + light "paper" components so the homepage preview matches the
+// downloadable PDF report (same sections, palette and layout).
+const RPT_INK = "#181b21";
+const RPT_MUTE = "#6e7480";
+const RPT_LINE = "#dde0e6";
+const RPT_ACCENT = "#2563eb";
+
+const EX_IDENT: [string, string][] = [
+  ["Set", "Gym Heroes"],
+  ["No.", "52 / 132"],
+  ["Rarity", "Common"],
+  ["Variant", "Non-holo"],
+  ["Edition", "1st Edition"],
+  ["Language", "English"],
+  ["Illus.", "Kagemaru Himeno"],
+];
+
+const EX_SCORES: { label: string; score: number; verdict: string }[] = [
+  { label: "Corners", score: 7.5, verdict: "Light whitening on the rear top-left corner." },
+  { label: "Edges", score: 8.0, verdict: "Minor wear along the right border." },
+  { label: "Surface", score: 8.5, verdict: "One faint scuff visible under glare." },
+  { label: "Eye appeal", score: 8.0, verdict: "Clean, bright and well printed." },
+];
+
+function scoreColor(s: number): string {
+  return s >= 8.5 ? "#10a05a" : s >= 7 ? RPT_ACCENT : "#b4780a";
+}
+
+function PaperSec({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div className="rounded-xl border border-border-subtle bg-surface-raised p-4">
-      <div className="text-xs uppercase tracking-wide text-text-muted">{label}</div>
-      <div className="mt-1 text-2xl font-semibold text-text-primary">{grade}</div>
-      <div className="mt-1 text-xs text-text-secondary">{note}</div>
+    <section className="mt-5">
+      <h4 className="text-[12.5px] font-bold" style={{ color: RPT_INK }}>
+        {title}
+      </h4>
+      <div className="mt-1.5 border-t" style={{ borderColor: RPT_LINE }} />
+      <div className="mt-3">{children}</div>
+    </section>
+  );
+}
+
+function ScoreBar({ label, score, verdict }: { label: string; score: number; verdict: string }) {
+  return (
+    <div>
+      <div className="flex items-center gap-3">
+        <span className="w-20 text-[12px] font-bold shrink-0" style={{ color: RPT_INK }}>
+          {label}
+        </span>
+        <span className="w-7 text-[12px] tabular-nums" style={{ color: RPT_INK }}>
+          {score.toFixed(1)}
+        </span>
+        <span className="relative flex-1 h-1.5 rounded-full" style={{ backgroundColor: RPT_LINE }}>
+          <span
+            className="absolute inset-y-0 left-0 rounded-full"
+            style={{ width: `${(score / 10) * 100}%`, backgroundColor: scoreColor(score) }}
+          />
+        </span>
+      </div>
+      <p className="mt-1 ml-[6.5rem] text-[10.5px]" style={{ color: RPT_MUTE }}>
+        {verdict}
+      </p>
     </div>
   );
 }
 
-function ExampleCompany({
-  c,
-}: {
-  c: (typeof EXAMPLE_COMPANIES)[number];
-}) {
-  const subLabels = ["cent", "corn", "edge", "surf"];
+// A faux defect close-up: a zoomed region of the example card image.
+function Snap({ position }: { position: string }) {
   return (
-    <div className="rounded-xl border border-border-subtle bg-surface-raised p-4">
-      <div className="flex items-baseline justify-between gap-2">
-        <span className="text-sm font-medium text-text-primary">{c.name}</span>
-        <span className="text-[11px] text-text-muted">Gem: {c.gem}</span>
-      </div>
-      <div className="mt-1 text-2xl font-semibold text-text-primary">{c.likely}</div>
-      <div className="text-xs text-text-secondary mt-0.5">
-        Range {c.low} – {c.high}
-      </div>
-      <div className="mt-3 grid grid-cols-4 gap-1 text-center">
-        {c.subs.map((s, i) => (
-          <div key={subLabels[i]}>
-            <div className="text-[10px] uppercase tracking-wide text-text-muted">
-              {subLabels[i]}
-            </div>
-            <div className="text-xs text-text-primary">{s}</div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function BlockerCol({
-  title,
-  tone,
-  items,
-}: {
-  title: string;
-  tone: "red" | "amber" | "muted";
-  items: string[];
-}) {
-  const toneCls =
-    tone === "red"
-      ? "text-red-300"
-      : tone === "amber"
-      ? "text-amber-300"
-      : "text-text-secondary";
-  const dot =
-    tone === "red" ? "bg-red-400" : tone === "amber" ? "bg-amber-400" : "bg-text-muted";
-  return (
-    <div className="rounded-xl border border-border-subtle bg-surface-raised p-4">
-      <h4 className={`text-sm font-medium ${toneCls} mb-2`}>{title}</h4>
-      {items.length ? (
-        <ul className="space-y-1.5">
-          {items.map((it) => (
-            <li key={it} className="flex items-start gap-2 text-sm text-text-secondary">
-              <span className={`mt-1.5 h-1.5 w-1.5 rounded-full shrink-0 ${dot}`} />
-              {it}
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="text-sm text-text-muted">None spotted in these photos.</p>
-      )}
-    </div>
+    <div
+      className="w-[44px] h-[44px] rounded border shrink-0 bg-cover"
+      style={{
+        backgroundImage: `url(${AFTER_IMG})`,
+        backgroundSize: "300%",
+        backgroundPosition: position,
+        borderColor: RPT_LINE,
+      }}
+    />
   );
 }
 
@@ -588,134 +591,280 @@ function ReportSection() {
       <div className="mx-auto max-w-6xl px-4 sm:px-6 py-16 sm:py-24">
         <SectionHeading
           kicker="The pre-grade report"
-          title="See your card the way a grader does."
-          copy="A two-pass AI inspection reads centring, corners, edges and surface, identifies the exact card, then estimates a grade for every major company — with the flaws that set the ceiling."
+          title="The exact report you'll download."
+          copy="Every grade comes with a full PDF report. Here's a real example, figures and all — card ID, per-company grades and subgrades, condition breakdown, centring, value and a preparation plan."
         />
 
-        <div className="mt-12 grid lg:grid-cols-[300px_1fr] gap-8 items-start">
-          {/* graded card with condition markers */}
-          <div className="lg:sticky lg:top-24">
-            <div className="relative rounded-2xl border border-border-subtle bg-surface-raised p-4">
-              <div className="relative">
-                <HoloCard src={AFTER_IMG} alt="Graded example card" />
-                {[
-                  { top: "10%", left: "12%", n: 1 },
-                  { top: "30%", left: "90%", n: 2 },
-                  { top: "82%", left: "20%", n: 3 },
-                ].map((m) => (
-                  <span
-                    key={m.n}
-                    className="absolute -translate-x-1/2 -translate-y-1/2 flex items-center justify-center w-6 h-6 rounded-full bg-accent text-white text-[11px] font-bold ring-4 ring-accent/25 shadow-lg"
-                    style={{ top: m.top, left: m.left }}
-                  >
-                    {m.n}
-                  </span>
-                ))}
-              </div>
-              <div className="mt-4 space-y-2 text-xs text-text-secondary">
-                <div className="flex gap-2">
-                  <span className="font-semibold text-accent">1</span> Rear top-left corner
-                  whitening
-                </div>
-                <div className="flex gap-2">
-                  <span className="font-semibold text-accent">2</span> Light edge wear, right
-                  border
-                </div>
-                <div className="flex gap-2">
-                  <span className="font-semibold text-accent">3</span> Minor surface scuff under
-                  glare
-                </div>
-              </div>
-              <p className="mt-3 text-[11px] text-text-muted">
-                Example report for illustration.
-              </p>
-            </div>
-          </div>
+        <div className="mt-12 mx-auto max-w-3xl">
+          <div className="relative rounded-lg bg-white text-[#181b21] shadow-2xl ring-1 ring-black/10 overflow-hidden">
+            <div className="h-1.5" style={{ backgroundColor: RPT_ACCENT }} />
+            <span
+              className="absolute right-4 top-4 rounded-full text-[10px] font-semibold px-2 py-0.5"
+              style={{ backgroundColor: "#eef2ff", color: RPT_ACCENT }}
+            >
+              EXAMPLE
+            </span>
 
-          {/* the report body */}
-          <div className="space-y-5">
-            {/* recommendation */}
-            <div className="rounded-xl border border-border-subtle bg-surface-raised p-5">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <div className="text-xs uppercase tracking-wide text-text-muted">
-                    Recommendation
-                  </div>
-                  <div className="text-2xl font-semibold text-text-primary mt-1">
-                    Possible — inspect first
-                  </div>
-                  <div className="text-sm text-text-secondary mt-1">
-                    Best fit: <span className="text-text-primary">CGC or Beckett</span>
-                  </div>
-                </div>
-                <span className="rounded-full border px-3 py-1.5 text-sm font-medium bg-accent/15 text-accent border-accent/30">
-                  Inspect first
-                </span>
-              </div>
-              <p className="mt-3 text-sm text-text-secondary">
-                Strong centring and clean surface, but corner whitening on the back likely caps
-                a gem mint. A grader that weights centring more favourably may return a higher
-                number.
-              </p>
-            </div>
-
-            {/* company estimates */}
-            <div>
-              <h3 className="text-xs uppercase tracking-wide text-text-muted mb-2">
-                Estimated grade by company
+            <div className="p-6 sm:p-9">
+              {/* header */}
+              <h3 className="text-[19px] font-bold tracking-tight">
+                Card Condition Pre-Grade Report
               </h3>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-                {EXAMPLE_COMPANIES.map((c) => (
-                  <ExampleCompany key={c.name} c={c} />
-                ))}
+              <p className="mt-1 text-[11px]" style={{ color: RPT_MUTE }}>
+                GemCheck AI Pre-Grader · 23 June 2026
+              </p>
+              <div className="mt-2 border-t" style={{ borderColor: RPT_LINE }} />
+
+              {/* identity + images */}
+              <div className="mt-4 flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <div className="text-[15px] font-bold">Erika&apos;s Oddish</div>
+                  <dl className="mt-2 space-y-0.5 text-[11.5px]" style={{ color: RPT_MUTE }}>
+                    {EX_IDENT.map(([k, v]) => (
+                      <div key={k} className="flex gap-1.5">
+                        <dt>{k}:</dt>
+                        <dd style={{ color: RPT_INK }}>{v}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {["1st Edition stamp", "Set symbol: Gym"].map((m) => (
+                      <span
+                        key={m}
+                        className="rounded text-[10px] px-1.5 py-0.5"
+                        style={{ backgroundColor: "#eef2ff", color: RPT_ACCENT }}
+                      >
+                        {m}
+                      </span>
+                    ))}
+                  </div>
+                  <p className="mt-2 text-[10.5px]" style={{ color: RPT_MUTE }}>
+                    ID confidence: high
+                  </p>
+                </div>
+                <div className="flex gap-2 shrink-0">
+                  {["Front", "Back"].map((side) => (
+                    <div key={side} className="text-center">
+                      <div
+                        className="w-[58px] h-[80px] rounded border bg-contain bg-no-repeat bg-center"
+                        style={{
+                          backgroundImage: `url(${AFTER_IMG})`,
+                          borderColor: RPT_LINE,
+                          backgroundColor: "#f3f4f6",
+                        }}
+                      />
+                      <div className="mt-1 text-[9px]" style={{ color: RPT_MUTE }}>
+                        {side}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* recommendation */}
+              <PaperSec title="Recommendation">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="text-[14px] font-bold">Possible — inspect first</div>
+                  <span
+                    className="rounded-full text-[10px] font-semibold px-2 py-0.5"
+                    style={{ backgroundColor: "#eef2ff", color: RPT_ACCENT }}
+                  >
+                    Inspect first
+                  </span>
+                </div>
+                <p className="mt-1 text-[11.5px]" style={{ color: RPT_INK }}>
+                  Best fit: CGC or Beckett
+                </p>
+                <p className="mt-1 text-[11px]" style={{ color: RPT_MUTE }}>
+                  Strong centring and a clean surface, but corner whitening on the back likely caps
+                  a gem mint. A grader that weights centring more favourably may return a higher
+                  number.
+                </p>
+              </PaperSec>
+
+              {/* company table */}
+              <PaperSec title="Estimated grade by company">
+                <div className="grid grid-cols-[1.5fr_0.7fr_1fr_1.6fr] gap-x-2 text-[11px]">
+                  {["Company", "Likely", "Range", "Subgrades (C / Co / E / S)"].map((h) => (
+                    <div key={h} className="font-bold pb-1.5" style={{ color: RPT_MUTE }}>
+                      {h}
+                    </div>
+                  ))}
+                  {EXAMPLE_COMPANIES.map((c) => (
+                    <div key={c.name} className="contents">
+                      <div className="py-1.5 font-bold border-t" style={{ borderColor: RPT_LINE }}>
+                        {c.name}
+                      </div>
+                      <div
+                        className="py-1.5 border-t tabular-nums"
+                        style={{ borderColor: RPT_LINE }}
+                      >
+                        {c.likely}
+                      </div>
+                      <div
+                        className="py-1.5 border-t tabular-nums"
+                        style={{ borderColor: RPT_LINE, color: RPT_MUTE }}
+                      >
+                        {c.low} – {c.high}
+                      </div>
+                      <div
+                        className="py-1.5 border-t tabular-nums"
+                        style={{ borderColor: RPT_LINE, color: RPT_MUTE }}
+                      >
+                        {c.subs.join("  /  ")}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </PaperSec>
+
+              {/* condition breakdown */}
+              <PaperSec title="Condition breakdown">
+                <div className="space-y-3">
+                  {EX_SCORES.map((s) => (
+                    <ScoreBar key={s.label} {...s} />
+                  ))}
+                </div>
+              </PaperSec>
+
+              {/* centering */}
+              <PaperSec title="Centering (measured)">
+                <div className="grid grid-cols-2 gap-4 text-[11.5px]">
+                  <div>
+                    <div className="text-[10px] mb-0.5" style={{ color: RPT_MUTE }}>
+                      Front
+                    </div>
+                    <div>55 / 45 left-right</div>
+                    <div>52 / 48 top-bottom</div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] mb-0.5" style={{ color: RPT_MUTE }}>
+                      Back
+                    </div>
+                    <div>60 / 40 left-right</div>
+                    <div>54 / 46 top-bottom</div>
+                  </div>
+                </div>
+              </PaperSec>
+
+              {/* value */}
+              <PaperSec title="Estimated value (rough)">
+                <div className="text-[11.5px] space-y-0.5">
+                  <div>
+                    Raw / ungraded: <span className="font-semibold">£18 – £30</span>
+                  </div>
+                  <div style={{ color: RPT_MUTE }}>PSA · 8: £45 – £70</div>
+                  <div style={{ color: RPT_MUTE }}>CGC · 8.5: £55 – £85</div>
+                  <p className="mt-1 text-[10px]" style={{ color: RPT_MUTE }}>
+                    Confidence: medium — based on recent comparable sales.
+                  </p>
+                </div>
+              </PaperSec>
+
+              {/* what limits the grade */}
+              <PaperSec title="What limits the grade">
+                <div className="text-[11px] space-y-2">
+                  <div>
+                    <div className="font-bold" style={{ color: "#c82626" }}>
+                      Blocks gem mint
+                    </div>
+                    <ul className="mt-1 space-y-0.5" style={{ color: RPT_INK }}>
+                      <li>· Rear top-left corner whitening</li>
+                      <li>· Light edge wear, right border</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <div className="font-bold" style={{ color: "#b4780a" }}>
+                      Blocks mint (~9)
+                    </div>
+                    <ul className="mt-1 space-y-0.5" style={{ color: RPT_INK }}>
+                      <li>· Surface scuff under glare</li>
+                    </ul>
+                  </div>
+                </div>
+              </PaperSec>
+
+              {/* inspection notes */}
+              <PaperSec title="Inspection notes">
+                <div className="text-[11px]">
+                  <div className="font-bold" style={{ color: RPT_INK }}>
+                    Other observations
+                  </div>
+                  <ul className="mt-1 space-y-0.5" style={{ color: RPT_MUTE }}>
+                    <li>· [minor] Print line through the lower border (likely factory)</li>
+                    <li>· [note] Slight gloss difference, rear bottom edge</li>
+                  </ul>
+                </div>
+              </PaperSec>
+
+              {/* preparation plan */}
+              <PaperSec title="Preparation plan">
+                <p className="text-[11px]" style={{ color: RPT_MUTE }}>
+                  Two light issues are reasonable to address on a raw card; nothing here is
+                  permanent damage.
+                </p>
+                <div className="mt-2 text-[11px] font-bold" style={{ color: "#10a05a" }}>
+                  Safe to prep (2)
+                </div>
+                <div className="mt-2 space-y-3">
+                  {[
+                    {
+                      pos: "18% 14%",
+                      label: "Lift surface debris",
+                      meta: "Front, lower-left · low risk, easy",
+                      action:
+                        "A fleck of debris sits on the surface — gently lift it with a clean microfibre, no pressure.",
+                    },
+                    {
+                      pos: "82% 30%",
+                      label: "Ease light edge dust",
+                      meta: "Right border · low risk, easy",
+                      action:
+                        "Loose dust along the right edge can be brushed off so it isn't read as wear.",
+                    },
+                  ].map((it) => (
+                    <div key={it.label} className="flex gap-3">
+                      <Snap position={it.pos} />
+                      <div className="min-w-0">
+                        <div className="text-[12px] font-bold" style={{ color: RPT_INK }}>
+                          {it.label}
+                        </div>
+                        <div className="text-[10px]" style={{ color: "#b4780a" }}>
+                          {it.meta}
+                        </div>
+                        <p className="mt-0.5 text-[10.5px]" style={{ color: RPT_INK }}>
+                          {it.action}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </PaperSec>
+
+              {/* summary */}
+              <PaperSec title="Summary">
+                <p className="text-[11.5px]" style={{ color: RPT_INK }}>
+                  A solid NM-MT example. Submit to a centring-friendly grader for the best shot at a
+                  9; otherwise it sells well raw.
+                </p>
+              </PaperSec>
+
+              <div className="mt-5 border-t pt-3" style={{ borderColor: RPT_LINE }}>
+                <p className="text-[9.5px]" style={{ color: RPT_MUTE }}>
+                  Not an official grade from PSA, Beckett, CGC, TAG, ACE or any grader. A pre-check
+                  estimate from photos to help you decide whether to submit, sell raw, or inspect
+                  further. Any values shown are rough AI estimates, not live market prices.
+                </p>
+                <p className="mt-2 text-[9px]" style={{ color: RPT_MUTE }}>
+                  GemCheck pre-grade report · page 1 of 1
+                </p>
               </div>
             </div>
-
-            {/* sub scores */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <ExampleScore label="Corners" grade="7.5" note="Rear corner whitening" />
-              <ExampleScore label="Edges" grade="8.0" note="Light wear, right side" />
-              <ExampleScore label="Surface" grade="8.5" note="One minor scuff" />
-              <ExampleScore label="Eye appeal" grade="8.0" note="Clean, vibrant holo" />
-            </div>
-
-            {/* blockers */}
-            <div className="grid md:grid-cols-3 gap-3">
-              <BlockerCol
-                title="Blocks gem mint"
-                tone="red"
-                items={["Rear top-left corner whitening", "Right edge wear"]}
-              />
-              <BlockerCol title="Blocks mint (≈9)" tone="amber" items={["Surface scuff under glare"]} />
-              <BlockerCol title="Blocks near-mint (≈8)" tone="muted" items={[]} />
-            </div>
-
-            {/* centring */}
-            <div className="rounded-xl border border-border-subtle bg-surface-raised p-5">
-              <h3 className="text-sm font-medium text-text-primary mb-3">Centring</h3>
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <div className="text-text-muted text-xs mb-1">Front</div>
-                  <div className="text-text-primary">55 / 45 left-right</div>
-                  <div className="text-text-primary">52 / 48 top-bottom</div>
-                </div>
-                <div>
-                  <div className="text-text-muted text-xs mb-1">Back</div>
-                  <div className="text-text-primary">60 / 40 left-right</div>
-                  <div className="text-text-primary">54 / 46 top-bottom</div>
-                </div>
-              </div>
-            </div>
-
-            <p className="text-sm text-text-secondary border-l-2 border-accent/40 pl-4">
-              A solid NM-MT example. Submit to a centring-friendly grader for the best shot at a
-              9; otherwise it sells well raw.
-            </p>
-            <p className="text-xs text-text-muted">
-              Estimates are based only on what's visible in your photographs. Official grades are
-              decided by the grading company after inspecting the physical card.
-            </p>
           </div>
+
+          <p className="mt-4 text-center text-xs text-text-muted">
+            Every grade includes this as a downloadable PDF, with close-up snapshots of any flaws.
+          </p>
         </div>
       </div>
     </section>
