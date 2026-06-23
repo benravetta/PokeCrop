@@ -2,18 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   Loader2,
-  ShieldCheck,
-  Upload,
-  X,
-  Sparkles,
   AlertTriangle,
-  ChevronDown,
-  Crop,
   ScanSearch,
-  Square,
-  Layers,
-  Camera,
-  Sun,
   RotateCcw,
   Wrench,
   ShieldAlert,
@@ -21,8 +11,7 @@ import {
   RotateCw,
   Tag,
   FileDown,
-  Maximize2,
-  CreditCard,
+  Camera,
 } from "lucide-react";
 import { buildGradeReportPdf } from "../lib/gradeReportPdf";
 import {
@@ -42,8 +31,8 @@ import {
   type CardPricing,
 } from "../lib/api";
 import { useMe } from "../hooks/useMe";
-import { CenteringTool } from "../components/grade/CenteringTool";
 import { GradeProgress } from "../components/grade/GradeProgress";
+import { GradeUploadWorkspace } from "../components/grade/GradeUploadWorkspace";
 import { borderRatios, type Box } from "../lib/centering";
 import { loadImage, cropFromImage, resolveRect } from "../lib/cardRegions";
 import { useAppStore } from "../hooks/useProcessing";
@@ -358,192 +347,72 @@ export function GradePage() {
 
   const outOfQuota = quota ? quota.remaining <= 0 : false;
 
+  const quotaLabel = quota ? (
+    <div className="shrink-0 rounded-xl border border-border-subtle bg-surface/60 backdrop-blur-sm px-4 py-3 text-right">
+      <div className="text-[11px] uppercase tracking-wide text-text-muted">Grades left</div>
+      <div className="text-lg font-semibold text-text-primary tabular-nums">
+        {quota.remaining}
+        <span className="text-sm font-normal text-text-muted"> / {quota.limit + quota.credits}</span>
+      </div>
+      <div className="text-[11px] text-text-muted mt-0.5">
+        {quota.allowanceRemaining} plan · {quota.window === "month" ? "this month" : "today"}
+        {quota.credits > 0 && (
+          <span className="text-accent"> · +{quota.credits} purchased</span>
+        )}
+      </div>
+    </div>
+  ) : null;
+
+  const purchaseBanner =
+    purchaseStatus === "success" ? (
+      <div className="mt-4 rounded-lg bg-success/10 border border-success/20 px-3 py-2 text-[13px] text-success">
+        Payment received — a single grade has been added to your account.
+      </div>
+    ) : purchaseStatus === "cancel" ? (
+      <div className="mt-4 rounded-lg bg-surface-overlay border border-border-subtle px-3 py-2 text-[13px] text-text-secondary">
+        Checkout cancelled — no charge was made.
+      </div>
+    ) : null;
+
   return (
     <div className="flex-1 min-h-0 overflow-y-auto">
-    <div className={`mx-auto px-4 sm:px-6 py-8 w-full ${result ? "max-w-6xl xl:max-w-7xl" : "max-w-6xl"}`}>
-      <div className="flex items-center gap-3 mb-1">
-        <ShieldCheck className="w-6 h-6 text-accent" />
-        <h1 className="text-2xl font-semibold text-text-primary">AI Pre-Grader</h1>
-      </div>
-      <p className="text-text-secondary text-sm mb-6 max-w-2xl">
-        A ruthless pre-check before you waste money submitting. Upload the
-        highest-resolution, sharpest, glare-free photos you can of the front and
-        back — full camera quality, no screenshots or compression. The estimate is
-        only as good as the pixels you give it.
-      </p>
-
-      {purchaseStatus === "success" && (
-        <div className="mb-6 rounded-lg bg-success/10 border border-success/20 px-3 py-2 text-[13px] text-success">
-          Payment received — a single grade has been added to your account.
-        </div>
-      )}
-      {purchaseStatus === "cancel" && (
-        <div className="mb-6 rounded-lg bg-surface-overlay border border-border-subtle px-3 py-2 text-[13px] text-text-secondary">
-          Checkout cancelled — no charge was made.
-        </div>
-      )}
-
-      {quota && (
-        <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-border-subtle bg-surface-overlay px-3 py-1.5 text-xs text-text-secondary">
-          <Sparkles className="w-3.5 h-3.5 text-accent" />
-          {quota.allowanceRemaining} of {quota.limit} grades left{" "}
-          {quota.window === "month" ? "this month" : "today"}
-          {quota.credits > 0 && (
-            <span className="text-accent">
-              {" "}
-              · +{quota.credits} purchased
-            </span>
-          )}
-        </div>
-      )}
-
+    <div className={`mx-auto px-4 sm:px-6 py-8 w-full ${result ? "max-w-6xl xl:max-w-7xl" : "max-w-6xl pb-24"}`}>
       {running && (
-        <div className="max-w-2xl mx-auto">
+        <div className="max-w-2xl mx-auto mb-8">
           <GradeProgress />
         </div>
       )}
 
       {!result && !running && (
-        <div className="grid lg:grid-cols-5 gap-6">
-          <div className="lg:col-span-3 space-y-5">
-            <div className="grid grid-cols-2 gap-4">
-              <ImageSlot label="Front (required)" preview={previews.front} onPick={(f) => setSlot("front", f)} onClear={() => setSlot("front", null)} />
-              <ImageSlot label="Back" preview={previews.back} onPick={(f) => setSlot("back", f)} onClear={() => setSlot("back", null)} />
-            </div>
-
-            <div>
-              <button
-                onClick={() => setShowAdvanced((v) => !v)}
-                className="inline-flex items-center gap-1.5 text-sm text-text-secondary hover:text-text-primary transition-colors"
-              >
-                <ChevronDown className={`w-4 h-4 transition-transform ${showAdvanced ? "rotate-180" : ""}`} />
-                Angled / holo shots (improve surface accuracy)
-              </button>
-              {showAdvanced && (
-                <div className="mt-3 space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <ImageSlot label="Angled front (holo glare)" preview={previews.angled_front} onPick={(f) => setSlot("angled_front", f)} onClear={() => setSlot("angled_front", null)} />
-                    <ImageSlot label="Angled back" preview={previews.angled_back} onPick={(f) => setSlot("angled_back", f)} onClear={() => setSlot("angled_back", null)} />
-                  </div>
-                  <div>
-                    <div className="text-xs text-text-secondary mb-2">
-                      Close-ups of any problem areas (optional, up to 4) — sharpens the surface and defect read.
-                    </div>
-                    <div className="grid grid-cols-4 gap-3">
-                      {closeups.map((_, i) => (
-                        <ImageSlot
-                          key={i}
-                          label={`Close-up ${i + 1}`}
-                          preview={closeupPreviews[i]}
-                          onPick={() => {}}
-                          onClear={() => removeCloseup(i)}
-                        />
-                      ))}
-                      {closeups.length < 4 && (
-                        <ImageSlot label="Add close-up" onPick={addCloseup} onClear={() => {}} />
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {!files.back && files.front && (
-              <p className="flex items-center gap-2 text-xs text-amber-300/90">
-                <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                No back image — confidence will be capped and it can't be a strong gem-grade call.
-              </p>
-            )}
-
-            {localCaptureHints.length > 0 && (
-              <CaptureHints issues={localCaptureHints} />
-            )}
-
-            {(files.front || files.back) && (
-              <div className="grid xl:grid-cols-2 gap-4">
-                {files.front && (
-                  <CenteringPanel
-                    side="front"
-                    label="Front"
-                    proc={proc.front}
-                    displaySrc={proc.front.src ?? previews.front}
-                    outer={outers.front}
-                    inner={inners.front}
-                    onOuter={(b) => setOuters((prev) => ({ ...prev, front: b }))}
-                    onInner={(b) => setInners((prev) => ({ ...prev, front: b }))}
-                    skip={skip.front}
-                    onSkip={(v) => setSkip((s) => ({ ...s, front: v }))}
-                  />
-                )}
-                {files.back && (
-                  <CenteringPanel
-                    side="back"
-                    label="Back"
-                    proc={proc.back}
-                    displaySrc={proc.back.src ?? previews.back}
-                    outer={outers.back}
-                    inner={inners.back}
-                    onOuter={(b) => setOuters((prev) => ({ ...prev, back: b }))}
-                    onInner={(b) => setInners((prev) => ({ ...prev, back: b }))}
-                    skip={skip.back}
-                    onSkip={(v) => setSkip((s) => ({ ...s, back: v }))}
-                  />
-                )}
-              </div>
-            )}
-
-            <div className="flex flex-wrap items-center gap-3">
-              <button
-                onClick={run}
-                disabled={!files.front || running || outOfQuota}
-                className="inline-flex items-center gap-2 rounded-lg bg-accent px-5 py-2.5 text-sm font-medium text-white hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                {running ? "Inspecting…" : outOfQuota ? "No grades left" : "Run pre-grade"}
-              </button>
-              {outOfQuota && (
-                <button
-                  onClick={buyGrade}
-                  disabled={buyBusy}
-                  className="inline-flex items-center gap-2 rounded-lg border border-accent/40 bg-accent/10 px-5 py-2.5 text-sm font-medium text-accent hover:bg-accent/20 disabled:opacity-50 transition-colors"
-                >
-                  {buyBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <CreditCard className="w-4 h-4" />}
-                  Buy 1 grade — £2.99
-                </button>
-              )}
-              {(proc.front.loading || proc.back.loading) && (
-                <span className="text-xs text-text-muted inline-flex items-center gap-1.5">
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" /> Straightening card…
-                </span>
-              )}
-            </div>
-            {outOfQuota && (
-              <p className="text-xs text-text-muted">
-                Out of grades? Buy a single grade without a subscription — it's added to your account instantly.
-              </p>
-            )}
-
-            {error && (
-              <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300 space-y-2">
-                <p>{error}</p>
-                {captureBlockers.length > 0 && (
-                  <ul className="list-disc pl-5 text-red-200/90 text-xs space-y-1">
-                    {captureBlockers.map((i) => (
-                      <li key={i.code}>{i.message}</li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            )}
-          </div>
-
-          <aside className="lg:col-span-2 space-y-5">
-            <WhatWeCheck />
-            <PhotoTips />
-            <CenteringGuide />
-            <ScaleLegend />
-          </aside>
-        </div>
+        <GradeUploadWorkspace
+          quotaLabel={quotaLabel}
+          purchaseBanner={purchaseBanner}
+          files={files}
+          previews={previews}
+          setSlot={setSlot}
+          showAdvanced={showAdvanced}
+          setShowAdvanced={setShowAdvanced}
+          closeups={closeups}
+          closeupPreviews={closeupPreviews}
+          addCloseup={addCloseup}
+          removeCloseup={removeCloseup}
+          proc={proc}
+          outers={outers}
+          inners={inners}
+          skip={skip}
+          setOuters={setOuters}
+          setInners={setInners}
+          setSkip={setSkip}
+          localCaptureHints={localCaptureHints}
+          centeringMeasured={centeringMeasured}
+          error={error}
+          captureBlockers={captureBlockers}
+          outOfQuota={outOfQuota}
+          buyBusy={buyBusy}
+          buyGrade={buyGrade}
+          running={running}
+          run={run}
+        />
       )}
 
       {result && result.not_a_card === true && (
@@ -568,34 +437,40 @@ export function GradePage() {
 
       {result && result.not_a_card !== true && (
         <>
-          <div className="mb-5 flex flex-wrap items-center gap-3">
-            <button
-              onClick={reset}
-              className="inline-flex items-center gap-2 rounded-lg border border-border-strong px-4 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-surface-overlay transition-colors"
-            >
-              <RotateCcw className="w-4 h-4" />
-              Grade another card
-            </button>
-            <button
-              onClick={async () => {
-                setPdfBusy(true);
-                try {
-                  await buildGradeReportPdf(result, {
-                    front: proc.front.src ?? previews.front,
-                    back: proc.back.src ?? previews.back,
-                  });
-                } catch {
-                  setError("Couldn't build the PDF report.");
-                } finally {
-                  setPdfBusy(false);
-                }
-              }}
-              disabled={pdfBusy}
-              className="inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-hover disabled:opacity-50 transition-colors"
-            >
-              {pdfBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}
-              {pdfBusy ? "Building PDF…" : "Download PDF report"}
-            </button>
+          <div className="mb-6 rounded-2xl border border-border-subtle bg-surface-raised p-4 sm:p-5 flex flex-wrap items-center justify-between gap-4 anim-rise">
+            <div>
+              <div className="text-[11px] uppercase tracking-wide text-text-muted">Pre-grade complete</div>
+              <h1 className="text-xl font-semibold text-text-primary mt-0.5">Your report</h1>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={reset}
+                className="inline-flex items-center gap-2 rounded-xl border border-border-strong px-4 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-surface-overlay transition-colors"
+              >
+                <RotateCcw className="w-4 h-4" />
+                Grade another
+              </button>
+              <button
+                onClick={async () => {
+                  setPdfBusy(true);
+                  try {
+                    await buildGradeReportPdf(result, {
+                      front: proc.front.src ?? previews.front,
+                      back: proc.back.src ?? previews.back,
+                    });
+                  } catch {
+                    setError("Couldn't build the PDF report.");
+                  } finally {
+                    setPdfBusy(false);
+                  }
+                }}
+                disabled={pdfBusy}
+                className="inline-flex items-center gap-2 rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-hover disabled:opacity-50 transition-colors shadow-[0_4px_20px_-6px_var(--color-accent)]"
+              >
+                {pdfBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}
+                {pdfBusy ? "Building PDF…" : "Download PDF"}
+              </button>
+            </div>
           </div>
           <GradeReport
             result={result}
@@ -607,286 +482,6 @@ export function GradePage() {
         </>
       )}
     </div>
-    </div>
-  );
-}
-
-function CenteringPanel({
-  side,
-  label,
-  proc,
-  displaySrc,
-  outer,
-  inner,
-  onOuter,
-  onInner,
-  skip,
-  onSkip,
-}: {
-  side: CardSlot;
-  label: string;
-  proc: SideProc;
-  displaySrc?: string;
-  outer: Box | null;
-  inner: Box | null;
-  onOuter: (b: Box) => void;
-  onInner: (b: Box) => void;
-  skip: boolean;
-  onSkip: (v: boolean) => void;
-}) {
-  if (!displaySrc && !proc.loading) return null;
-  return (
-    <div className="rounded-xl border border-border-subtle bg-surface-raised p-4">
-      <h3 className="text-sm font-medium text-text-primary flex items-center gap-2 mb-3">
-        <ScanSearch className="w-4 h-4 text-accent" />
-        Measure centering — {label}
-      </h3>
-      {proc.loading ? (
-        <div className="flex items-center justify-center gap-2 py-10 text-sm text-text-secondary">
-          <Loader2 className="w-4 h-4 animate-spin" /> Straightening…
-        </div>
-      ) : displaySrc ? (
-        <>
-          {proc.failed && (
-            <p className="mb-2 flex items-center gap-1.5 text-xs text-amber-300/90">
-              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-              Couldn't auto-straighten — adjust the borders by hand or tick "No border".
-            </p>
-          )}
-          <CenteringTool
-            side={side}
-            imageSrc={displaySrc}
-            outer={outer}
-            inner={inner}
-            onOuter={onOuter}
-            onInner={onInner}
-            skipped={skip}
-            onSkip={onSkip}
-          />
-        </>
-      ) : null}
-    </div>
-  );
-}
-
-function WhatWeCheck() {
-  const rows = [
-    { icon: ScanSearch, t: "Centering", d: "How even the borders are, front and back." },
-    { icon: Square, t: "Corners", d: "Sharpness, whitening, rounding or dents." },
-    { icon: Crop, t: "Edges", d: "Whitening, chips, nicks and rough cuts." },
-    { icon: Layers, t: "Surface", d: "Scratches, print lines, dents and creases." },
-  ];
-  return (
-    <div className="rounded-xl border border-border-subtle bg-surface-raised p-5">
-      <h3 className="text-sm font-semibold text-text-primary mb-3">What we check</h3>
-      <ul className="space-y-3">
-        {rows.map((r) => (
-          <li key={r.t} className="flex items-start gap-3">
-            <span className="mt-0.5 w-8 h-8 rounded-lg bg-accent/15 flex items-center justify-center shrink-0">
-              <r.icon className="w-4 h-4 text-accent" />
-            </span>
-            <div>
-              <div className="text-sm text-text-primary">{r.t}</div>
-              <div className="text-xs text-text-secondary">{r.d}</div>
-            </div>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-function CaptureHints({ issues }: { issues: CaptureIssue[] }) {
-  const blocks = issues.filter((i) => i.severity === "block");
-  const warns = issues.filter((i) => i.severity === "warn");
-  return (
-    <div
-      className={`rounded-lg border px-3 py-2.5 text-xs space-y-1.5 ${
-        blocks.length
-          ? "border-red-500/30 bg-red-500/10 text-red-200"
-          : "border-amber-500/30 bg-amber-500/10 text-amber-100/90"
-      }`}
-    >
-      <div className="flex items-center gap-2 font-medium">
-        <Camera className="w-3.5 h-3.5 shrink-0" />
-        {blocks.length ? "Fix these before grading" : "Photo tips before you run"}
-      </div>
-      <ul className="list-disc pl-5 space-y-1">
-        {[...blocks, ...warns].map((i) => (
-          <li key={i.code}>{i.message}</li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-function PhotoTips() {
-  const tips = [
-    {
-      icon: Maximize2,
-      t: "Highest resolution you've got",
-      d: "Use your camera's full quality — no screenshots, no compression, no zoom-crop. Detail is everything for grading.",
-    },
-    {
-      icon: Square,
-      t: "Bare card, laid flat",
-      d: "Out of any sleeve or toploader, pressed flat. A curled holo skews the side centering.",
-    },
-    { icon: Sun, t: "Flat, even light", d: "Avoid glare and harsh shadows." },
-    { icon: Camera, t: "Fill the frame", d: "Shoot square-on, card flat, in razor-sharp focus." },
-    { icon: Layers, t: "Front and back", d: "Both sides — a missing back caps the grade." },
-  ];
-  return (
-    <div className="rounded-xl border border-border-subtle bg-surface-raised p-5">
-      <h3 className="text-sm font-semibold text-text-primary mb-3">Photo tips</h3>
-      <ul className="space-y-3">
-        {tips.map((r) => (
-          <li key={r.t} className="flex items-start gap-3">
-            <span className="mt-0.5 w-8 h-8 rounded-lg bg-surface-overlay flex items-center justify-center shrink-0">
-              <r.icon className="w-4 h-4 text-text-secondary" />
-            </span>
-            <div>
-              <div className="text-sm text-text-primary">{r.t}</div>
-              <div className="text-xs text-text-secondary">{r.d}</div>
-            </div>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-// Small SVG card illustrating an inner design box offset from centre.
-function CenterEg({ dx, dy, label, ok }: { dx: number; dy: number; label: string; ok: "good" | "ok" | "bad" }) {
-  const tone =
-    ok === "good" ? "fill-emerald-400/30" : ok === "ok" ? "fill-accent/30" : "fill-amber-400/30";
-  const stroke =
-    ok === "good" ? "stroke-emerald-400" : ok === "ok" ? "stroke-accent" : "stroke-amber-400";
-  return (
-    <div className="flex flex-col items-center gap-1.5">
-      <svg viewBox="0 0 60 84" className="w-14 h-[4.7rem]">
-        <rect x="1" y="1" width="58" height="82" rx="4" className="fill-surface-overlay stroke-border-strong" strokeWidth="1.5" />
-        <rect
-          x={14 + dx}
-          y={14 + dy}
-          width="32"
-          height="56"
-          rx="2"
-          className={`${tone} ${stroke}`}
-          strokeWidth="1.5"
-        />
-      </svg>
-      <span className="text-[11px] text-text-secondary">{label}</span>
-    </div>
-  );
-}
-
-function CenteringGuide() {
-  return (
-    <div className="rounded-xl border border-border-subtle bg-surface-raised p-5">
-      <h3 className="text-sm font-semibold text-text-primary mb-1">How centering works</h3>
-      <p className="text-xs text-text-secondary mb-3">
-        We compare the border widths on opposite sides. The worst axis sets the ceiling —
-        PSA 10 needs 55/45 or better on the front.
-      </p>
-      <p className="text-xs text-amber-300/90 mb-4 flex items-start gap-1.5">
-        <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-        Shoot the card flat and bare — out of its sleeve/toploader. A natural curl
-        (common on holos) foreshortens one side in the photo and throws the L/R
-        reading off, so it won't match a flattened scan.
-      </p>
-      <div className="flex items-end justify-between gap-2">
-        <CenterEg dx={0} dy={0} label="50/50" ok="good" />
-        <CenterEg dx={5} dy={2} label="60/40" ok="ok" />
-        <CenterEg dx={10} dy={4} label="70/30" ok="bad" />
-      </div>
-      <div className="mt-4 rounded-lg bg-surface-overlay/60 p-3 flex items-center gap-3">
-        <svg viewBox="0 0 60 84" className="w-12 shrink-0">
-          <rect x="1" y="1" width="58" height="82" rx="4" className="fill-surface stroke-border-strong" strokeWidth="1.5" />
-          <rect x="12" y="12" width="36" height="60" rx="2" className="fill-accent/20 stroke-accent" strokeWidth="1.5" />
-          <line x1="1" y1="42" x2="12" y2="42" className="stroke-accent" strokeWidth="1.5" />
-          <line x1="48" y1="42" x2="59" y2="42" className="stroke-accent" strokeWidth="1.5" />
-        </svg>
-        <p className="text-xs text-text-secondary">
-          Set the dashed box to the card's outer edge and the solid box to where the artwork
-          starts. We measure the border band between them on each side.
-        </p>
-      </div>
-    </div>
-  );
-}
-
-function ScaleLegend() {
-  const rows = [
-    ["PSA", "Whole grades 1–10, Gem Mint 10"],
-    ["Beckett", "Half grades + subgrades, Black Label = all 10s"],
-    ["CGC", "Half grades, Pristine 10"],
-    ["TAG", "One-decimal grades (e.g. 9.4)"],
-    ["ACE", "One-decimal grades + subgrades"],
-  ];
-  return (
-    <div className="rounded-xl border border-border-subtle bg-surface-raised p-5">
-      <h3 className="text-sm font-semibold text-text-primary mb-3">The graders we compare</h3>
-      <ul className="space-y-2">
-        {rows.map(([k, v]) => (
-          <li key={k} className="flex items-baseline gap-3 text-xs">
-            <span className="w-16 shrink-0 font-semibold text-text-primary">{k}</span>
-            <span className="text-text-secondary">{v}</span>
-          </li>
-        ))}
-      </ul>
-      <p className="mt-4 text-[11px] text-text-muted">
-        Estimates only. Official grades are decided by each company after inspecting the
-        physical card.
-      </p>
-    </div>
-  );
-}
-
-function ImageSlot({
-  label,
-  preview,
-  onPick,
-  onClear,
-}: {
-  label: string;
-  preview?: string;
-  onPick: (f: File) => void;
-  onClear: () => void;
-}) {
-  const inputRef = useRef<HTMLInputElement>(null);
-  return (
-    <div className="relative">
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/png,image/jpeg,image/webp,image/heic,image/heif,image/x-adobe-dng,.heic,.heif,.dng"
-        className="hidden"
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          if (f) onPick(f);
-          e.target.value = "";
-        }}
-      />
-      {preview ? (
-        <div className="relative aspect-[5/7] overflow-hidden rounded-xl border border-border-subtle bg-surface-overlay">
-          <img src={preview} alt={label} className="h-full w-full object-contain" />
-          <button
-            onClick={onClear}
-            className="absolute right-2 top-2 rounded-full bg-black/60 p-1 text-white hover:bg-black/80"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      ) : (
-        <button
-          onClick={() => inputRef.current?.click()}
-          className="flex aspect-[5/7] w-full flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border-strong bg-surface-overlay/40 text-text-secondary hover:border-accent/50 hover:text-text-primary transition-colors"
-        >
-          <Upload className="w-5 h-5" />
-          <span className="text-xs px-2 text-center">{label}</span>
-        </button>
-      )}
     </div>
   );
 }
@@ -925,18 +520,21 @@ function CompanyEstimate({ obj }: { obj: unknown }) {
   const hasSubs = Object.keys(subs).length > 0;
   const likelihood = asStr(o.top_grade_likelihood);
   return (
-    <div className="rounded-xl border border-border-subtle bg-surface-raised p-4">
+    <div className="rounded-xl border border-border-subtle bg-surface-raised p-4 hover:border-accent/30 hover:bg-surface-overlay/30 transition-colors group">
+      <div className="h-0.5 w-full rounded-full bg-gradient-to-r from-accent/60 to-transparent mb-3 opacity-60 group-hover:opacity-100 transition-opacity" />
       <div className="flex items-baseline justify-between gap-2">
         <span className="text-sm font-medium text-text-primary">{asStr(o.company) || "—"}</span>
         {likelihood && (
-          <span className="text-[11px] text-text-muted">
-            Gem: {LIKELIHOOD_LABELS[likelihood] ?? likelihood}
+          <span className="text-[10px] uppercase tracking-wide text-text-muted">
+            Gem {LIKELIHOOD_LABELS[likelihood] ?? likelihood}
           </span>
         )}
       </div>
-      <div className="mt-1 text-2xl font-semibold text-text-primary">{asStr(o.likely) || "—"}</div>
-      <div className="text-xs text-text-secondary mt-0.5">
-        Range {asStr(o.low) || "?"} – {asStr(o.high) || "?"}
+      <div className="mt-1 text-2xl font-semibold text-text-primary tracking-tight">
+        {asStr(o.likely) || "—"}
+      </div>
+      <div className="text-xs text-text-muted mt-0.5">
+        {asStr(o.low) || "?"} – {asStr(o.high) || "?"}
       </div>
       {hasSubs && (
         <div className="mt-3 grid grid-cols-4 gap-1 text-center">
@@ -1094,37 +692,34 @@ function GradeReport({
 
         {/* Right column: the verdict and condition breakdown */}
         <div className="space-y-5 min-w-0">
-          <div className="rounded-xl border border-border-subtle bg-surface-raised p-5">
-            <div className="flex flex-wrap items-center justify-between gap-3">
+          <div
+            className={`rounded-2xl border p-5 sm:p-6 ${
+              REC_TONE[recVerdict] ?? REC_TONE.needs_better_photos
+            }`}
+          >
+            <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <div className="text-xs uppercase tracking-wide text-text-muted">Recommendation</div>
-                <div className="text-2xl font-semibold text-text-primary mt-1">
+                <div className="text-[11px] uppercase tracking-wide opacity-70">Recommendation</div>
+                <div className="text-2xl sm:text-3xl font-semibold mt-1 tracking-tight">
                   {REC_LABELS[recVerdict] ?? recVerdict ?? "—"}
                 </div>
                 {bestFor && (
-                  <div className="text-sm text-text-secondary mt-1">
-                    Best fit: <span className="text-text-primary">{bestFor}</span>
+                  <div className="text-sm opacity-80 mt-2">
+                    Best fit: <span className="font-medium">{bestFor}</span>
                   </div>
                 )}
               </div>
-              {recVerdict && (
-                <span
-                  className={`rounded-full border px-3 py-1.5 text-sm font-medium ${
-                    REC_TONE[recVerdict] ?? REC_TONE.needs_better_photos
-                  }`}
-                >
-                  {REC_LABELS[recVerdict] ?? recVerdict}
-                </span>
-              )}
             </div>
             {asStr(rec.reason) && (
-              <p className="mt-3 text-sm text-text-secondary">{asStr(rec.reason)}</p>
+              <p className="mt-4 text-sm opacity-90 leading-relaxed border-t border-current/10 pt-4">
+                {asStr(rec.reason)}
+              </p>
             )}
           </div>
 
           {companies.length > 0 && (
             <div>
-              <h3 className="text-xs uppercase tracking-wide text-text-muted mb-2">
+              <h3 className="text-xs uppercase tracking-wide text-text-muted mb-3">
                 Estimated grade by company
               </h3>
               <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3">
