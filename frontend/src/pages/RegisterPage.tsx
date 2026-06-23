@@ -8,6 +8,7 @@ import {
   FormError,
   SubmitButton,
 } from "../components/auth/AuthLayout";
+import { RegisterBenefitsPanel } from "../components/auth/RegisterBenefitsPanel";
 
 export function RegisterPage() {
   const { signUp } = useAuth();
@@ -74,7 +75,8 @@ export function RegisterPage() {
   return (
     <AuthLayout
       title="Create your account"
-      subtitle="Free accounts include 3 crops a day."
+      subtitle="Start free — upgrade when you need more."
+      aside={<RegisterBenefitsPanel />}
       footer={
         <>
           Already have an account?{" "}

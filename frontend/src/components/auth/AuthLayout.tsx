@@ -6,16 +6,30 @@ export function AuthLayout({
   subtitle,
   children,
   footer,
+  aside,
 }: {
   title: string;
   subtitle?: string;
   children: ReactNode;
   footer?: ReactNode;
+  aside?: ReactNode;
 }) {
+  const formCard = (
+    <div className="rounded-2xl border border-border-subtle bg-surface-raised p-6 shadow-2xl">
+      <div className="mb-5 text-center">
+        <h1 className="text-lg font-semibold text-text-primary">{title}</h1>
+        {subtitle && (
+          <p className="mt-1 text-[13px] text-text-secondary leading-relaxed">{subtitle}</p>
+        )}
+      </div>
+      {children}
+    </div>
+  );
+
   return (
     <div className="min-h-[100dvh] bg-surface flex flex-col">
       <div className="flex-1 flex items-center justify-center p-6">
-        <div className="w-full max-w-sm anim-rise">
+        <div className={`w-full anim-rise ${aside ? "max-w-4xl" : "max-w-sm"}`}>
           <Link to="/" className="flex items-center justify-center mb-7">
             <img
               src="/gemcheck-logo.png"
@@ -25,22 +39,17 @@ export function AuthLayout({
             />
           </Link>
 
-          <div className="rounded-2xl border border-border-subtle bg-surface-raised p-6 shadow-2xl">
-            <div className="mb-5 text-center">
-              <h1 className="text-lg font-semibold text-text-primary">{title}</h1>
-              {subtitle && (
-                <p className="mt-1 text-[13px] text-text-secondary leading-relaxed">
-                  {subtitle}
-                </p>
-              )}
+          {aside ? (
+            <div className="grid gap-5 lg:grid-cols-2 lg:gap-6 lg:items-stretch">
+              {formCard}
+              {aside}
             </div>
-            {children}
-          </div>
+          ) : (
+            formCard
+          )}
 
           {footer && (
-            <div className="mt-5 text-center text-[13px] text-text-secondary">
-              {footer}
-            </div>
+            <div className="mt-5 text-center text-[13px] text-text-secondary">{footer}</div>
           )}
         </div>
       </div>
