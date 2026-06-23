@@ -391,7 +391,7 @@ Open three terminal windows/tabs and start each service. The frontend won't work
 
 API-plan users get a versioned REST API for cropping and AI pre-grading — the
 same capabilities as the web app. Interactive docs are at **`/docs`**; the raw
-spec is at **`/v1/openapi.json`** (OpenAPI **1.1.0**).
+spec is at **`/v1/openapi.json`** (OpenAPI **1.2.0**).
 
 ### Authentication
 

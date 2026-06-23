@@ -12,7 +12,7 @@ import { logActivity } from "../lib/activity.js";
 import { getHistory, logUsageEvent, type UsageKind } from "../lib/usageEvents.js";
 import { archiveCropAsync } from "../lib/catalog.js";
 import { peekRateLimit, consumeRateLimit, rateLimitHeaders, DAILY_SOFT_CAP } from "../lib/rateLimit.js";
-import { openApiSpec } from "../openapi.js";
+import { openApiSpec, API_SPEC_VERSION } from "../openapi.js";
 import {
   ALLOWED_EXT,
   ALLOWED_MIME,
@@ -489,7 +489,7 @@ router.get("/health", (_req: Request, res: Response) => {
 });
 
 router.get("/version", (_req: Request, res: Response) => {
-  res.json({ api: API_VERSION, spec: "1.1.0" });
+  res.json({ api: API_VERSION, spec: API_SPEC_VERSION });
 });
 
 router.get("/openapi.json", (_req: Request, res: Response) => {
