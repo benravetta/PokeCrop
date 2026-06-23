@@ -33,6 +33,7 @@ import {
   releaseGradeIdempotency,
 } from "../lib/gradeIdempotency.js";
 import { normalizeIdempotencyKey } from "../lib/apiIdempotency.js";
+import { buildGradeReportPdfBuffer } from "../lib/gradeReportPdf.js";
 import { RemoteFetchError, MAX_REMOTE_BYTES } from "../lib/ssrf.js";
 
 export const API_VERSION = "v1";
@@ -148,6 +149,64 @@ function mapGradeError(res: Response, out: Extract<Awaited<ReturnType<typeof exe
   if (out.quota) extra.quota = out.quota;
   if (out.capture_quality) extra.capture_quality = out.capture_quality;
   sendApiError(res, out.code, out.message, undefined, extra);
+}
+
+type GradeResponseBody = {
+  result: Record<string, unknown>;
+  quota: unknown;
+  capture_quality: unknown;
+};
+
+function wantsGradePdf(req: Request): boolean {
+  if (req.query.format === "pdf") return true;
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  if (body.format === "pdf") return true;
+  const accept = req.headers.accept || "";
+  if (accept.includes("application/pdf")) {
+    return !accept.includes("application/json");
+  }
+  return false;
+}
+
+function reportImagesFromFiles(files: FileMap | undefined) {
+  return {
+    front: files?.front?.[0]?.buffer,
+    back: files?.back?.[0]?.buffer,
+    frontName: files?.front?.[0]?.originalname,
+    backName: files?.back?.[0]?.originalname,
+  };
+}
+
+async function respondGrade(
+  req: Request,
+  res: Response,
+  body: GradeResponseBody
+): Promise<void> {
+  if (!wantsGradePdf(req)) {
+    res.json(body);
+    return;
+  }
+  const imgs = reportImagesFromFiles(req.files as FileMap | undefined);
+  if (!imgs.front) {
+    sendApiError(
+      res,
+      "invalid_request",
+      "Front image is required to generate a PDF report (include multipart front, or use JSON Accept)."
+    );
+    return;
+  }
+  try {
+    const pdf = await buildGradeReportPdfBuffer(body.result, imgs);
+    res.set({
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `attachment; filename="${pdf.filename}"`,
+      "Content-Length": String(pdf.buffer.length),
+    });
+    res.send(pdf.buffer);
+  } catch (err) {
+    console.error("grade PDF build failed:", err);
+    sendApiError(res, "processing_failed", "Failed to build grade PDF report.");
+  }
 }
 
 // POST /v1/crop
@@ -321,7 +380,8 @@ router.post("/grade", requireApiKey, gradeUpload, async (req: Request, res: Resp
     try {
       const claim = await claimGradeIdempotency(userId, idempotencyKey);
       if (claim.action === "replay") {
-        res.json(claim.body);
+        const cached = claim.body as GradeResponseBody;
+        await respondGrade(req, res, cached);
         return;
       }
       if (claim.action === "wait") {
@@ -360,7 +420,7 @@ router.post("/grade", requireApiKey, gradeUpload, async (req: Request, res: Resp
       return;
     }
 
-    const body = {
+    const body: GradeResponseBody = {
       result: out.result,
       quota: out.quota,
       capture_quality: out.capture_quality,
@@ -368,7 +428,7 @@ router.post("/grade", requireApiKey, gradeUpload, async (req: Request, res: Resp
     if (idempotencyKey && claimedIdempotency) {
       await completeGradeIdempotency(userId, idempotencyKey, body);
     }
-    res.json(body);
+    await respondGrade(req, res, body);
   } catch (err) {
     if (idempotencyKey && claimedIdempotency) {
       await releaseGradeIdempotency(userId, idempotencyKey).catch(() => {});

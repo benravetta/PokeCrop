@@ -438,13 +438,27 @@ curl -X POST https://gemcheck.co.uk/v1/crop \
 
 Multipart: `front` (required), optional `back`, `angled_front`, `angled_back`,
 `closeups`. Optional form field `centering` (JSON). Send `Idempotency-Key` to
-safely retry without double-charging. Returns `{ result, quota, capture_quality }`.
+safely retry without double-charging.
+
+**JSON (default)** — returns `{ result, quota, capture_quality }`:
 
 ```bash
 curl -X POST https://gemcheck.co.uk/v1/grade \
   -H "Authorization: Bearer $GEMCHECK_API_KEY" \
   -H "Idempotency-Key: grade-123" \
   -F "front=@front.jpg" -F "back=@back.jpg"
+```
+
+**PDF report** — same pre-grade PDF as the web app (`Accept: application/pdf`,
+`?format=pdf`, or form field `format=pdf`). Include `front` (and `back` if you
+have it) in the multipart upload:
+
+```bash
+curl -X POST "https://gemcheck.co.uk/v1/grade?format=pdf" \
+  -H "Authorization: Bearer $GEMCHECK_API_KEY" \
+  -H "Idempotency-Key: grade-123" \
+  -F "front=@front.jpg" -F "back=@back.jpg" \
+  -o pregrade-report.pdf
 ```
 
 Errors use a structured envelope: `{ "error": { "code", "message" } }`.

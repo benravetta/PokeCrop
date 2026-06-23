@@ -1126,7 +1126,7 @@ curl -X POST https://gemcheck.co.uk/v1/grade \\
 function ApiSection({ plan, loggedIn }: { plan: Plan; loggedIn: boolean }) {
   const endpoints = [
     ["POST", "/v1/crop", "Crop & straighten a card"],
-    ["POST", "/v1/grade", "AI pre-grade report (multipart photos)"],
+    ["POST", "/v1/grade", "AI pre-grade (JSON or PDF report)"],
     ["GET", "/v1/grade/quota", "Grading allowance"],
     ["GET", "/v1/account", "Plan + quota snapshot"],
     ["GET", "/v1/usage", "API usage history"],

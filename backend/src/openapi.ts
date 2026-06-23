@@ -35,6 +35,12 @@ curl -X POST https://gemcheck.co.uk/v1/grade \\
   -F "back=@back.jpg"
 \`\`\`
 
+## Grade PDF report
+
+Send \`Accept: application/pdf\`, \`?format=pdf\`, or form field \`format=pdf\` on
+\`POST /v1/grade\` to download the same pre-grade PDF as the web app (card photos,
+company estimates, prep plan with defect snapshots). JSON is the default.
+
 ## Rate limits
 
 Crop requests are rate limited **per account** (not per key). See \`X-RateLimit-*\` headers.
@@ -179,8 +185,15 @@ export const openApiSpec = {
         tags: ["Grade"],
         summary: "Run an AI pre-grade",
         description:
-          "Multipart upload: `front` (required), optional `back`, `angled_front`, `angled_back`, `closeups` (up to 6). Optional form field `centering` — JSON with front/back leftRight and topBottom ratios like `\"55/45\"`. Send `Idempotency-Key` header to dedupe retries.",
+          "Multipart upload: `front` (required), optional `back`, `angled_front`, `angled_back`, `closeups` (up to 6). Optional form field `centering` — JSON with front/back leftRight and topBottom ratios like `\"55/45\"`. Send `Idempotency-Key` header to dedupe retries. Default response is JSON; send `Accept: application/pdf`, `?format=pdf`, or form field `format=pdf` for the full PDF report (same as the web app).",
         parameters: [
+          {
+            name: "format",
+            in: "query",
+            required: false,
+            schema: { type: "string", enum: ["json", "pdf"], default: "json" },
+            description: "Response format (alternative to Accept header).",
+          },
           {
             name: "Idempotency-Key",
             in: "header",
@@ -204,6 +217,11 @@ export const openApiSpec = {
                     type: "string",
                     description: "JSON MeasuredCentering object.",
                   },
+                  format: {
+                    type: "string",
+                    enum: ["json", "pdf"],
+                    description: "Response format when Accept cannot be set.",
+                  },
                 },
                 required: ["front"],
               },
@@ -212,10 +230,13 @@ export const openApiSpec = {
         },
         responses: {
           "200": {
-            description: "Grade result.",
+            description: "Grade result (JSON) or PDF report.",
             content: {
               "application/json": {
                 schema: { $ref: "#/components/schemas/GradeResponse" },
+              },
+              "application/pdf": {
+                schema: { type: "string", format: "binary" },
               },
             },
           },
