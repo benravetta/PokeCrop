@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { ArrowRight, CheckCircle2, FileDown, Upload } from "lucide-react";
-import { HERO_REVIEW, STATS } from "./data";
+import { HERO_CARD_IMG, HERO_REVIEW, STATS } from "./data";
 import { AppWindow, StarRating } from "./shared";
 
 type Plan = "free" | "unlimited" | "api" | null;
@@ -79,7 +79,7 @@ export function HeroSection({ loggedIn, plan }: { loggedIn: boolean; plan: Plan 
   );
 }
 
-/** UI-only product preview — no card photography. */
+/** Card photo + pre-grade panel — the hero product shot. */
 function ProductPreview() {
   const grades: { co: string; g: string; recommended?: boolean }[] = [
     { co: "PSA", g: "9" },
@@ -100,22 +100,41 @@ function ProductPreview() {
 
   return (
     <div className="anim-scale">
-      <AppWindow title="GemCheck — Pre-grade report">
-        <div className="p-4 sm:p-5 space-y-4">
-          <div>
-            <div className="text-[10px] uppercase tracking-wide text-text-muted font-medium">
-              Card identified
-            </div>
-            <div className="mt-1 text-sm font-semibold">Charizard ex</div>
-            <div className="text-xs text-text-muted">Obsidian Flames · Holo</div>
+      <div className="grid sm:grid-cols-[minmax(0,44%)_minmax(0,1fr)] gap-4 lg:gap-5 items-start">
+        <div className="relative mx-auto w-full max-w-[220px] sm:max-w-none">
+          <div
+            aria-hidden
+            className="absolute -inset-3 rounded-2xl bg-accent/10 blur-2xl opacity-60"
+          />
+          <div className="relative checkerboard rounded-xl p-4 sm:p-5 shadow-2xl shadow-black/50 ring-1 ring-white/10">
+            <img
+              src={HERO_CARD_IMG}
+              alt="Charizard — cropped and straightened by GemCheck"
+              draggable={false}
+              className="relative w-full h-auto drop-shadow-[0_20px_40px_rgba(0,0,0,0.45)] select-none"
+            />
           </div>
+          <p className="mt-2 text-center text-[10px] text-text-muted">
+            Cropped with GemCheck · 1275×1775 PNG
+          </p>
+        </div>
 
-          <div className="rounded-xl border border-border-subtle bg-surface-overlay/40 p-3">
-            <div className="text-[10px] font-medium text-text-muted uppercase tracking-wide">
-              Estimated grade by company
+        <AppWindow title="GemCheck — Pre-grade report">
+          <div className="p-4 sm:p-5 space-y-4">
+            <div>
+              <div className="text-[10px] uppercase tracking-wide text-text-muted font-medium">
+                Card identified
+              </div>
+              <div className="mt-1 text-sm font-semibold">Charizard</div>
+              <div className="text-xs text-text-muted">Base Set · 1st Edition · Holo · 4/102</div>
             </div>
-            <div className="mt-2 space-y-1.5">
-              {grades.map(({ co, g, recommended: isRec }) => (
+
+            <div className="rounded-xl border border-border-subtle bg-surface-overlay/40 p-3">
+              <div className="text-[10px] font-medium text-text-muted uppercase tracking-wide">
+                Estimated grade by company
+              </div>
+              <div className="mt-2 space-y-1.5">
+                {grades.map(({ co, g, recommended: isRec }) => (
                   <div
                     key={co}
                     className={`flex items-center justify-between rounded-lg px-2.5 py-1.5 text-sm transition-colors ${
@@ -141,44 +160,45 @@ function ProductPreview() {
                     </span>
                   </div>
                 ))}
-            </div>
-          </div>
-
-          <div className="rounded-lg bg-success/10 border border-success/30 px-3 py-2.5">
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-success">
-              <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-              Submit to {recommended.co} — likely gem mint
-            </div>
-            <div className="text-[11px] text-text-secondary mt-1">
-              Strong centring scores higher with {recommended.co}. PSA and Beckett would likely
-              return lower on the same card.
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            {scores.map(({ label, score }) => (
-              <div key={label} className="flex items-center gap-3 text-xs">
-                <span className="w-16 text-text-muted shrink-0">{label}</span>
-                <div className="flex-1 h-1.5 rounded-full bg-surface-overlay overflow-hidden">
-                  <div
-                    className="h-full rounded-full bg-success/60"
-                    style={{ width: `${score * 10}%` }}
-                  />
-                </div>
-                <span className="w-6 tabular-nums text-text-secondary">{score.toFixed(1)}</span>
               </div>
-            ))}
-          </div>
+            </div>
 
-          <div className="flex items-center justify-between rounded-lg border border-border-subtle px-3 py-2.5">
-            <span className="text-xs text-text-secondary">Full PDF report</span>
-            <span className="inline-flex items-center gap-1.5 rounded-md bg-accent px-2.5 py-1 text-[11px] font-semibold text-white">
-              <FileDown className="w-3.5 h-3.5" />
-              Download
-            </span>
+            <div className="rounded-lg bg-success/10 border border-success/30 px-3 py-2.5">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-success">
+                <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                Submit to {recommended.co} — likely gem mint
+              </div>
+              <div className="text-[11px] text-text-secondary mt-1">
+                Strong centring scores higher with {recommended.co}. PSA and Beckett would likely
+                return lower on the same card.
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              {scores.map(({ label, score }) => (
+                <div key={label} className="flex items-center gap-3 text-xs">
+                  <span className="w-16 text-text-muted shrink-0">{label}</span>
+                  <div className="flex-1 h-1.5 rounded-full bg-surface-overlay overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-success/60"
+                      style={{ width: `${score * 10}%` }}
+                    />
+                  </div>
+                  <span className="w-6 tabular-nums text-text-secondary">{score.toFixed(1)}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex items-center justify-between rounded-lg border border-border-subtle px-3 py-2.5">
+              <span className="text-xs text-text-secondary">Full PDF report</span>
+              <span className="inline-flex items-center gap-1.5 rounded-md bg-accent px-2.5 py-1 text-[11px] font-semibold text-white">
+                <FileDown className="w-3.5 h-3.5" />
+                Download
+              </span>
+            </div>
           </div>
-        </div>
-      </AppWindow>
+        </AppWindow>
+      </div>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { MoveHorizontal } from "lucide-react";
-import { AFTER_IMG, BEFORE_IMG } from "./data";
+import { HERO_CARD_BEFORE, HERO_CARD_IMG } from "./data";
 import { SectionHeading } from "./shared";
 
 /** The only place on the page (besides the report) that shows the card image. */
@@ -59,8 +59,8 @@ function BeforeAfter() {
     >
       <div className="absolute inset-0">
         <img
-          src={BEFORE_IMG}
-          alt="A card photographed on a desk"
+          src={HERO_CARD_BEFORE}
+          alt="Charizard photographed on a desk"
           draggable={false}
           className="absolute inset-0 h-full w-full object-cover"
         />
@@ -80,8 +80,8 @@ function BeforeAfter() {
         <div className="checkerboard absolute inset-0 opacity-[0.25]" />
         <div className="absolute inset-0 flex items-center justify-center p-6">
           <img
-            src={AFTER_IMG}
-            alt="The same card cleanly cropped"
+            src={HERO_CARD_IMG}
+            alt="The same Charizard after GemCheck crop"
             draggable={false}
             className="max-h-full max-w-full rounded-[3%] drop-shadow-[0_18px_38px_rgba(0,0,0,0.55)]"
           />
