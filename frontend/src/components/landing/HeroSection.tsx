@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { ArrowRight, FileDown, Upload } from "lucide-react";
+import { ArrowRight, CheckCircle2, FileDown, Upload } from "lucide-react";
 import { HERO_REVIEW, STATS } from "./data";
 import { AppWindow, StarRating } from "./shared";
 
@@ -81,19 +81,21 @@ export function HeroSection({ loggedIn, plan }: { loggedIn: boolean; plan: Plan 
 
 /** UI-only product preview — no card photography. */
 function ProductPreview() {
-  const grades = [
-    { co: "PSA", g: "8" },
-    { co: "Beckett", g: "8.5" },
-    { co: "CGC", g: "8.5" },
-    { co: "ACE", g: "8.0" },
-    { co: "TAG", g: "8.2" },
+  const grades: { co: string; g: string; recommended?: boolean }[] = [
+    { co: "PSA", g: "9" },
+    { co: "Beckett", g: "9.5" },
+    { co: "CGC", g: "10", recommended: true },
+    { co: "ACE", g: "9.0" },
+    { co: "TAG", g: "9.4" },
   ];
 
+  const recommended = grades.find((g) => g.recommended)!;
+
   const scores = [
-    { label: "Corners", score: 7.5 },
-    { label: "Edges", score: 8.0 },
-    { label: "Surface", score: 8.5 },
-    { label: "Eye appeal", score: 8.0 },
+    { label: "Corners", score: 9.5 },
+    { label: "Edges", score: 9.5 },
+    { label: "Surface", score: 10 },
+    { label: "Eye appeal", score: 9.5 },
   ];
 
   return (
@@ -104,8 +106,8 @@ function ProductPreview() {
             <div className="text-[10px] uppercase tracking-wide text-text-muted font-medium">
               Card identified
             </div>
-            <div className="mt-1 text-sm font-semibold">Erika&apos;s Oddish</div>
-            <div className="text-xs text-text-muted">Gym Heroes · 1st Edition</div>
+            <div className="mt-1 text-sm font-semibold">Charizard ex</div>
+            <div className="text-xs text-text-muted">Obsidian Flames · Holo</div>
           </div>
 
           <div className="rounded-xl border border-border-subtle bg-surface-overlay/40 p-3">
@@ -113,18 +115,44 @@ function ProductPreview() {
               Estimated grade by company
             </div>
             <div className="mt-2 space-y-1.5">
-              {grades.map(({ co, g }) => (
-                <div key={co} className="flex items-center justify-between text-sm">
-                  <span className="text-text-secondary">{co}</span>
-                  <span className="font-semibold tabular-nums">{g}</span>
-                </div>
-              ))}
+              {grades.map(({ co, g, recommended: isRec }) => (
+                  <div
+                    key={co}
+                    className={`flex items-center justify-between rounded-lg px-2.5 py-1.5 text-sm transition-colors ${
+                      isRec
+                        ? "bg-success/15 border border-success/40 ring-1 ring-success/20"
+                        : ""
+                    }`}
+                  >
+                    <span className={isRec ? "font-semibold text-success" : "text-text-secondary"}>
+                      {co}
+                      {isRec && (
+                        <span className="ml-1.5 text-[10px] font-bold uppercase tracking-wide">
+                          · Submit here
+                        </span>
+                      )}
+                    </span>
+                    <span
+                      className={`font-bold tabular-nums ${
+                        isRec ? "text-success text-base" : "text-text-primary"
+                      }`}
+                    >
+                      {g}
+                    </span>
+                  </div>
+                ))}
             </div>
           </div>
 
-          <div className="rounded-lg bg-accent/10 border border-accent/20 px-3 py-2">
-            <div className="text-xs font-semibold text-accent">Possible — inspect first</div>
-            <div className="text-[11px] text-text-secondary mt-0.5">Best fit: CGC or Beckett</div>
+          <div className="rounded-lg bg-success/10 border border-success/30 px-3 py-2.5">
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-success">
+              <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+              Submit to {recommended.co} — likely gem mint
+            </div>
+            <div className="text-[11px] text-text-secondary mt-1">
+              Strong centring scores higher with {recommended.co}. PSA and Beckett would likely
+              return lower on the same card.
+            </div>
           </div>
 
           <div className="space-y-2">
@@ -133,7 +161,7 @@ function ProductPreview() {
                 <span className="w-16 text-text-muted shrink-0">{label}</span>
                 <div className="flex-1 h-1.5 rounded-full bg-surface-overlay overflow-hidden">
                   <div
-                    className="h-full rounded-full bg-accent/70"
+                    className="h-full rounded-full bg-success/60"
                     style={{ width: `${score * 10}%` }}
                   />
                 </div>
