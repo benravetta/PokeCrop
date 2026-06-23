@@ -37,6 +37,13 @@ CONFIDENCE_MANUAL_THRESHOLD = 0.45
 EDIT_MARGIN_FRAC = 0.32
 EDIT_CARD_LONG = 1000
 
+# Grading wants the cleanest, highest-resolution crop the source can give (small
+# scratches/print lines matter), so the grading-safe warp is sized to the card's
+# native pixel count rather than the small canonical canvas — capped so a macro
+# shot can't blow up memory, and floored so it's never worse than a normal crop.
+GRADING_MAX_LONG = 3000
+GRADING_MIN_LONG = OUTPUT_SIZES["standard"][1]  # 1760
+
 
 @dataclass
 class CropOptions:
@@ -167,7 +174,16 @@ def run_crop(
         res.edit_transform = []
 
     t = time.time()
-    warp = warp_card(original, quad_full, opts.output_size)
+    if opts.grading_safe:
+        qg = order_corners(quad_full.astype(np.float32)).astype(np.float32)
+        native_long = max(
+            (np.linalg.norm(qg[1] - qg[0]) + np.linalg.norm(qg[2] - qg[3])) / 2.0,
+            (np.linalg.norm(qg[3] - qg[0]) + np.linalg.norm(qg[2] - qg[1])) / 2.0,
+        )
+        target_long = int(min(GRADING_MAX_LONG, max(GRADING_MIN_LONG, native_long)))
+        warp = warp_card(original, quad_full, target_long=target_long)
+    else:
+        warp = warp_card(original, quad_full, opts.output_size)
     _t("warp", t)
 
     t = time.time()

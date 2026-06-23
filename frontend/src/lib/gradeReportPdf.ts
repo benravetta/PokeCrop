@@ -176,15 +176,36 @@ export async function buildGradeReportPdf(
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9.5);
   setColor(MUTE);
+  const numTxt =
+    asStr(ident.number) && asStr(ident.set_total)
+      ? `${asStr(ident.number)}/${asStr(ident.set_total)}`
+      : asStr(ident.number);
+  const variantTxt = [asStr(ident.variant), asStr(ident.holo_type)]
+    .filter(Boolean)
+    .join(" · ");
   const idBits = [
     asStr(ident.set) && `Set: ${asStr(ident.set)}`,
-    asStr(ident.number) && `No: ${asStr(ident.number)}`,
-    asStr(ident.variant) && asStr(ident.variant),
+    numTxt && `No: ${numTxt}`,
+    asStr(ident.rarity) && asStr(ident.rarity),
+    variantTxt,
+    asStr(ident.edition) && `Edition: ${asStr(ident.edition)}`,
+    asStr(ident.regulation_mark) && `Reg. mark: ${asStr(ident.regulation_mark)}`,
     asStr(ident.language) && asStr(ident.language),
+    asStr(ident.illustrator) && `Illus. ${asStr(ident.illustrator)}`,
   ].filter(Boolean) as string[];
   for (const b of idBits) {
     doc.text(b, M, y);
     y += 4.6;
+  }
+  const idMarks = asArr(ident.identifiers)
+    .map((x) => asStr(x).trim())
+    .filter(Boolean);
+  if (idMarks.length) {
+    const wrapped = doc.splitTextToSize(`Marks: ${idMarks.join(", ")}`, 90) as string[];
+    for (const line of wrapped) {
+      doc.text(line, M, y);
+      y += 4.6;
+    }
   }
   if (asStr(ident.confidence)) {
     doc.text(`ID confidence: ${asStr(ident.confidence)}`, M, y);

@@ -40,6 +40,11 @@ export function UploadZone({ onHelp }: { onHelp?: () => void }) {
             background — borders and rounded corners intact — as a clean
             transparent PNG.
           </p>
+          <p className="text-text-muted text-xs max-w-md mx-auto leading-relaxed mt-2">
+            Use the highest-quality image you have — full-resolution and sharp.
+            We keep every pixel we can, so a crisp source means a crisp crop
+            (and an accurate grade later).
+          </p>
         </div>
 
         <div

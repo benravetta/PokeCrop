@@ -20,6 +20,7 @@ import {
   RotateCw,
   Tag,
   FileDown,
+  Maximize2,
 } from "lucide-react";
 import { buildGradeReportPdf } from "../lib/gradeReportPdf";
 import {
@@ -227,7 +228,9 @@ export function GradePage() {
       if (!f) return null;
       const s = proc[slot];
       if (s?.src) return dataUrlToFile(s.src, `${slot}.png`);
-      return downscale(f);
+      // Straighten unavailable — still send a high-resolution original so the
+      // inspection isn't reading a tiny image.
+      return downscale(f, 2400);
     },
     [files, proc]
   );
@@ -272,9 +275,10 @@ export function GradePage() {
         <h1 className="text-2xl font-semibold text-text-primary">AI Pre-Grader</h1>
       </div>
       <p className="text-text-secondary text-sm mb-6 max-w-2xl">
-        A ruthless pre-check before you waste money submitting. Upload sharp,
-        glare-free photos of the front and back — the cleaner the photos, the more
-        the estimate is worth.
+        A ruthless pre-check before you waste money submitting. Upload the
+        highest-resolution, sharpest, glare-free photos you can of the front and
+        back — full camera quality, no screenshots or compression. The estimate is
+        only as good as the pixels you give it.
       </p>
 
       {quota && (
@@ -560,8 +564,13 @@ function WhatWeCheck() {
 
 function PhotoTips() {
   const tips = [
+    {
+      icon: Maximize2,
+      t: "Highest resolution you've got",
+      d: "Use your camera's full quality — no screenshots, no compression, no zoom-crop. Detail is everything for grading.",
+    },
     { icon: Sun, t: "Flat, even light", d: "Avoid glare and harsh shadows." },
-    { icon: Camera, t: "Fill the frame", d: "Shoot square-on, card flat, in focus." },
+    { icon: Camera, t: "Fill the frame", d: "Shoot square-on, card flat, in razor-sharp focus." },
     { icon: Layers, t: "Front and back", d: "Both sides — a missing back caps the grade." },
   ];
   return (
@@ -883,15 +892,7 @@ function GradeReport({
         <div className="space-y-5 lg:sticky lg:top-4">
           <CardImages images={images} />
 
-          <div className="rounded-xl border border-border-subtle bg-surface-raised p-5">
-            <h3 className="text-sm font-medium text-text-primary mb-2">Card</h3>
-            <dl className="text-sm space-y-1">
-              <Field k="Name" v={asStr(ident.name)} />
-              <Field k="Set" v={asStr(ident.set)} />
-              <Field k="Number" v={asStr(ident.number)} />
-              <Field k="Variant" v={asStr(ident.variant)} />
-            </dl>
-          </div>
+          <CardIdentity ident={ident} />
 
           <PriceEstimate pricing={result.pricing as CardPricing | undefined} />
 
@@ -1287,6 +1288,79 @@ function Field({ k, v }: { k: string; v: string }) {
     <div>
       <dt className="text-xs text-text-muted">{k}</dt>
       <dd className="text-text-primary">{v || "—"}</dd>
+    </div>
+  );
+}
+
+// Renders the read-from-card identification. Number is shown with the set total
+// when known ("025/203"); only fields the model actually read are listed so the
+// panel stays clean for cards where some details aren't legible.
+function CardIdentity({ ident }: { ident: Record<string, unknown> }) {
+  const name = asStr(ident.name);
+  const set = asStr(ident.set);
+  const number = asStr(ident.number);
+  const setTotal = asStr(ident.set_total);
+  const rarity = asStr(ident.rarity);
+  const variant = asStr(ident.variant);
+  const holoType = asStr(ident.holo_type);
+  const edition = asStr(ident.edition);
+  const language = asStr(ident.language);
+  const regMark = asStr(ident.regulation_mark);
+  const illustrator = asStr(ident.illustrator);
+  const confidence = asStr(ident.confidence);
+  const identifiers = asArr(ident.identifiers)
+    .map((x) => asStr(x).trim())
+    .filter(Boolean);
+
+  const numberDisplay = number && setTotal ? `${number}/${setTotal}` : number;
+  const variantDisplay = [variant, holoType].filter(Boolean).join(" · ");
+
+  const rows: { k: string; v: string }[] = [
+    { k: "Name", v: name },
+    { k: "Set", v: set },
+    { k: "Number", v: numberDisplay },
+    { k: "Rarity", v: rarity },
+    { k: "Variant", v: variantDisplay },
+    { k: "Edition", v: edition },
+    { k: "Reg. mark", v: regMark },
+    { k: "Language", v: language },
+    { k: "Illustrator", v: illustrator },
+  ].filter((r) => r.v);
+
+  return (
+    <div className="rounded-xl border border-border-subtle bg-surface-raised p-5">
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="text-sm font-medium text-text-primary">Card</h3>
+        {confidence && (
+          <span className="text-[10px] uppercase tracking-wide text-text-muted">
+            ID confidence: {confidence}
+          </span>
+        )}
+      </div>
+      {rows.length ? (
+        <dl className="text-sm space-y-1">
+          {rows.map((r) => (
+            <Field key={r.k} k={r.k} v={r.v} />
+          ))}
+        </dl>
+      ) : (
+        <p className="text-sm text-text-secondary">Couldn't read the card details clearly.</p>
+      )}
+      {identifiers.length > 0 && (
+        <div className="mt-3">
+          <div className="text-xs text-text-muted mb-1.5">Stamps & marks</div>
+          <div className="flex flex-wrap gap-1.5">
+            {identifiers.map((id, i) => (
+              <span
+                key={i}
+                className="rounded-md bg-accent/10 text-accent px-2 py-0.5 text-xs"
+              >
+                {id}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

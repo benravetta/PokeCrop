@@ -8,7 +8,7 @@ resolved separately afterwards.
 """
 
 from dataclasses import dataclass
-from typing import Tuple
+from typing import Optional, Tuple
 
 import cv2
 import numpy as np
@@ -20,6 +20,7 @@ OUTPUT_SIZES = {
     "standard": (1260, 1760),
     "high": (1890, 2640),
 }
+CARD_RATIO = OUTPUT_SIZES["standard"][0] / OUTPUT_SIZES["standard"][1]  # short/long
 DEFAULT_MARGIN = 8
 
 
@@ -35,15 +36,27 @@ def warp_card(
     quad_full: np.ndarray,
     output_size: str = "standard",
     margin: int = DEFAULT_MARGIN,
+    target_long: Optional[int] = None,
 ) -> Warp:
-    """Warp ``quad_full`` (full-res coords) onto a canonical card canvas."""
+    """Warp ``quad_full`` (full-res coords) onto a card canvas.
+
+    Normally the card is mapped onto a fixed canonical size (``output_size``). For
+    grading we instead want to preserve as much of the original detail as
+    possible, so callers can pass ``target_long`` (the desired long-edge pixel
+    count, e.g. the card's native resolution in the source photo) and the canvas
+    is sized to that at the canonical card aspect.
+    """
     q = order_corners(quad_full.astype(np.float32)).astype(np.float32)
 
     width = (np.linalg.norm(q[1] - q[0]) + np.linalg.norm(q[2] - q[3])) / 2.0
     height = (np.linalg.norm(q[3] - q[0]) + np.linalg.norm(q[2] - q[1])) / 2.0
     portrait = height >= width
 
-    short, long = OUTPUT_SIZES.get(output_size, OUTPUT_SIZES["standard"])
+    if target_long is not None:
+        long = int(max(64, target_long))
+        short = max(1, int(round(long * CARD_RATIO)))
+    else:
+        short, long = OUTPUT_SIZES.get(output_size, OUTPUT_SIZES["standard"])
     card_w, card_h = (short, long) if portrait else (long, short)
 
     m = int(max(0, margin))

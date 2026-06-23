@@ -35,8 +35,9 @@ const GRADE_MIME = [
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  // Phone HEIC/large JPEGs can exceed the old 8MB cap.
-  limits: { fileSize: 25 * 1024 * 1024, files: 10 },
+  // 50 MB to match nginx/process/python limits — native-resolution straightened
+  // PNGs and phone HEIC/large JPEGs can be sizeable.
+  limits: { fileSize: 50 * 1024 * 1024, files: 10 },
   fileFilter: (_req, file, cb) => {
     const ext = path.extname(file.originalname || "").toLowerCase();
     // Some browsers send HEIC with an empty/generic mimetype; trust the
@@ -148,12 +149,16 @@ router.post(
       const result = await sendToPython(tempPath, file.originalname || "card", {
         ...validateParams({}),
         grading_safe: true,
+        // Grading needs maximum detail: ask the pipeline for the native-resolution
+        // crop (full_resolution => result_png), not the 1200px web preview.
+        full_resolution: true,
       });
-      if (result.error || !result.result_web_png) {
+      const png = result.result_png ?? result.result_web_png;
+      if (result.error || !png) {
         res.status(422).json({ error: "Could not detect a card to straighten." });
         return;
       }
-      res.json({ png: result.result_web_png });
+      res.json({ png });
     } catch (err) {
       console.error("grade straighten failed:", err);
       res.status(500).json({ error: "Failed to straighten the image." });

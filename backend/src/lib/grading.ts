@@ -38,7 +38,7 @@ const INSPECT_PROMPT = `Inspect the supplied card image(s) and return ONLY this 
 {
   "is_trading_card": true,
   "not_card_reason": "",
-  "card_identification": { "name": "", "set": "", "number": "", "variant": "", "language": "", "confidence": "low|medium|high" },
+  "card_identification": { "name": "", "set": "", "number": "", "set_total": "", "rarity": "", "variant": "", "edition": "", "holo_type": "", "language": "", "regulation_mark": "", "illustrator": "", "identifiers": [], "confidence": "low|medium|high" },
   "image_suitability": { "rating": "excellent|good|limited|poor", "limitations": [] },
   "views_present": { "front": true, "back": false, "angled": false, "closeups": false },
   "structural_damage": [ { "type": "tear|rip|hole|missing_piece|paper_loss|crease|fold|bend|indentation|water_damage|tape|adhesive|stain|writing|trimmed|altered", "where": "", "severity": "minor|moderate|major", "confidence": "low|medium|high" } ],
@@ -69,7 +69,21 @@ Do not invent defects, but do not skip a category — if a region cannot be judg
 - "region": the single named zone it sits in. Corners and edges use the corner/edge names; surface flaws use the 3x3 grid (top_left..bottom_right) or "holo_area"; use "full" only for something spanning the whole card.
 - "bbox": a TIGHT normalised box [x, y, width, height] with values 0-1 measured from the top-left of THAT image, enclosing just the flaw. If you cannot localise it precisely, return [0,0,0,0] and rely on "region".
 - "severity": minor (faint/tiny), moderate (clearly visible), major (severe/structural).
-Only include flaws you are reasonably confident are real and physical. An empty array is fine for a clean card.`;
+Only include flaws you are reasonably confident are real and physical. An empty array is fine for a clean card.
+
+IDENTIFICATION — read the printed card carefully and fill card_identification ACCURATELY; never invent. Leave a field empty/"unknown" if it is not legible rather than guessing:
+- name: the card's printed name exactly as shown.
+- number / set_total: the collector number printed on the card, usually bottom-left/bottom-right (e.g. "025/203" -> number "025", set_total "203"; promos read like "SWSH039" or "XY12"). Strip nothing meaningful; keep leading zeros as printed.
+- set: the set name or symbol if identifiable (read the set symbol/era); else leave empty.
+- rarity: e.g. Common, Uncommon, Rare, Holo Rare, Double Rare, Illustration Rare, Special Illustration Rare, Secret Rare, Promo — infer from the rarity symbol and treatment.
+- variant: e.g. "Holofoil", "Reverse Holo", "Non-holo", "Full Art", "Alt Art", "Gold", "Jumbo".
+- holo_type: the foil pattern if visible (e.g. cosmos, cracked-ice, etched), else empty.
+- edition: read edition/printing marks EXACTLY — "1st Edition" (the 1st Edition stamp, for Pokémon a black circular stamp at the lower-left of the artwork window), "Shadowless", "Unlimited", or empty if none/cannot tell. Do not claim 1st Edition unless the stamp is actually visible.
+- regulation_mark: the small letter (e.g. D, E, F, G, H) near the bottom-left on modern Pokémon, if present.
+- illustrator: the "Illus./Illustrator" credit if legible.
+- language: the card's language (English, Japanese, etc.).
+- identifiers: a list of any OTHER distinguishing printed marks or stamps you can see — promo/event stamps (e.g. a gold "POKÉMON" stamp, Prerelease, Staff, Pokémon League, World Championship), set symbols, error/misprint indicators, grading-relevant stamps. Each as a short string. Empty list if none.
+- confidence: low/medium/high for the identification overall.`;
 
 const ADJUDICATE_SYSTEM =
   "You are the final grading adjudicator for CardCrop. You are given structured " +
