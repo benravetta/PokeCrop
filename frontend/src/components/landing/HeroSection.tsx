@@ -138,7 +138,7 @@ function ProductPreview() {
                       <div>
                         <span className="text-sm font-semibold text-success">{co}</span>
                         <span className="block text-[10px] font-medium text-success/80 mt-0.5">
-                          Best fit — submit here
+                          Likely best fit
                         </span>
                       </div>
                       <span className="text-2xl font-bold tabular-nums text-success leading-none">
@@ -162,9 +162,10 @@ function ProductPreview() {
               <CheckCircle2 className="w-4 h-4 text-success shrink-0 mt-0.5" />
               <p className="text-xs text-text-secondary leading-relaxed">
                 <span className="font-medium text-text-primary">
-                  Submit to {recommended.co} for the best shot at a gem mint.
+                  {recommended.co} looks like the strongest match for this card.
                 </span>{" "}
-                Same card — PSA 9, Beckett 9.5. Company choice matters.
+                Every company weighs centring, corners and surface differently — compare estimates
+                before you choose where to submit.
               </p>
             </div>
           </div>
