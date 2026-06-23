@@ -8,6 +8,7 @@ import { AdminRoute } from "./components/AdminRoute";
 import { LandingPage } from "./pages/LandingPage";
 import { ToolPage } from "./pages/ToolPage";
 import { AccountPage } from "./pages/AccountPage";
+import { HistoryPage } from "./pages/HistoryPage";
 import { PricingPage } from "./pages/PricingPage";
 import { AdminPage } from "./pages/AdminPage";
 import { CatalogPage } from "./pages/CatalogPage";
@@ -84,6 +85,7 @@ export default function App() {
         <Route path="/crop" element={<ToolPage />} />
         <Route path="/grade" element={<GradePage />} />
         <Route path="/account" element={<AccountPage />} />
+        <Route path="/history" element={<HistoryPage />} />
         <Route path="/pricing" element={<PricingPage />} />
         <Route
           path="/admin"

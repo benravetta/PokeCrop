@@ -1,10 +1,10 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { User as UserIcon, CreditCard, Lock, Check, Loader2, Sparkles, KeyRound } from "lucide-react";
+import { User as UserIcon, CreditCard, Lock, Check, Loader2, Sparkles, KeyRound, History } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { useMe } from "../hooks/useMe";
 import { supabase } from "../lib/supabase";
-import { openBillingPortal, getGradeQuota, type GradeQuota } from "../lib/api";
+import { openBillingPortal, startGradeCheckout, getGradeQuota, type GradeQuota } from "../lib/api";
 import { Field } from "../components/auth/AuthLayout";
 import { ApiKeysPanel } from "../components/ApiKeysPanel";
 
@@ -41,6 +41,7 @@ export function AccountPage() {
   const { me, refresh } = useMe();
   const [searchParams, setSearchParams] = useSearchParams();
   const [portalBusy, setPortalBusy] = useState(false);
+  const [buyBusy, setBuyBusy] = useState(false);
   const [gradeQuota, setGradeQuota] = useState<GradeQuota | null>(null);
 
   const [displayName, setDisplayName] = useState("");
@@ -81,6 +82,16 @@ export function AccountPage() {
       window.location.href = url;
     } catch {
       setPortalBusy(false);
+    }
+  };
+
+  const buyGrade = async () => {
+    setBuyBusy(true);
+    try {
+      const url = await startGradeCheckout();
+      window.location.href = url;
+    } catch {
+      setBuyBusy(false);
     }
   };
 
@@ -200,8 +211,11 @@ export function AccountPage() {
               </p>
               {gradeQuota && (
                 <p className="text-[12px] text-text-muted mt-0.5">
-                  {gradeQuota.remaining} of {gradeQuota.limit} AI grades remaining{" "}
+                  {gradeQuota.allowanceRemaining} of {gradeQuota.limit} AI grades remaining{" "}
                   {gradeQuota.window === "month" ? "this month" : "today"}
+                  {gradeQuota.credits > 0 && (
+                    <span className="text-accent"> · +{gradeQuota.credits} purchased</span>
+                  )}
                 </p>
               )}
             </div>
@@ -222,6 +236,39 @@ export function AccountPage() {
                 {portalBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : "Manage billing"}
               </button>
             )}
+          </div>
+
+          {/* One-off grade purchase — no subscription needed. */}
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border-subtle pt-4">
+            <div>
+              <p className="text-sm text-text-primary font-medium">Single grade</p>
+              <p className="text-[12px] text-text-muted mt-0.5">
+                Buy one AI grade for £2.99 — no subscription. Added to your account instantly.
+              </p>
+            </div>
+            <button
+              onClick={buyGrade}
+              disabled={buyBusy}
+              className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-accent bg-accent/10 border border-accent/40 rounded-lg hover:bg-accent/20 transition-colors disabled:opacity-60"
+            >
+              {buyBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <CreditCard className="w-4 h-4" />}
+              Buy 1 grade — £2.99
+            </button>
+          </div>
+        </Section>
+
+        <Section icon={<History className="w-4 h-4" />} title="History">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-[13px] text-text-secondary">
+              View and search every crop and grade on your account, with dates, billing and quota usage.
+            </p>
+            <Link
+              to="/history"
+              className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-text-primary bg-surface-overlay border border-border-subtle rounded-lg hover:bg-border-subtle transition-colors"
+            >
+              <History className="w-4 h-4" />
+              View history
+            </Link>
           </div>
         </Section>
 

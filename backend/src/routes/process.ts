@@ -12,8 +12,10 @@ import {
   getPlan,
   getUsageToday,
   incrementUsage,
+  type Plan,
 } from "../lib/usage.js";
 import { logActivity } from "../lib/activity.js";
+import { logUsageEvent } from "../lib/usageEvents.js";
 import { archiveCropAsync, pngDimensions } from "../lib/catalog.js";
 import { assessCard, CardAssessment } from "../lib/cardVision.js";
 
@@ -231,10 +233,11 @@ router.post("/process", requireAuth, async (req: Request, res: Response) => {
   // This crop only counts against the quota the first time a given upload is
   // successfully extracted; re-processing (crop tweaks, slider changes) is free.
   const willCount = !session.counted;
+  let plan: Plan = "free";
 
   if (willCount) {
     try {
-      const plan = await getPlan(userId);
+      plan = await getPlan(userId);
       if (plan === "free") {
         const used = await getUsageToday(userId);
         if (used >= FREE_DAILY_LIMIT) {
@@ -298,12 +301,14 @@ router.post("/process", requireAuth, async (req: Request, res: Response) => {
 
     // Meter the successful crop exactly once per upload.
     if (willCount) {
+      let cropCount: number | null = null;
       try {
-        await incrementUsage(userId);
+        cropCount = await incrementUsage(userId);
         session.counted = true;
       } catch (err) {
         console.error("Usage increment failed:", err);
       }
+      const safeName = sanitizeFilename(session.filename);
       // Audit the first successful extraction of this upload (re-processing for
       // crop tweaks is intentionally not logged, to mirror the metering).
       logActivity({
@@ -311,7 +316,24 @@ router.post("/process", requireAuth, async (req: Request, res: Response) => {
         action: "crop.web",
         actorId: userId,
         actorEmail: req.user!.email ?? null,
-        detail: { filename: sanitizeFilename(session.filename) },
+        detail: { filename: safeName },
+      });
+      // Permanent history entry. Free crops draw on the daily allowance (with a
+      // quota snapshot); paid plans crop unlimited, so no number is recorded.
+      logUsageEvent({
+        userId,
+        kind: "crop",
+        source: "web",
+        billing: plan === "free" ? "free" : "subscription",
+        plan,
+        window: plan === "free" ? "day" : null,
+        usedAfter: plan === "free" ? cropCount : null,
+        remainingAfter:
+          plan === "free" && cropCount != null
+            ? Math.max(0, FREE_DAILY_LIMIT - cropCount)
+            : null,
+        summary: safeName,
+        detail: { filename: safeName },
       });
 
       // Catalogue this crop to R2 in the background. Runs once per upload (the

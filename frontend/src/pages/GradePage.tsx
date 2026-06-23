@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   Loader2,
   ShieldCheck,
@@ -21,11 +22,13 @@ import {
   Tag,
   FileDown,
   Maximize2,
+  CreditCard,
 } from "lucide-react";
 import { buildGradeReportPdf } from "../lib/gradeReportPdf";
 import {
   gradeCard,
   getGradeQuota,
+  startGradeCheckout,
   straightenForGrade,
   type GradeQuota,
   type GradeResult,
@@ -35,6 +38,7 @@ import {
   type PrepItem,
   type CardPricing,
 } from "../lib/api";
+import { useMe } from "../hooks/useMe";
 import { CenteringTool } from "../components/grade/CenteringTool";
 import { GradeProgress } from "../components/grade/GradeProgress";
 import { borderRatios, type Box } from "../lib/centering";
@@ -103,6 +107,10 @@ export function GradePage() {
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pdfBusy, setPdfBusy] = useState(false);
+  const [buyBusy, setBuyBusy] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const refreshMe = useMe((s) => s.refresh);
+  const purchaseStatus = searchParams.get("purchase");
 
   // Optional close-up photos of problem areas — sharpen the surface/defect read.
   const [closeups, setCloseups] = useState<File[]>([]);
@@ -144,6 +152,35 @@ export function GradePage() {
     getGradeQuota()
       .then((r) => setQuota(r.quota))
       .catch(() => {});
+  }, []);
+
+  // Returning from a single-grade Checkout: the webhook credits the grade, so
+  // refresh the quota (and the header credits), then strip the query param.
+  useEffect(() => {
+    if (!purchaseStatus) return;
+    if (purchaseStatus === "success") {
+      getGradeQuota()
+        .then((r) => setQuota(r.quota))
+        .catch(() => {});
+      refreshMe();
+    }
+    const t = window.setTimeout(() => {
+      searchParams.delete("purchase");
+      setSearchParams(searchParams, { replace: true });
+    }, 5000);
+    return () => window.clearTimeout(t);
+  }, [purchaseStatus, refreshMe, searchParams, setSearchParams]);
+
+  const buyGrade = useCallback(async () => {
+    setBuyBusy(true);
+    setError(null);
+    try {
+      const url = await startGradeCheckout();
+      window.location.href = url;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not start checkout.");
+      setBuyBusy(false);
+    }
   }, []);
 
   // Consume a "Send to grading" hand-off from the crop tool: prefill the front
@@ -281,11 +318,28 @@ export function GradePage() {
         only as good as the pixels you give it.
       </p>
 
+      {purchaseStatus === "success" && (
+        <div className="mb-6 rounded-lg bg-success/10 border border-success/20 px-3 py-2 text-[13px] text-success">
+          Payment received — a single grade has been added to your account.
+        </div>
+      )}
+      {purchaseStatus === "cancel" && (
+        <div className="mb-6 rounded-lg bg-surface-overlay border border-border-subtle px-3 py-2 text-[13px] text-text-secondary">
+          Checkout cancelled — no charge was made.
+        </div>
+      )}
+
       {quota && (
         <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-border-subtle bg-surface-overlay px-3 py-1.5 text-xs text-text-secondary">
           <Sparkles className="w-3.5 h-3.5 text-accent" />
-          {quota.remaining} of {quota.limit} grades left{" "}
+          {quota.allowanceRemaining} of {quota.limit} grades left{" "}
           {quota.window === "month" ? "this month" : "today"}
+          {quota.credits > 0 && (
+            <span className="text-accent">
+              {" "}
+              · +{quota.credits} purchased
+            </span>
+          )}
         </div>
       )}
 
@@ -380,7 +434,7 @@ export function GradePage() {
               </div>
             )}
 
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <button
                 onClick={run}
                 disabled={!files.front || running || outOfQuota}
@@ -389,12 +443,27 @@ export function GradePage() {
                 {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
                 {running ? "Inspecting…" : outOfQuota ? "No grades left" : "Run pre-grade"}
               </button>
+              {outOfQuota && (
+                <button
+                  onClick={buyGrade}
+                  disabled={buyBusy}
+                  className="inline-flex items-center gap-2 rounded-lg border border-accent/40 bg-accent/10 px-5 py-2.5 text-sm font-medium text-accent hover:bg-accent/20 disabled:opacity-50 transition-colors"
+                >
+                  {buyBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <CreditCard className="w-4 h-4" />}
+                  Buy 1 grade — £2.99
+                </button>
+              )}
               {(proc.front.loading || proc.back.loading) && (
                 <span className="text-xs text-text-muted inline-flex items-center gap-1.5">
                   <Loader2 className="w-3.5 h-3.5 animate-spin" /> Straightening card…
                 </span>
               )}
             </div>
+            {outOfQuota && (
+              <p className="text-xs text-text-muted">
+                Out of grades? Buy a single grade without a subscription — it's added to your account instantly.
+              </p>
+            )}
 
             {error && (
               <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">

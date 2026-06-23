@@ -10,6 +10,7 @@ import { validateParams } from "../lib/cropParams.js";
 import { sendApiError } from "../lib/apiError.js";
 import { incrementApiUsage, getApiUsageToday } from "../lib/apiKeys.js";
 import { logActivity } from "../lib/activity.js";
+import { logUsageEvent } from "../lib/usageEvents.js";
 import { archiveCropAsync } from "../lib/catalog.js";
 import { fetchRemoteImage, RemoteFetchError, MAX_REMOTE_BYTES } from "../lib/ssrf.js";
 import { rateLimit, rateLimitHeaders, DAILY_SOFT_CAP } from "../lib/rateLimit.js";
@@ -289,6 +290,17 @@ router.post(
         userId: req.apiUser!.userId,
         action: "crop.api",
         actorId: req.apiUser!.userId,
+        detail: { key_id: req.apiUser!.keyId, format: wantsPng ? "png" : "json" },
+      });
+      // Permanent per-user history entry for API crops (API plan = unlimited, so
+      // billed as subscription with no allowance number).
+      logUsageEvent({
+        userId: req.apiUser!.userId,
+        kind: "crop",
+        source: "api",
+        billing: "subscription",
+        plan: "api",
+        summary: filename,
         detail: { key_id: req.apiUser!.keyId, format: wantsPng ? "png" : "json" },
       });
 

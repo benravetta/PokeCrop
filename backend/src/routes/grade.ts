@@ -11,9 +11,14 @@ import {
   type GradeImageInput,
   type MeasuredCentering,
 } from "../lib/grading.js";
-import { getGradeQuota, incrementGrade } from "../lib/gradeQuota.js";
+import {
+  getGradeQuota,
+  incrementGrade,
+  consumeGradeCredit,
+} from "../lib/gradeQuota.js";
 import { isSuspended } from "../lib/usage.js";
 import { logActivity } from "../lib/activity.js";
+import { logUsageEvent } from "../lib/usageEvents.js";
 import { sendToPython, transcodeViaPython } from "../services/pythonBridge.js";
 import { validateParams } from "../lib/cropParams.js";
 
@@ -94,6 +99,45 @@ function parseCentering(raw: unknown): MeasuredCentering | undefined {
   } catch {
     return undefined;
   }
+}
+
+// Build a short, searchable label + compact detail for the history entry from
+// the (loosely-typed) grade result.
+function summariseGrade(result: Record<string, unknown>): {
+  summary: string;
+  detail: Record<string, unknown>;
+} {
+  const ident =
+    result.card_identification && typeof result.card_identification === "object"
+      ? (result.card_identification as Record<string, unknown>)
+      : {};
+  const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
+  const name = str(ident.name);
+  const set = str(ident.set);
+  const number = str(ident.number);
+  const rec =
+    result.submission_recommendation && typeof result.submission_recommendation === "object"
+      ? (result.submission_recommendation as Record<string, unknown>)
+      : {};
+  // Pick the headline estimated grade from the first company estimate, if any.
+  let likely = "";
+  if (Array.isArray(result.company_estimates) && result.company_estimates.length) {
+    const c0 = result.company_estimates[0] as Record<string, unknown>;
+    likely = `${str(c0.company)} ${str(c0.likely)}`.trim();
+  }
+  const summaryParts = [name || "Card", number && `#${number}`, set && `(${set})`].filter(
+    Boolean
+  );
+  return {
+    summary: summaryParts.join(" "),
+    detail: {
+      name: name || undefined,
+      set: set || undefined,
+      number: number || undefined,
+      verdict: str(rec.verdict) || undefined,
+      likely: likely || undefined,
+    },
+  };
 }
 
 const gradeUpload = upload.fields([
@@ -232,7 +276,26 @@ router.post("/grade", requireAuth, gradeUpload, async (req: Request, res: Respon
       return;
     }
 
-    await incrementGrade(userId);
+    // Spend the plan allowance first; fall back to a purchased one-off credit
+    // when the allowance is exhausted. Records which was used + the quota
+    // snapshot at this moment so the user's history can show it.
+    const { summary, detail } = summariseGrade(result as Record<string, unknown>);
+    let billing: "free" | "subscription" | "one_off";
+    let usedAfter: number | null = null;
+    let remainingAfter: number | null = null;
+
+    if (quota.allowanceRemaining > 0) {
+      const newCount = await incrementGrade(userId);
+      billing = quota.plan === "free" ? "free" : "subscription";
+      usedAfter = newCount;
+      remainingAfter = Math.max(0, quota.limit - newCount) + quota.credits;
+    } else {
+      const creditsLeft = await consumeGradeCredit(userId);
+      billing = "one_off";
+      usedAfter = quota.limit; // plan allowance fully used
+      remainingAfter = creditsLeft >= 0 ? creditsLeft : 0;
+    }
+
     logActivity({
       userId,
       action: "grade.web",
@@ -241,7 +304,20 @@ router.post("/grade", requireAuth, gradeUpload, async (req: Request, res: Respon
         images: images.length,
         back: images.some((i) => i.label === "back"),
         centering: Boolean(centering),
+        billing,
       },
+    });
+    logUsageEvent({
+      userId,
+      kind: "grade",
+      source: "web",
+      billing,
+      plan: quota.plan,
+      window: quota.window,
+      usedAfter,
+      remainingAfter,
+      summary,
+      detail,
     });
 
     const updated = await getGradeQuota(userId);

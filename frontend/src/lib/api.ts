@@ -144,6 +144,7 @@ export interface MeResponse {
   plan: "free" | "unlimited" | "api";
   cropsUsedToday: number;
   cropsRemaining: number | null;
+  gradeCredits?: number;
   isAdmin: boolean;
 }
 
@@ -172,6 +173,63 @@ export async function openBillingPortal(): Promise<string> {
   if (!res.ok) await fail(res, "Could not open billing portal");
   const data = (await res.json()) as { url: string };
   return data.url;
+}
+
+// Start a one-time Checkout to buy a single grade (no subscription). Returns
+// the Stripe Checkout URL to redirect to.
+export async function startGradeCheckout(): Promise<string> {
+  const res = await fetch(`${BASE}/billing/checkout-grade`, {
+    method: "POST",
+    headers: await authHeaders(),
+  });
+  if (!res.ok) await fail(res, "Could not start checkout");
+  const data = (await res.json()) as { url: string };
+  return data.url;
+}
+
+// ---- Usage history (crops + grades) ----
+
+export interface UsageEvent {
+  id: number;
+  kind: "crop" | "grade";
+  source: "web" | "api";
+  billing: "free" | "subscription" | "one_off";
+  plan: string | null;
+  quota_window: "day" | "month" | null;
+  used_after: number | null;
+  remaining_after: number | null;
+  summary: string | null;
+  detail: Record<string, unknown> | null;
+  created_at: string;
+}
+
+export interface HistoryResponse {
+  events: UsageEvent[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export async function getHistory(opts: {
+  kind?: "crop" | "grade";
+  q?: string;
+  from?: string;
+  to?: string;
+  page?: number;
+  pageSize?: number;
+}): Promise<HistoryResponse> {
+  const params = new URLSearchParams();
+  if (opts.kind) params.set("kind", opts.kind);
+  if (opts.q) params.set("q", opts.q);
+  if (opts.from) params.set("from", opts.from);
+  if (opts.to) params.set("to", opts.to);
+  if (opts.page) params.set("page", String(opts.page));
+  if (opts.pageSize) params.set("pageSize", String(opts.pageSize));
+  const res = await fetch(`${BASE}/me/history?${params.toString()}`, {
+    headers: await authHeaders(),
+  });
+  if (!res.ok) await fail(res, "Failed to load history");
+  return res.json();
 }
 
 // ---- API keys (self-serve, API plan) ----
@@ -446,8 +504,13 @@ export interface GradeQuota {
   plan: "free" | "unlimited" | "api";
   limit: number;
   used: number;
+  // Effective remaining = plan allowance left + purchased credits.
   remaining: number;
   window: "day" | "month";
+  // Plan allowance left (excludes purchased credits).
+  allowanceRemaining: number;
+  // One-off grade credits the user has bought and not yet used.
+  credits: number;
 }
 
 // The grade result is the merged inspection + adjudication JSON; typed loosely

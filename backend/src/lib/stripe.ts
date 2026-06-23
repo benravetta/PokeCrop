@@ -23,6 +23,14 @@ export const PRICE_IDS: Record<"unlimited" | "api", string> = {
   api: process.env.STRIPE_PRICE_API || "",
 };
 
+// One-time (mode: "payment") price for buying a single grade without a
+// subscription. Each purchase credits one grade to the buyer's account.
+export const GRADE_SINGLE_PRICE = process.env.STRIPE_PRICE_GRADE_SINGLE || "";
+
+export function isGradeSinglePriceConfigured(): boolean {
+  return Boolean(GRADE_SINGLE_PRICE);
+}
+
 // Map a Stripe price id back to one of our plan tiers.
 export function planForPrice(
   priceId: string | undefined | null

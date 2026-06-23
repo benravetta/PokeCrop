@@ -9,6 +9,7 @@ export type ActivityAction =
   | "crop.web"
   | "crop.api"
   | "grade.web"
+  | "grade.credit.purchased"
   | "key.created"
   | "key.revoked"
   | "plan.changed"
