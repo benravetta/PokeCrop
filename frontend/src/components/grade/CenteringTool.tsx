@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { Crosshair } from "lucide-react";
+import { Crosshair, AlertTriangle } from "lucide-react";
 import {
   type CardSide,
   type Box,
@@ -190,6 +190,14 @@ export function CenteringTool({
           <span className="text-sm text-text-muted">Centering skipped for this side.</span>
         )}
       </div>
+
+      {!skipped && (
+        <p className="mt-2 text-[11px] text-amber-300/80 flex items-start gap-1.5">
+          <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+          Side numbers off? A curled card (often holos) or one shot inside a
+          sleeve/toploader skews L/R centering — lay it flat and bare and re-shoot.
+        </p>
+      )}
 
       <div className="mt-2 flex items-center justify-between gap-2">
         <p className="text-xs text-text-muted flex items-center gap-1.5">

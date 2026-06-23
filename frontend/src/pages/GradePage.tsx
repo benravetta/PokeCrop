@@ -569,6 +569,11 @@ function PhotoTips() {
       t: "Highest resolution you've got",
       d: "Use your camera's full quality — no screenshots, no compression, no zoom-crop. Detail is everything for grading.",
     },
+    {
+      icon: Square,
+      t: "Bare card, laid flat",
+      d: "Out of any sleeve or toploader, pressed flat. A curled holo skews the side centering.",
+    },
     { icon: Sun, t: "Flat, even light", d: "Avoid glare and harsh shadows." },
     { icon: Camera, t: "Fill the frame", d: "Shoot square-on, card flat, in razor-sharp focus." },
     { icon: Layers, t: "Front and back", d: "Both sides — a missing back caps the grade." },
@@ -622,9 +627,15 @@ function CenteringGuide() {
   return (
     <div className="rounded-xl border border-border-subtle bg-surface-raised p-5">
       <h3 className="text-sm font-semibold text-text-primary mb-1">How centering works</h3>
-      <p className="text-xs text-text-secondary mb-4">
+      <p className="text-xs text-text-secondary mb-3">
         We compare the border widths on opposite sides. The worst axis sets the ceiling —
         PSA 10 needs 55/45 or better on the front.
+      </p>
+      <p className="text-xs text-amber-300/90 mb-4 flex items-start gap-1.5">
+        <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+        Shoot the card flat and bare — out of its sleeve/toploader. A natural curl
+        (common on holos) foreshortens one side in the photo and throws the L/R
+        reading off, so it won't match a flattened scan.
       </p>
       <div className="flex items-end justify-between gap-2">
         <CenterEg dx={0} dy={0} label="50/50" ok="good" />
