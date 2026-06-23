@@ -586,6 +586,23 @@ export interface MeasuredCentering {
   back?: { leftRight?: string; topBottom?: string };
 }
 
+export type CaptureIssueSeverity = "block" | "warn";
+
+export interface CaptureIssue {
+  code: string;
+  severity: CaptureIssueSeverity;
+  message: string;
+}
+
+export interface CaptureQuality {
+  ok: boolean;
+  score: number;
+  rating: "excellent" | "good" | "limited" | "poor";
+  issues: CaptureIssue[];
+  front: { width: number; height: number; longEdge: number } | null;
+  hasBack: boolean;
+}
+
 export async function getGradeQuota(): Promise<{ quota: GradeQuota }> {
   const res = await fetch(`${BASE}/grade/quota`, { headers: await authHeaders() });
   if (!res.ok) await fail(res, "Failed to load grading quota");
@@ -610,7 +627,7 @@ export async function straightenForGrade(file: File): Promise<string | null> {
 export async function gradeCard(
   images: GradeImages,
   centering?: MeasuredCentering
-): Promise<{ result: GradeResult; quota: GradeQuota }> {
+): Promise<{ result: GradeResult; quota: GradeQuota; capture_quality?: CaptureQuality }> {
   const form = new FormData();
   form.append("front", images.front);
   if (images.back) form.append("back", images.back);

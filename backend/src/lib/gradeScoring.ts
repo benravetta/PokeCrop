@@ -1,3 +1,9 @@
+import {
+  centeringGradeFor,
+  ratiosFromFindings,
+  type GraderCenteringKey,
+} from "./centeringRules.js";
+
 // Deterministic subgrade + final-grade engine.
 //
 // The vision inspection produces per-axis condition scores (0-10) and findings;
@@ -41,54 +47,23 @@ function scoreOf(v: unknown): number | null {
   return Number.isFinite(n) ? clamp(n, 0, 10) : null;
 }
 
-// Larger-side percentage from a "55/45" ratio string (already larger-first, but
-// we re-derive defensively).
-function largerPct(ratio: string): number | null {
-  const m = /^(\d{1,3})\s*\/\s*(\d{1,3})$/.exec(ratio.trim());
-  if (!m) return null;
-  const a = Number(m[1]);
-  const b = Number(m[2]);
-  if (a + b <= 0) return null;
-  return Math.round((Math.max(a, b) / (a + b)) * 100);
+function hasRatioData(findings: Json): boolean {
+  const r = ratiosFromFindings(asObj(findings.centering));
+  return Boolean(r.frontLR || r.frontTB || r.backLR || r.backTB);
 }
 
-// PSA-style centering tolerance → a 0-10 centering score. Front is strict; back
-// is lenient. The worst axis on each present side sets that side's ceiling.
-const FRONT_TIERS: [number, number][] = [
-  [55, 10],
-  [60, 9],
-  [65, 8],
-  [70, 7],
-  [75, 6],
-  [80, 5],
-];
-const BACK_TIERS: [number, number][] = [
-  [75, 10],
-  [80, 9],
-  [85, 8],
-  [90, 7],
-  [95, 6],
-];
-
-function ceilFromWorst(worst: number, side: "front" | "back"): number {
-  const tiers = side === "front" ? FRONT_TIERS : BACK_TIERS;
-  for (const [maxPct, grade] of tiers) if (worst <= maxPct) return grade;
-  return side === "front" ? 4 : 5;
-}
-
-function centeringScore(findings: Json): { score: number | null; measured: boolean } {
-  const c = asObj(findings.centering);
-  const measured = c.measured === true;
-  const sides: number[] = [];
-  const fr = [largerPct(asStr(c.front_left_right)), largerPct(asStr(c.front_top_bottom))].filter(
-    (n): n is number => n != null
-  );
-  const bk = [largerPct(asStr(c.back_left_right)), largerPct(asStr(c.back_top_bottom))].filter(
-    (n): n is number => n != null
-  );
-  if (fr.length) sides.push(ceilFromWorst(Math.max(...fr), "front"));
-  if (bk.length) sides.push(ceilFromWorst(Math.max(...bk), "back"));
-  return { score: sides.length ? Math.min(...sides) : null, measured };
+/** Per-grader centering subgrade from measured ratios or a conservative fallback. */
+function centeringFor(
+  findings: Json,
+  grader: GraderCenteringKey,
+  fallback: number
+): { score: number; known: boolean } {
+  const ratios = ratiosFromFindings(asObj(findings.centering));
+  const { score, measured } = centeringGradeFor(ratios, grader);
+  if (score != null) {
+    return { score: clamp(score, 1, 10), known: measured || hasRatioData(findings) };
+  }
+  return { score: clamp(Math.min(9, fallback), 1, 10), known: false };
 }
 
 // ---- structural / condition caps -----------------------------------------
@@ -181,27 +156,29 @@ export interface AxisScores {
   eyeAppeal: number | null;
 }
 
-function resolveAxes(findings: Json): AxisScores {
+interface RawAxes {
+  corners: number;
+  edges: number;
+  surface: number;
+  eyeAppeal: number | null;
+  fallback: number;
+}
+
+function resolveAxes(findings: Json): RawAxes {
   const corners = scoreOf(findings.corners);
   const edges = scoreOf(findings.edges);
   const surface = scoreOf(findings.surface);
   const eye = scoreOf(findings.eye_appeal);
-  const { score: cent } = centeringScore(findings);
 
   const present = [corners, edges, surface].filter((n): n is number => n != null);
   const fallback = present.length ? present.reduce((a, b) => a + b, 0) / present.length : 8;
 
-  // Unmeasured centering can't be claimed as perfect; cap the assumption at 9.
-  const centeringKnown = cent != null;
-  const centering = cent != null ? cent : Math.min(9, fallback);
-
   return {
-    centering: clamp(centering, 1, 10),
     corners: clamp(corners ?? fallback, 1, 10),
     edges: clamp(edges ?? fallback, 1, 10),
     surface: clamp(surface ?? fallback, 1, 10),
-    centeringKnown,
     eyeAppeal: eye,
+    fallback,
   };
 }
 
@@ -247,15 +224,24 @@ export interface ScoreResult {
   company_estimates: CompanyEstimate[];
 }
 
+function subsFor(
+  findings: Json,
+  axes: RawAxes,
+  grader: GraderCenteringKey
+): { subs: number[]; centeringKnown: boolean; centering: number } {
+  const { score: centering, known } = centeringFor(findings, grader, axes.fallback);
+  return {
+    centering,
+    centeringKnown: known,
+    subs: [centering, axes.corners, axes.edges, axes.surface],
+  };
+}
+
 export function scoreGrades(findings: Json): ScoreResult {
   const axes = resolveAxes(findings);
   const caps = detectCaps(findings);
   const cap = caps.overallCap;
   const applyCap = (v: number) => (cap != null ? Math.min(v, cap) : v);
-
-  const subs = [axes.centering, axes.corners, axes.edges, axes.surface];
-  const lo = Math.min(...subs);
-  const mean = subs.reduce((a, b) => a + b, 0) / subs.length;
 
   const estimates: CompanyEstimate[] = [];
 
@@ -264,7 +250,9 @@ export function scoreGrades(findings: Json): ScoreResult {
     likelyNum: number,
     subgradeFmt: ((v: number) => string) | null,
     downStep: number,
-    fmt: (v: number) => string
+    fmt: (v: number) => string,
+    centeringKnown: boolean,
+    subs: number[]
   ): CompanyEstimate => {
     if (caps.authenticOnly) {
       return {
@@ -285,67 +273,87 @@ export function scoreGrades(findings: Json): ScoreResult {
       low: fmt(low),
       likely: fmt(likely),
       high: fmt(likely), // anti-hype: our likely is already the best plausible read
-      top_grade_likelihood: topLikelihood(likely, axes.centeringKnown, false),
+      top_grade_likelihood: topLikelihood(likely, centeringKnown, false),
       subgrades: subgradeFmt
         ? {
-            centering: subgradeFmt(axes.centering),
-            corners: subgradeFmt(axes.corners),
-            edges: subgradeFmt(axes.edges),
-            surface: subgradeFmt(axes.surface),
+            centering: subgradeFmt(subs[0]),
+            corners: subgradeFmt(subs[1]),
+            edges: subgradeFmt(subs[2]),
+            surface: subgradeFmt(subs[3]),
           }
         : null,
     };
   };
 
-  // PSA — holistic whole grade, pulled hard toward the weakest aspect. A gem 10
-  // demands every aspect essentially flawless.
-  let psa = 0.55 * lo + 0.45 * mean;
-  if (lo < 9.5) psa = Math.min(psa, 9);
-  if (lo < 8.5) psa = Math.min(psa, 8);
+  const psaSubs = subsFor(findings, axes, "PSA");
+  const psaLo = Math.min(...psaSubs.subs);
+  const psaMean = psaSubs.subs.reduce((a, b) => a + b, 0) / psaSubs.subs.length;
+  let psa = 0.55 * psaLo + 0.45 * psaMean;
+  if (psaLo < 9.5) psa = Math.min(psa, 9);
+  if (psaLo < 8.5) psa = Math.min(psa, 8);
   estimates.push(
-    build("PSA", clamp(toWhole(psa), 1, 10), null, 1, (v) => `PSA ${toWhole(v)}`)
+    build(
+      "PSA",
+      clamp(toWhole(psa), 1, 10),
+      null,
+      1,
+      (v) => `PSA ${toWhole(v)}`,
+      psaSubs.centeringKnown,
+      psaSubs.subs
+    )
   );
 
-  // BGS — final ≈ weighted blend but never more than ~1 above the lowest sub.
-  const bgsBlend = Math.min(0.35 * lo + 0.65 * mean, lo + 1.0);
+  const bgsSubs = subsFor(findings, axes, "Beckett");
+  const bgsLo = Math.min(...bgsSubs.subs);
+  const bgsMean = bgsSubs.subs.reduce((a, b) => a + b, 0) / bgsSubs.subs.length;
+  const bgsBlend = Math.min(0.35 * bgsLo + 0.65 * bgsMean, bgsLo + 1.0);
   estimates.push(
     build(
       "Beckett (BGS)",
       toHalf(clamp(bgsBlend, 1, 10)),
       (v) => halfStr(toHalf(v)),
       1,
-      (v) => `BGS ${halfStr(toHalf(v))}`
+      (v) => `BGS ${halfStr(toHalf(v))}`,
+      bgsSubs.centeringKnown,
+      bgsSubs.subs
     )
   );
 
-  // CGC — strict; final tracks close to the lowest subgrade.
-  const cgcBlend = Math.min(lo + 0.5, 0.7 * lo + 0.3 * mean);
+  const cgcSubs = subsFor(findings, axes, "CGC");
+  const cgcLo = Math.min(...cgcSubs.subs);
+  const cgcMean = cgcSubs.subs.reduce((a, b) => a + b, 0) / cgcSubs.subs.length;
+  const cgcBlend = Math.min(cgcLo + 0.5, 0.7 * cgcLo + 0.3 * cgcMean);
   estimates.push(
     build(
       "CGC",
       toHalf(clamp(cgcBlend, 1, 10)),
       (v) => halfStr(toHalf(v)),
       1,
-      (v) => `CGC ${halfStr(toHalf(v))}`
+      (v) => `CGC ${halfStr(toHalf(v))}`,
+      cgcSubs.centeringKnown,
+      cgcSubs.subs
     )
   );
 
-  // TAG — granular CV point score, ~PSA strictness.
-  const tagBlend = 0.5 * lo + 0.5 * mean;
+  const tagSubs = subsFor(findings, axes, "TAG");
+  const tagLo = Math.min(...tagSubs.subs);
+  const tagMean = tagSubs.subs.reduce((a, b) => a + b, 0) / tagSubs.subs.length;
+  const tagBlend = 0.5 * tagLo + 0.5 * tagMean;
   estimates.push(
     build(
       "TAG",
       toDec1(clamp(tagBlend, 1, 10)),
       (v) => toDec1(v).toFixed(1),
       0.5,
-      (v) => `TAG ${toDec1(v).toFixed(1)}`
+      (v) => `TAG ${toDec1(v).toFixed(1)}`,
+      tagSubs.centeringKnown,
+      tagSubs.subs
     )
   );
 
-  // ACE — granular AI grade, slightly more forgiving on centering.
-  const aceCentering = Math.min(10, axes.centering + 0.3);
-  const aceLo = Math.min(aceCentering, axes.corners, axes.edges, axes.surface);
-  const aceMean = (aceCentering + axes.corners + axes.edges + axes.surface) / 4;
+  const aceSubs = subsFor(findings, axes, "ACE");
+  const aceLo = Math.min(...aceSubs.subs);
+  const aceMean = aceSubs.subs.reduce((a, b) => a + b, 0) / aceSubs.subs.length;
   const aceBlend = 0.5 * aceLo + 0.5 * aceMean;
   estimates.push(
     build(
@@ -353,9 +361,23 @@ export function scoreGrades(findings: Json): ScoreResult {
       toDec1(clamp(aceBlend, 1, 10)),
       (v) => toDec1(v).toFixed(1),
       0.5,
-      (v) => `ACE ${toDec1(v).toFixed(1)}`
+      (v) => `ACE ${toDec1(v).toFixed(1)}`,
+      aceSubs.centeringKnown,
+      aceSubs.subs
     )
   );
 
-  return { axes, caps, company_estimates: estimates };
+  const psaCentering = centeringFor(findings, "PSA", axes.fallback);
+  return {
+    axes: {
+      corners: axes.corners,
+      edges: axes.edges,
+      surface: axes.surface,
+      centering: psaCentering.score,
+      centeringKnown: psaCentering.known,
+      eyeAppeal: axes.eyeAppeal,
+    },
+    caps,
+    company_estimates: estimates,
+  };
 }

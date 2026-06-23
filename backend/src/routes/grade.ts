@@ -19,6 +19,7 @@ import {
 import { isSuspended } from "../lib/usage.js";
 import { logActivity } from "../lib/activity.js";
 import { logUsageEvent } from "../lib/usageEvents.js";
+import { assessCaptureQuality, type CaptureImageInput } from "../lib/captureQuality.js";
 import { sendToPython, transcodeViaPython } from "../services/pythonBridge.js";
 import { validateParams } from "../lib/cropParams.js";
 
@@ -150,6 +151,32 @@ const gradeUpload = upload.fields([
 
 type FileMap = Record<string, Express.Multer.File[]>;
 
+async function toVisionBuffer(
+  file: Express.Multer.File
+): Promise<{ buffer: Buffer; mime: string }> {
+  if (VISION_READY.has(file.mimetype) && !isHeic(file)) {
+    return { buffer: file.buffer, mime: file.mimetype };
+  }
+  const jpeg = await transcodeViaPython(file.buffer, file.originalname || "image");
+  return { buffer: jpeg, mime: "image/jpeg" };
+}
+
+async function captureInputsFromFiles(files: FileMap | undefined): Promise<CaptureImageInput[]> {
+  if (!files) return [];
+  const out: CaptureImageInput[] = [];
+  for (const label of ["front", "back"] as const) {
+    const f = files[label]?.[0];
+    if (!f) continue;
+    try {
+      const { buffer, mime } = await toVisionBuffer(f);
+      out.push({ label, buffer, mime, originalname: f.originalname });
+    } catch (err) {
+      console.error(`capture QA: failed to prepare ${label}:`, err);
+    }
+  }
+  return out;
+}
+
 async function toImages(files: FileMap | undefined): Promise<GradeImageInput[]> {
   if (!files) return [];
   const images: GradeImageInput[] = [];
@@ -257,6 +284,30 @@ router.post("/grade", requireAuth, gradeUpload, async (req: Request, res: Respon
     }
 
     const centering = parseCentering((req.body as Record<string, unknown>)?.centering);
+    const centeringMeasured = Boolean(
+      centering?.front?.leftRight ||
+        centering?.front?.topBottom ||
+        centering?.back?.leftRight ||
+        centering?.back?.topBottom
+    );
+
+    const captureQA = await assessCaptureQuality(
+      await captureInputsFromFiles(req.files as FileMap | undefined),
+      userId,
+      { centeringMeasured }
+    );
+    if (!captureQA.ok) {
+      const blockMsg = captureQA.issues
+        .filter((i) => i.severity === "block")
+        .map((i) => i.message)
+        .join(" ");
+      res.status(422).json({
+        error: blockMsg || "Photo quality is too low for a reliable grade.",
+        capture_quality: captureQA,
+      });
+      return;
+    }
+
     const result = await gradeCard(images, userId, centering);
     if (!result) {
       res.status(502).json({ error: "Grading failed. Please try again." });
@@ -272,9 +323,11 @@ router.post("/grade", requireAuth, gradeUpload, async (req: Request, res: Respon
         actorId: userId,
         detail: { images: images.length },
       });
-      res.json({ result, quota });
+      res.json({ result, quota, capture_quality: captureQA });
       return;
     }
+
+    (result as Record<string, unknown>).capture_quality = captureQA;
 
     // Spend the plan allowance first; fall back to a purchased one-off credit
     // when the allowance is exhausted. Records which was used + the quota
@@ -321,7 +374,7 @@ router.post("/grade", requireAuth, gradeUpload, async (req: Request, res: Respon
     });
 
     const updated = await getGradeQuota(userId);
-    res.json({ result, quota: updated });
+    res.json({ result, quota: updated, capture_quality: captureQA });
   } catch (err) {
     console.error("grade error:", err);
     res.status(500).json({ error: "Unexpected error during grading." });

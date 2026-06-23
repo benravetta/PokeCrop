@@ -30,6 +30,9 @@ import {
   getGradeQuota,
   startGradeCheckout,
   straightenForGrade,
+  ApiError,
+  type CaptureIssue,
+  type CaptureQuality,
   type GradeQuota,
   type GradeResult,
   type GradeImages,
@@ -106,6 +109,8 @@ export function GradePage() {
   const [result, setResult] = useState<GradeResult | null>(null);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [captureBlockers, setCaptureBlockers] = useState<CaptureIssue[]>([]);
+  const [frontLongEdge, setFrontLongEdge] = useState<number | null>(null);
   const [pdfBusy, setPdfBusy] = useState(false);
   const [buyBusy, setBuyBusy] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
@@ -153,6 +158,20 @@ export function GradePage() {
       .then((r) => setQuota(r.quota))
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    const f = files.front;
+    if (!f) {
+      setFrontLongEdge(null);
+      return;
+    }
+    void createImageBitmap(f)
+      .then((bitmap) => {
+        setFrontLongEdge(Math.max(bitmap.width, bitmap.height));
+        bitmap.close();
+      })
+      .catch(() => setFrontLongEdge(null));
+  }, [files.front]);
 
   // Returning from a single-grade Checkout: the webhook credits the grade, so
   // refresh the quota (and the header credits), then strip the query param.
@@ -276,6 +295,7 @@ export function GradePage() {
     if (!files.front) return;
     setRunning(true);
     setError(null);
+    setCaptureBlockers([]);
     setResult(null);
     try {
       const front = await imageFor("front");
@@ -291,6 +311,12 @@ export function GradePage() {
       setResult(res.result);
       setQuota(res.quota);
     } catch (err) {
+      if (err instanceof ApiError && err.status === 422) {
+        const body = err.body as { capture_quality?: CaptureQuality } | null;
+        if (body?.capture_quality) {
+          setCaptureBlockers(body.capture_quality.issues.filter((i) => i.severity === "block"));
+        }
+      }
       setError(err instanceof Error ? err.message : "Grading failed.");
     } finally {
       setRunning(false);
@@ -300,7 +326,35 @@ export function GradePage() {
   const reset = useCallback(() => {
     setResult(null);
     setError(null);
+    setCaptureBlockers([]);
   }, []);
+
+  const centeringMeasured = Boolean(buildCentering());
+  const localCaptureHints: CaptureIssue[] = [];
+  if (files.front && frontLongEdge != null && frontLongEdge < 1200) {
+    localCaptureHints.push({
+      code: "resolution_low",
+      severity: frontLongEdge < 720 ? "block" : "warn",
+      message:
+        frontLongEdge < 720
+          ? `Front image is only ~${frontLongEdge}px — too small for a reliable grade. Use full camera resolution.`
+          : `Front is ~${frontLongEdge}px — usable but low. Full camera quality (~1500px+) improves the read.`,
+    });
+  }
+  if (files.front && !files.back) {
+    localCaptureHints.push({
+      code: "missing_back",
+      severity: "warn",
+      message: "No back photo — gem-grade calls won't be reliable.",
+    });
+  }
+  if (files.front && !centeringMeasured) {
+    localCaptureHints.push({
+      code: "centering_not_measured",
+      severity: "warn",
+      message: "Centering not measured — confirm borders on the straightened card for accurate subgrades.",
+    });
+  }
 
   const outOfQuota = quota ? quota.remaining <= 0 : false;
 
@@ -401,6 +455,10 @@ export function GradePage() {
               </p>
             )}
 
+            {localCaptureHints.length > 0 && (
+              <CaptureHints issues={localCaptureHints} />
+            )}
+
             {(files.front || files.back) && (
               <div className="grid xl:grid-cols-2 gap-4">
                 {files.front && (
@@ -466,8 +524,15 @@ export function GradePage() {
             )}
 
             {error && (
-              <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-                {error}
+              <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300 space-y-2">
+                <p>{error}</p>
+                {captureBlockers.length > 0 && (
+                  <ul className="list-disc pl-5 text-red-200/90 text-xs space-y-1">
+                    {captureBlockers.map((i) => (
+                      <li key={i.code}>{i.message}</li>
+                    ))}
+                  </ul>
+                )}
               </div>
             )}
           </div>
@@ -625,6 +690,30 @@ function WhatWeCheck() {
               <div className="text-xs text-text-secondary">{r.d}</div>
             </div>
           </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function CaptureHints({ issues }: { issues: CaptureIssue[] }) {
+  const blocks = issues.filter((i) => i.severity === "block");
+  const warns = issues.filter((i) => i.severity === "warn");
+  return (
+    <div
+      className={`rounded-lg border px-3 py-2.5 text-xs space-y-1.5 ${
+        blocks.length
+          ? "border-red-500/30 bg-red-500/10 text-red-200"
+          : "border-amber-500/30 bg-amber-500/10 text-amber-100/90"
+      }`}
+    >
+      <div className="flex items-center gap-2 font-medium">
+        <Camera className="w-3.5 h-3.5 shrink-0" />
+        {blocks.length ? "Fix these before grading" : "Photo tips before you run"}
+      </div>
+      <ul className="list-disc pl-5 space-y-1">
+        {[...blocks, ...warns].map((i) => (
+          <li key={i.code}>{i.message}</li>
         ))}
       </ul>
     </div>
@@ -951,9 +1040,33 @@ function GradeReport({
   const bestFor = asStr(rec.best_for);
   const authentic = asObj(result.authentic);
   const isAuthenticOnly = authentic.is_authentic_only === true;
+  const captureQuality = asObj(result.capture_quality);
+  const captureIssues = asArr(captureQuality.issues)
+    .map(asObj)
+    .filter((i) => asStr(i.message))
+    .map((i) => ({
+      code: asStr(i.code),
+      severity: asStr(i.severity),
+      message: asStr(i.message),
+    }))
+    .filter((i) => i.severity === "warn");
 
   return (
     <div className="mt-8 animate-[fade-in_0.25s_ease-out]">
+      {captureIssues.length > 0 && (
+        <div className="mb-5 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
+          <div className="flex items-center gap-2 text-amber-200 font-medium text-sm">
+            <Camera className="w-4 h-4" />
+            Photo quality notes
+          </div>
+          <ul className="mt-2 space-y-1.5 text-xs text-amber-100/90 list-disc pl-5">
+            {captureIssues.map((i) => (
+              <li key={i.code}>{i.message}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {isAuthenticOnly && (
         <div className="mb-5 rounded-xl border border-red-500/40 bg-red-500/10 p-5">
           <div className="flex items-center gap-2 text-red-300 font-semibold">
