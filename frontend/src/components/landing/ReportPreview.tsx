@@ -71,9 +71,9 @@ export function ReportPreview() {
     <section id="report" className="relative scroll-mt-20 py-16 sm:py-24">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <SectionHeading
-          kicker="The pre-grade report"
-          title="The exact report you'll download."
-          copy="Every grade comes with a full PDF — card ID, per-company grades and subgrades, condition breakdown, centring, value estimates, and a preparation plan with close-up snapshots."
+          kicker="Sample report"
+          title="This is what you download."
+          copy="One full PDF per grade — card ID, all five grading companies, condition breakdown, centring, value estimates, and a prep plan. Shown here with a real example."
         />
 
         <div className="mt-12 mx-auto max-w-3xl">

@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import { AFTER_IMG } from "./data";
 
 export function Wordmark({ className = "h-8" }: { className?: string }) {
   return (
@@ -34,36 +33,6 @@ export function SectionHeading({
         {title}
       </h2>
       {copy && <p className="mt-3 text-text-secondary text-base leading-relaxed">{copy}</p>}
-    </div>
-  );
-}
-
-export function HoloCard({
-  src,
-  alt,
-  className = "",
-}: {
-  src: string;
-  alt: string;
-  className?: string;
-}) {
-  return (
-    <div className={`relative ${className}`}>
-      <img
-        src={src}
-        alt={alt}
-        className="w-full h-auto rounded-[5%] drop-shadow-[0_22px_45px_rgba(0,0,0,0.55)] select-none"
-        draggable={false}
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 rounded-[5%] mix-blend-screen opacity-40 animate-[holo-pan_7s_linear_infinite]"
-        style={{
-          backgroundImage:
-            "linear-gradient(115deg, transparent 30%, rgba(124,108,246,0.35) 45%, rgba(56,189,248,0.35) 55%, transparent 70%)",
-          backgroundSize: "200% 100%",
-        }}
-      />
     </div>
   );
 }
@@ -103,16 +72,5 @@ export function StarRating({ count = 5 }: { count?: number }) {
         </svg>
       ))}
     </div>
-  );
-}
-
-export function DemoCardThumb({ className = "" }: { className?: string }) {
-  return (
-    <img
-      src={AFTER_IMG}
-      alt=""
-      className={`rounded border border-border-subtle bg-surface-overlay object-contain ${className}`}
-      draggable={false}
-    />
   );
 }

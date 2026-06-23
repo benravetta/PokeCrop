@@ -4,12 +4,11 @@ import { useMe } from "../hooks/useMe";
 import { startCheckout } from "../lib/api";
 import { TopNav } from "../components/landing/TopNav";
 import { HeroSection } from "../components/landing/HeroSection";
-import { StatsBar, ReviewsSection } from "../components/landing/SocialProof";
-import { PlatformShowcase } from "../components/landing/PlatformShowcase";
-import { CostStrip } from "../components/landing/CostStrip";
+import { HowItWorksSection } from "../components/landing/CompareAndHow";
+import { FeaturesSection, WhySection } from "../components/landing/FeaturesSection";
 import { ReportPreview } from "../components/landing/ReportPreview";
-import { PrepareSection } from "../components/landing/PrepareSection";
-import { CompareSection, HowItWorksSection } from "../components/landing/CompareAndHow";
+import { CropDemoSection } from "../components/landing/CropDemoSection";
+import { ReviewsSection } from "../components/landing/SocialProof";
 import { PricingSection, PlanCta } from "../components/landing/PricingSection";
 import { ApiSection, HonestSection, SiteFooter } from "../components/landing/FooterSections";
 
@@ -42,13 +41,11 @@ export function LandingPage() {
     <div className="min-h-[100dvh] bg-surface text-text-primary">
       <TopNav loggedIn={loggedIn} plan={plan} onUpgrade={goCheckout} />
       <HeroSection loggedIn={loggedIn} plan={plan} />
-      <StatsBar />
-      <PlatformShowcase />
-      <CostStrip />
-      <ReportPreview />
-      <PrepareSection />
-      <CompareSection />
       <HowItWorksSection />
+      <WhySection />
+      <FeaturesSection />
+      <ReportPreview />
+      <CropDemoSection />
       <ReviewsSection />
       <PricingSection loggedIn={loggedIn} plan={plan} onUpgrade={goCheckout} />
       <ApiSection plan={plan} loggedIn={loggedIn} onUpgrade={() => goCheckout("api")} />

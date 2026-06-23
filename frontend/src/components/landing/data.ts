@@ -2,12 +2,18 @@ export const BEFORE_IMG = "/demo-before.jpg?v=oddish4";
 export const AFTER_IMG = "/demo-after.png?v=oddish4";
 
 export const NAV_LINKS = [
-  { label: "Features", href: "#features" },
-  { label: "The report", href: "#report" },
-  { label: "Reviews", href: "#reviews" },
   { label: "How it works", href: "#how" },
+  { label: "Features", href: "#features" },
+  { label: "Sample report", href: "#report" },
   { label: "Pricing", href: "#pricing" },
 ] as const;
+
+export const HERO_REVIEW = {
+  name: "Marcus L.",
+  role: "Vintage Pokémon collector, Glasgow",
+  rating: 5 as const,
+  text: "The report told me my card was a CGC card, not a PSA card — centring was the issue. Sent it to CGC and got an 8.5. Spot on.",
+};
 
 export const STATS = [
   { value: "12,400+", label: "cards checked" },
@@ -22,42 +28,21 @@ export const REVIEWS = [
     location: "Leeds",
     role: "Weekend collector",
     rating: 5,
-    text: "Submitted three cards to PSA last year that came back lower than I hoped. GemCheck flagged the corner wear on my Charizard before I wasted another £30. Honestly wish I'd had this sooner.",
+    text: "Flagged corner wear on my Charizard before I wasted another £30 on a PSA submission. Wish I'd had this sooner.",
   },
   {
     name: "Sarah K.",
     location: "Bristol",
     role: "eBay seller",
     rating: 5,
-    text: "I run a small shop listing 20–30 cards a week. The crop tool alone saves me an hour of Photoshop. The grade check helps me price raw vs slabbed listings properly.",
-  },
-  {
-    name: "Marcus L.",
-    location: "Glasgow",
-    role: "Vintage Pokémon collector",
-    rating: 5,
-    text: "The report told me my Gym Heroes Oddish was a CGC card, not a PSA card — centring was the issue, not the surface. Sent it to CGC and got an 8.5. Spot on.",
+    text: "The crop tool saves me an hour of Photoshop a week. The grade check helps me price raw vs slabbed listings properly.",
   },
   {
     name: "Priya M.",
     location: "London",
     role: "First-time submitter",
     rating: 4,
-    text: "I'd never graded before and had no idea what 'gem mint' actually meant for my cards. The prep checklist was genuinely useful — fixed two tiny issues before I posted them off.",
-  },
-  {
-    name: "Dan W.",
-    location: "Card show regular",
-    role: "Trader",
-    rating: 5,
-    text: "Quick check on the table before I buy. If the report says 'sell raw', I don't overpay. Simple as that. Works on my phone photos too.",
-  },
-  {
-    name: "Helen C.",
-    location: "Manchester",
-    role: "Parent & collector",
-    rating: 5,
-    text: "My son wanted to grade his binder finds. GemCheck showed us which three were actually worth the postage. The PDF report made it easy to explain why to a twelve-year-old.",
+    text: "I'd never graded before. The prep checklist was genuinely useful — fixed two tiny issues before I posted them off.",
   },
 ] as const;
 
