@@ -87,7 +87,7 @@ export function ApiKeysPanel() {
   return (
     <div className="flex flex-col gap-4">
       <p className="text-[13px] text-text-secondary">
-        Use these keys to call the CardCrop API. See the{" "}
+        Use these keys to call the GemCheck API. See the{" "}
         <Link to="/docs" className="text-accent hover:underline inline-flex items-center gap-1">
           <BookOpen className="w-3.5 h-3.5" /> API docs
         </Link>{" "}

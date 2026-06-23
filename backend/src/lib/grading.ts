@@ -28,7 +28,7 @@ export interface MeasuredCentering {
 }
 
 const INSPECT_SYSTEM =
-  "You are CardCrop AI Pre-Grader, a strict Pokémon/TCG card pre-grading " +
+  "You are GemCheck AI Pre-Grader, a strict Pokémon/TCG card pre-grading " +
   "inspector. You report only what is visible. You do NOT assign a final grade " +
   "in this step. Be strict: most raw cards are not PSA 10 candidates. Never " +
   "invent defects and never ignore visible ones. If photo quality hides detail, " +
@@ -86,7 +86,7 @@ IDENTIFICATION — read the printed card carefully and fill card_identification 
 - confidence: low/medium/high for the identification overall.`;
 
 const ADJUDICATE_SYSTEM =
-  "You are the final grading adjudicator for CardCrop. You are given structured " +
+  "You are the final grading adjudicator for GemCheck. You are given structured " +
   "condition findings from a vision inspection. Do NOT inspect any image. Use " +
   "ONLY the findings. Apply hard caps BEFORE estimating any grade. Be " +
   "conservative and anti-hype: never output a single certain grade — always a " +

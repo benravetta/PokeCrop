@@ -97,7 +97,7 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
 });
 
 const server = app.listen(PORT, () => {
-  console.log(`CardCrop backend running on http://localhost:${PORT}`);
+  console.log(`GemCheck backend running on http://localhost:${PORT}`);
 });
 
 function shutdown() {

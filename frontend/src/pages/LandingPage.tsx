@@ -1,11 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  Crop,
+  Gem,
   Upload,
   ArrowRight,
   Camera,
-  Wand2,
   ScanSearch,
   Scale,
   Check,
@@ -19,6 +18,9 @@ import {
   Zap,
   AlertTriangle,
   CheckCircle2,
+  Wrench,
+  Wallet,
+  Clock,
 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { useMe } from "../hooks/useMe";
@@ -51,8 +53,9 @@ async function goCheckout(plan: "unlimited" | "api") {
 }
 
 const NAV_LINKS = [
-  { label: "Crop", href: "#crop" },
-  { label: "Grading report", href: "#report" },
+  { label: "How it works", href: "#how" },
+  { label: "The report", href: "#report" },
+  { label: "Prepare", href: "#prepare" },
   { label: "Compare graders", href: "#compare" },
   { label: "Developers", href: "#api" },
 ];
@@ -63,15 +66,34 @@ export function LandingPage() {
     <div className="min-h-[100dvh] bg-surface text-text-primary">
       <TopNav loggedIn={loggedIn} plan={plan} />
       <Hero loggedIn={loggedIn} plan={plan} />
-      <CropSection />
+      <CostStrip />
       <ReportSection />
+      <PrepareSection />
       <CompareSection />
-      <ApiSection plan={plan} loggedIn={loggedIn} />
       <HowItWorks />
+      <ApiSection plan={plan} loggedIn={loggedIn} />
       <PlanCta loggedIn={loggedIn} plan={plan} />
       <HonestSection />
       <SiteFooter />
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Brand                                                               */
+/* ------------------------------------------------------------------ */
+
+function Wordmark({ size = "md" }: { size?: "sm" | "md" }) {
+  const box = size === "sm" ? "w-7 h-7" : "w-8 h-8";
+  const icon = size === "sm" ? "w-4 h-4" : "w-[18px] h-[18px]";
+  const text = size === "sm" ? "text-sm" : "text-[17px]";
+  return (
+    <span className="flex items-center gap-2.5">
+      <span className={`${box} rounded-lg bg-accent/15 flex items-center justify-center`}>
+        <Gem className={`${icon} text-accent`} />
+      </span>
+      <span className={`${text} font-semibold tracking-tight`}>GemCheck</span>
+    </span>
   );
 }
 
@@ -112,11 +134,8 @@ function TopNav({ loggedIn, plan }: { loggedIn: boolean; plan: Plan }) {
       }`}
     >
       <div className="mx-auto max-w-6xl px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
-        <a href="#top" className="flex items-center gap-2.5 shrink-0">
-          <span className="w-8 h-8 rounded-lg bg-accent/15 flex items-center justify-center">
-            <Crop className="w-[18px] h-[18px] text-accent" />
-          </span>
-          <span className="text-[17px] font-semibold tracking-tight">CardCrop</span>
+        <a href="#top" className="shrink-0">
+          <Wordmark />
         </a>
 
         <nav className="hidden md:flex items-center gap-1">
@@ -177,7 +196,7 @@ function TopNav({ loggedIn, plan }: { loggedIn: boolean; plan: Plan }) {
                 to="/register"
                 className="inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-hover transition-colors shadow-lg shadow-accent/20"
               >
-                Create free account
+                Check a card free
               </Link>
             </>
           )}
@@ -263,7 +282,7 @@ function TopNav({ loggedIn, plan }: { loggedIn: boolean; plan: Plan }) {
 function Hero({ loggedIn, plan }: { loggedIn: boolean; plan: Plan }) {
   const primary = loggedIn
     ? { to: "/crop", label: "Open the app" }
-    : { to: "/register", label: "Create a free account" };
+    : { to: "/register", label: "Check a card free" };
   return (
     <section id="top" className="relative overflow-hidden">
       <div
@@ -278,17 +297,17 @@ function Hero({ loggedIn, plan }: { loggedIn: boolean; plan: Plan }) {
         <div className="text-center lg:text-left">
           <span className="inline-flex items-center gap-2 rounded-full border border-border-subtle bg-surface-overlay/60 px-3 py-1 text-xs text-text-secondary">
             <Sparkles className="w-3.5 h-3.5 text-accent" />
-            Built for Pokémon &amp; TCG collectors
+            Card prep &amp; AI pre-grading for Pokémon &amp; TCG
           </span>
           <h1 className="mt-5 text-4xl sm:text-5xl lg:text-[3.4rem] font-semibold tracking-tight leading-[1.05]">
-            Perfect card scans.
+            Know the grade
             <br />
-            <span className="text-accent">Pro-level grade estimates.</span>
+            <span className="text-accent">before you pay to grade.</span>
           </h1>
           <p className="mt-5 text-base sm:text-lg text-text-secondary max-w-xl mx-auto lg:mx-0">
-            Turn a quick phone photo into a clean, straightened card image — then get a
-            detailed condition report with estimated grades from PSA, Beckett, CGC, ACE
-            and TAG before you spend a penny on submission.
+            GemCheck is a card preparation and AI grading tool. Photograph your card and
+            get an honest, company-by-company grade estimate — plus exactly what's holding
+            it back — so you never waste money submitting a card that won't gem.
           </p>
           <div className="mt-7 flex flex-col sm:flex-row gap-3 justify-center lg:justify-start">
             <Link
@@ -302,14 +321,14 @@ function Hero({ loggedIn, plan }: { loggedIn: boolean; plan: Plan }) {
               href="#report"
               className="inline-flex items-center justify-center gap-2 rounded-xl border border-border-strong bg-surface-overlay/40 px-6 py-3.5 text-sm font-semibold text-text-primary hover:bg-surface-overlay transition-colors"
             >
-              See a real report
+              See a sample report
             </a>
           </div>
           <p className="mt-4 text-sm text-text-muted">
             {plan === "free"
-              ? "You're on the free plan — 3 crops a day. Upgrade any time."
+              ? "You're on the free plan — 1 grade a month and 3 crops a day. Upgrade any time."
               : plan === "unlimited"
-              ? "Unlimited crops active. Add API access for automation."
+              ? "Unlimited crops and 10 grades a day active."
               : plan === "api"
               ? "API plan active — manage your keys in the app."
               : "Free to start. No card details required."}
@@ -335,7 +354,7 @@ function HeroVisual() {
         </div>
 
         <div className="absolute left-1/2 top-1/2 w-[64%] -translate-x-[58%] -translate-y-1/2 animate-[float_6s_ease-in-out_infinite]">
-          <HoloCard src={AFTER_IMG} alt="A real trading card, cleanly cropped by CardCrop" />
+          <HoloCard src={AFTER_IMG} alt="A trading card cleanly prepared by GemCheck" />
         </div>
 
         <div className="absolute right-3 sm:right-5 bottom-5 w-[58%] max-w-[280px] rounded-2xl border border-border-subtle bg-surface-raised/95 backdrop-blur p-4 shadow-2xl animate-[float-slow_7s_ease-in-out_infinite]">
@@ -428,123 +447,57 @@ function SectionHeading({
 }
 
 /* ------------------------------------------------------------------ */
-/* From photo to clean card (real before/after)                        */
+/* Why pre-check (the cost of submitting blind)                        */
 /* ------------------------------------------------------------------ */
 
-function CropSection() {
-  const points = [
-    "Automatic card detection",
-    "Perspective de-skew from a phone photo",
-    "Transparent PNG, clean borders",
-    "Front and back, ready to download",
+function CostStrip() {
+  const items = [
+    {
+      icon: Wallet,
+      stat: "£15–£150",
+      label: "per card to grade",
+      copy: "Submission, postage and insurance add up fast — before you know the result.",
+    },
+    {
+      icon: Clock,
+      stat: "Weeks to months",
+      label: "of waiting",
+      copy: "Turnaround is long. A low grade you could've predicted stings even more.",
+    },
+    {
+      icon: AlertTriangle,
+      stat: "No refunds",
+      label: "for a low grade",
+      copy: "Graders charge the same whether your card comes back a 10 or a 6.",
+    },
   ];
   return (
-    <section id="crop" className="mx-auto max-w-6xl px-4 sm:px-6 py-16 sm:py-24 scroll-mt-20">
-      <SectionHeading
-        kicker="From photo to clean card"
-        title="A real photo in. A clean card out."
-        copy="Drag the slider — this is an actual card photographed on a desk, cropped and straightened by CardCrop. No manual editing."
-      />
-      <div className="mt-12 grid lg:grid-cols-2 gap-10 items-center">
-        <BeforeAfter />
-        <ul className="grid sm:grid-cols-2 gap-3">
-          {points.map((p) => (
-            <li
-              key={p}
-              className="flex items-center gap-3 rounded-xl border border-border-subtle bg-surface-raised px-4 py-3.5"
+    <section className="border-y border-border-subtle bg-surface-raised/40">
+      <div className="mx-auto max-w-6xl px-4 sm:px-6 py-12 sm:py-16">
+        <p className="text-center text-sm text-text-secondary max-w-2xl mx-auto">
+          Grading is a gamble when you can't see what the grader sees.{" "}
+          <span className="text-text-primary font-medium">GemCheck takes the guesswork out first.</span>
+        </p>
+        <div className="mt-8 grid sm:grid-cols-3 gap-4">
+          {items.map((it) => (
+            <div
+              key={it.label}
+              className="rounded-2xl border border-border-subtle bg-surface-raised p-5"
             >
-              <span className="w-7 h-7 rounded-lg bg-accent/15 flex items-center justify-center shrink-0">
-                <Check className="w-4 h-4 text-accent" />
+              <span className="inline-flex w-10 h-10 rounded-xl bg-accent/15 items-center justify-center">
+                <it.icon className="w-5 h-5 text-accent" />
               </span>
-              <span className="text-sm text-text-primary">{p}</span>
-            </li>
+              <div className="mt-3 text-2xl font-semibold text-text-primary">{it.stat}</div>
+              <div className="text-xs uppercase tracking-wide text-text-muted">{it.label}</div>
+              <p className="mt-2 text-sm text-text-secondary">{it.copy}</p>
+            </div>
           ))}
-        </ul>
+        </div>
       </div>
     </section>
   );
 }
 
-/* Draggable before/after using the real photo and the real cropped result. */
-function BeforeAfter() {
-  const [pos, setPos] = useState(50);
-  const wrapRef = useRef<HTMLDivElement>(null);
-  const dragging = useRef(false);
-
-  const setFromClientX = (clientX: number) => {
-    const el = wrapRef.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    const pct = ((clientX - rect.left) / rect.width) * 100;
-    setPos(Math.max(4, Math.min(96, pct)));
-  };
-
-  useEffect(() => {
-    const move = (e: PointerEvent) => {
-      if (dragging.current) setFromClientX(e.clientX);
-    };
-    const up = () => (dragging.current = false);
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", up);
-    return () => {
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", up);
-    };
-  }, []);
-
-  return (
-    <div
-      ref={wrapRef}
-      className="relative aspect-[3/2] w-full rounded-2xl overflow-hidden border border-border-subtle select-none cursor-ew-resize touch-none bg-surface-overlay"
-      onPointerDown={(e) => {
-        dragging.current = true;
-        setFromClientX(e.clientX);
-      }}
-    >
-      {/* BEFORE — the real desk photo */}
-      <div className="absolute inset-0">
-        <img
-          src={BEFORE_IMG}
-          alt="A real card photographed on a desk"
-          draggable={false}
-          className="absolute inset-0 h-full w-full object-cover"
-        />
-        <span className="absolute left-3 top-3 rounded-md bg-black/55 px-2 py-1 text-[11px] font-medium text-white/90">
-          Before
-        </span>
-      </div>
-
-      {/* AFTER — the clean crop on a studio backdrop, clipped by the slider */}
-      <div className="absolute inset-0" style={{ clipPath: `inset(0 0 0 ${pos}%)` }}>
-        <div
-          className="absolute inset-0"
-          style={{
-            background:
-              "radial-gradient(120% 120% at 60% 30%, #20232f 0%, #14161f 60%, #0d0f16 100%)",
-          }}
-        />
-        <div className="checkerboard absolute inset-0 opacity-[0.25]" />
-        <div className="absolute inset-0 flex items-center justify-center p-6">
-          <img
-            src={AFTER_IMG}
-            alt="The same card cleanly cropped and straightened"
-            draggable={false}
-            className="max-h-full max-w-full rounded-[3%] drop-shadow-[0_18px_38px_rgba(0,0,0,0.55)]"
-          />
-        </div>
-        <span className="absolute right-3 top-3 rounded-md bg-accent/85 px-2 py-1 text-[11px] font-semibold text-white">
-          After
-        </span>
-      </div>
-
-      <div className="absolute top-0 bottom-0 w-px bg-white/70" style={{ left: `${pos}%` }}>
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white text-surface flex items-center justify-center shadow-xl">
-          <MoveHorizontal className="w-5 h-5" />
-        </div>
-      </div>
-    </div>
-  );
-}
 /* ------------------------------------------------------------------ */
 /* Example grading report (faithful to the real /grade output)         */
 /* ------------------------------------------------------------------ */
@@ -635,15 +588,12 @@ function BlockerCol({
 
 function ReportSection() {
   return (
-    <section
-      id="report"
-      className="relative scroll-mt-20 border-y border-border-subtle bg-surface-raised/40"
-    >
+    <section id="report" className="relative scroll-mt-20">
       <div className="mx-auto max-w-6xl px-4 sm:px-6 py-16 sm:py-24">
         <SectionHeading
-          kicker="The grading report"
-          title="Exactly what you'll see after a scan."
-          copy="This is the real report layout. A two-pass AI inspection checks centring, corners, edges and surface, then estimates a grade for every major company."
+          kicker="The pre-grade report"
+          title="See your card the way a grader does."
+          copy="A two-pass AI inspection reads centring, corners, edges and surface, identifies the exact card, then estimates a grade for every major company — with the flaws that set the ceiling."
         />
 
         <div className="mt-12 grid lg:grid-cols-[300px_1fr] gap-8 items-start">
@@ -777,6 +727,158 @@ function ReportSection() {
 }
 
 /* ------------------------------------------------------------------ */
+/* Prepare your card (clean scans + fix what's fixable)                */
+/* ------------------------------------------------------------------ */
+
+function PrepareSection() {
+  const prep = [
+    "Spot light foil scrapes and surface marks worth easing",
+    "Flatten gentle curl so centring reads true",
+    "Lift loose surface debris before it scores as a flaw",
+    "Sleeve and store right so it doesn't pick up new wear",
+  ];
+  return (
+    <section
+      id="prepare"
+      className="relative scroll-mt-20 border-y border-border-subtle bg-surface-raised/40"
+    >
+      <div className="mx-auto max-w-6xl px-4 sm:px-6 py-16 sm:py-24">
+        <SectionHeading
+          kicker="Card preparation"
+          title="Prep the card. Lift the grade."
+          copy="GemCheck doesn't just score your card — it shows you what's holding the grade back and which light defects are worth carefully addressing before you submit, with a snapshot of the exact spot."
+        />
+
+        <div className="mt-12 grid lg:grid-cols-2 gap-10 items-center">
+          {/* clean scan visual */}
+          <div>
+            <BeforeAfter />
+            <p className="mt-3 text-center text-xs text-text-muted">
+              Start with a clean scan — GemCheck detects, de-skews and lifts the card off its
+              background at full resolution, so the inspection sees every detail.
+            </p>
+          </div>
+
+          {/* prep checklist */}
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-border-subtle bg-surface-raised px-3 py-1 text-xs text-text-secondary">
+              <Wrench className="w-3.5 h-3.5 text-accent" />
+              Preparation plan
+            </div>
+            <h3 className="mt-4 text-xl font-semibold tracking-tight">
+              A clear, honest to-do list — not false promises.
+            </h3>
+            <p className="mt-2 text-sm text-text-secondary">
+              We flag only what's reasonable to improve on a raw card, and we're upfront about
+              what's permanent. No cleaning trick turns a creased card into a gem.
+            </p>
+            <ul className="mt-5 space-y-3">
+              {prep.map((p) => (
+                <li
+                  key={p}
+                  className="flex items-start gap-3 rounded-xl border border-border-subtle bg-surface-raised px-4 py-3.5"
+                >
+                  <span className="w-7 h-7 rounded-lg bg-accent/15 flex items-center justify-center shrink-0">
+                    <Check className="w-4 h-4 text-accent" />
+                  </span>
+                  <span className="text-sm text-text-primary">{p}</span>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-4 flex items-start gap-2 text-xs text-text-muted">
+              <ShieldCheck className="w-4 h-4 text-accent mt-0.5 shrink-0" />
+              Take care with valuable cards — improper cleaning can lower a grade. When in doubt,
+              leave it and let the grader decide.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* Draggable before/after using the real photo and the real cropped result. */
+function BeforeAfter() {
+  const [pos, setPos] = useState(50);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const dragging = useRef(false);
+
+  const setFromClientX = (clientX: number) => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const pct = ((clientX - rect.left) / rect.width) * 100;
+    setPos(Math.max(4, Math.min(96, pct)));
+  };
+
+  useEffect(() => {
+    const move = (e: PointerEvent) => {
+      if (dragging.current) setFromClientX(e.clientX);
+    };
+    const up = () => (dragging.current = false);
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+    return () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+    };
+  }, []);
+
+  return (
+    <div
+      ref={wrapRef}
+      className="relative aspect-[3/2] w-full rounded-2xl overflow-hidden border border-border-subtle select-none cursor-ew-resize touch-none bg-surface-overlay"
+      onPointerDown={(e) => {
+        dragging.current = true;
+        setFromClientX(e.clientX);
+      }}
+    >
+      {/* BEFORE — the real desk photo */}
+      <div className="absolute inset-0">
+        <img
+          src={BEFORE_IMG}
+          alt="A real card photographed on a desk"
+          draggable={false}
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+        <span className="absolute left-3 top-3 rounded-md bg-black/55 px-2 py-1 text-[11px] font-medium text-white/90">
+          Your photo
+        </span>
+      </div>
+
+      {/* AFTER — the clean crop on a studio backdrop, clipped by the slider */}
+      <div className="absolute inset-0" style={{ clipPath: `inset(0 0 0 ${pos}%)` }}>
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              "radial-gradient(120% 120% at 60% 30%, #20232f 0%, #14161f 60%, #0d0f16 100%)",
+          }}
+        />
+        <div className="checkerboard absolute inset-0 opacity-[0.25]" />
+        <div className="absolute inset-0 flex items-center justify-center p-6">
+          <img
+            src={AFTER_IMG}
+            alt="The same card cleanly cropped and straightened"
+            draggable={false}
+            className="max-h-full max-w-full rounded-[3%] drop-shadow-[0_18px_38px_rgba(0,0,0,0.55)]"
+          />
+        </div>
+        <span className="absolute right-3 top-3 rounded-md bg-accent/85 px-2 py-1 text-[11px] font-semibold text-white">
+          Ready to grade
+        </span>
+      </div>
+
+      <div className="absolute top-0 bottom-0 w-px bg-white/70" style={{ left: `${pos}%` }}>
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white text-surface flex items-center justify-center shadow-xl">
+          <MoveHorizontal className="w-5 h-5" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /* Compare grading companies                                           */
 /* ------------------------------------------------------------------ */
 
@@ -793,7 +895,7 @@ function CompareSection() {
       <SectionHeading
         kicker="Compare grading companies"
         title="One card. Five grading standards."
-        copy="Each company weights centring, corners, edges and surface differently. CardCrop estimates them all so you can pick where to send."
+        copy="Each company weights centring, corners, edges and surface differently. GemCheck estimates them all so you can send your card where it scores best."
       />
       <div className="mt-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         {graders.map((g) => (
@@ -824,8 +926,40 @@ function CompareSection() {
         ))}
       </div>
       <p className="mt-6 text-center text-xs text-text-muted">
-        Example estimates. CardCrop is independent and not affiliated with any grading company.
+        Example estimates. GemCheck is independent and not affiliated with any grading company.
       </p>
+    </section>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* How it works                                                        */
+/* ------------------------------------------------------------------ */
+
+function HowItWorks() {
+  const steps = [
+    { icon: Camera, title: "Photograph", copy: "Snap the front and back, flat and in sharp focus." },
+    { icon: ScanSearch, title: "Pre-grade", copy: "AI inspects centring, corners, edges and surface." },
+    { icon: Wrench, title: "Prepare", copy: "See what's fixable and clean it up to lift the grade." },
+    { icon: Scale, title: "Decide", copy: "Submit to the best-fit grader — or sell it raw." },
+  ];
+  return (
+    <section id="how" className="mx-auto max-w-6xl px-4 sm:px-6 py-16 sm:py-24 scroll-mt-20">
+      <SectionHeading kicker="How it works" title="From photo to confident decision." />
+      <div className="mt-12 grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {steps.map((s, i) => (
+          <div key={s.title} className="relative rounded-2xl border border-border-subtle bg-surface-raised p-5">
+            <span className="text-5xl font-bold text-surface-overlay absolute top-3 right-4 select-none">
+              {i + 1}
+            </span>
+            <span className="inline-flex w-10 h-10 rounded-xl bg-accent/15 items-center justify-center">
+              <s.icon className="w-5 h-5 text-accent" />
+            </span>
+            <h3 className="mt-4 text-base font-semibold">{s.title}</h3>
+            <p className="mt-1.5 text-sm text-text-secondary">{s.copy}</p>
+          </div>
+        ))}
+      </div>
     </section>
   );
 }
@@ -835,7 +969,7 @@ function CompareSection() {
 /* ------------------------------------------------------------------ */
 
 const API_SNIPPET = `curl -X POST https://cardcrop.uk/v1/crop \\
-  -H "Authorization: Bearer $CARDCROP_API_KEY" \\
+  -H "Authorization: Bearer $GEMCHECK_API_KEY" \\
   -H "Accept: image/png" \\
   -F "image=@charizard.jpg" \\
   -o cropped.png`;
@@ -861,8 +995,8 @@ function ApiSection({ plan, loggedIn }: { plan: Plan; loggedIn: boolean }) {
       <div className="mx-auto max-w-6xl px-4 sm:px-6 py-16 sm:py-24">
         <SectionHeading
           kicker="For developers &amp; shops"
-          title="Automate cropping with the API."
-          copy="Bulk-process listings, build a scanner, or wire CardCrop into your store. One authenticated POST returns a clean, transparent PNG."
+          title="Automate prep with the API."
+          copy="Bulk-process listings, build a scanner, or wire GemCheck into your store. One authenticated POST returns a clean, transparent PNG ready for grading or selling."
         />
         <div className="mt-12 grid lg:grid-cols-2 gap-8 items-start">
           <div className="rounded-2xl border border-border-subtle bg-[#0e1018] overflow-hidden">
@@ -932,38 +1066,6 @@ function ApiSection({ plan, loggedIn }: { plan: Plan; loggedIn: boolean }) {
 }
 
 /* ------------------------------------------------------------------ */
-/* How it works                                                        */
-/* ------------------------------------------------------------------ */
-
-function HowItWorks() {
-  const steps = [
-    { icon: Camera, title: "Take a photo", copy: "Snap the front and back in decent light." },
-    { icon: Wand2, title: "Clean it up", copy: "CardCrop detects, de-skews and extracts the card." },
-    { icon: ScanSearch, title: "Get the report", copy: "Centring, corners, edges and surface, inspected." },
-    { icon: Scale, title: "Compare & decide", copy: "Review estimated grades and pick where to submit." },
-  ];
-  return (
-    <section id="how" className="mx-auto max-w-6xl px-4 sm:px-6 py-16 sm:py-24 scroll-mt-20">
-      <SectionHeading kicker="How it works" title="Four simple steps." />
-      <div className="mt-12 grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {steps.map((s, i) => (
-          <div key={s.title} className="relative rounded-2xl border border-border-subtle bg-surface-raised p-5">
-            <span className="text-5xl font-bold text-surface-overlay absolute top-3 right-4 select-none">
-              {i + 1}
-            </span>
-            <span className="inline-flex w-10 h-10 rounded-xl bg-accent/15 items-center justify-center">
-              <s.icon className="w-5 h-5 text-accent" />
-            </span>
-            <h3 className="mt-4 text-base font-semibold">{s.title}</h3>
-            <p className="mt-1.5 text-sm text-text-secondary">{s.copy}</p>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-/* ------------------------------------------------------------------ */
 /* Tier-aware plan CTA                                                 */
 /* ------------------------------------------------------------------ */
 
@@ -974,12 +1076,12 @@ function PlanCta({ loggedIn, plan }: { loggedIn: boolean; plan: Plan }) {
   let secondary: { label: string; to: string } | null = { label: "See full pricing", to: "/pricing" };
 
   if (!loggedIn) {
-    title = "Start free. Upgrade when you're ready.";
-    copy = "3 crops a day on the house. No card details to sign up.";
+    title = "Check a card before you ever pay to grade.";
+    copy = "Free to start — 1 grade a month and 3 crops a day. No card details to sign up.";
     primary = { label: "Create a free account", to: "/register" };
   } else if (plan === "free") {
-    title = "Go unlimited for £7.99/mo.";
-    copy = "Unlimited crops and grading reports, no daily cap.";
+    title = "Grade more, gamble less — £7.99/mo.";
+    copy = "Unlimited crops and up to 10 grading reports a day, no daily crop cap.";
     primary = { label: "Upgrade to Unlimited", onClick: () => goCheckout("unlimited") };
   } else if (plan === "unlimited") {
     title = "Add API access for £19.99/mo.";
@@ -1065,8 +1167,9 @@ function HonestSection() {
           </div>
         </div>
         <p className="mt-4 text-sm text-text-muted">
-          Official grades are decided by the grading company after inspecting the physical card.
-          For high-value cards, always inspect by hand too.
+          GemCheck is a pre-check, not an official grade. Official grades are decided by the
+          grading company after inspecting the physical card. For high-value cards, always
+          inspect by hand too.
         </p>
       </div>
     </section>
@@ -1081,12 +1184,8 @@ function SiteFooter() {
   return (
     <footer className="border-t border-border-subtle">
       <div className="mx-auto max-w-6xl px-4 sm:px-6 py-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div className="flex items-center gap-2.5">
-          <span className="w-7 h-7 rounded-lg bg-accent/15 flex items-center justify-center">
-            <Crop className="w-4 h-4 text-accent" />
-          </span>
-          <span className="text-sm font-semibold">CardCrop</span>
-          <span className="text-xs text-text-muted">· cardcrop.uk</span>
+        <div className="flex items-center gap-2">
+          <Wordmark size="sm" />
         </div>
         <div className="flex items-center gap-5 text-sm">
           <Link to="/pricing" className="text-text-secondary hover:text-text-primary transition-colors">

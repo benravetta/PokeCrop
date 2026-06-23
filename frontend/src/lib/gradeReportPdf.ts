@@ -128,7 +128,7 @@ export async function buildGradeReportPdf(
   doc.setFontSize(9);
   setColor(MUTE);
   doc.text(
-    `CardCrop AI Pre-Grader · ${new Date().toLocaleDateString(undefined, {
+    `GemCheck AI Pre-Grader · ${new Date().toLocaleDateString(undefined, {
       year: "numeric",
       month: "long",
       day: "numeric",
@@ -525,9 +525,9 @@ export async function buildGradeReportPdf(
     setColor(MUTE);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7.5);
-    doc.text(`CardCrop pre-grade report · page ${p} of ${pageCount}`, M, PAGE_H - 6);
+    doc.text(`GemCheck pre-grade report · page ${p} of ${pageCount}`, M, PAGE_H - 6);
   }
 
   const name = (asStr(ident.name) || "card").replace(/[^a-z0-9]+/gi, "-").toLowerCase();
-  doc.save(`cardcrop-pregrade-${name}.pdf`);
+  doc.save(`gemcheck-pregrade-${name}.pdf`);
 }

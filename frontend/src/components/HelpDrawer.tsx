@@ -55,11 +55,11 @@ export function HelpDrawer({
                     flex flex-col shadow-2xl transition-transform duration-300 ease-out
                     ${open ? "translate-x-0" : "translate-x-full"}`}
         role="dialog"
-        aria-label="How to use CardCrop"
+        aria-label="How to use GemCheck"
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-border-subtle">
           <div>
-            <h2 className="text-sm font-semibold text-text-primary">How CardCrop works</h2>
+            <h2 className="text-sm font-semibold text-text-primary">How GemCheck works</h2>
             <p className="text-[11px] text-text-muted">
               A quick guide to getting a clean cut every time.
             </p>
@@ -77,7 +77,7 @@ export function HelpDrawer({
           <Section icon={<Upload className="w-4 h-4" />} title="1 · Upload">
             <p>
               Drop in a scan or phone photo (JPG, PNG, WEBP or PDF, up to 50 MB).
-              CardCrop finds the front-most card, straightens it, and lifts it off
+              GemCheck finds the front-most card, straightens it, and lifts it off
               the background as a transparent PNG.
             </p>
             <p className="text-text-muted">

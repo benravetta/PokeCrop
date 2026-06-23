@@ -1,4 +1,4 @@
-"""CardCrop Python processing service — FastAPI entry point."""
+"""GemCheck Python processing service — FastAPI entry point."""
 
 import time
 import traceback
@@ -21,7 +21,7 @@ from pipeline import segment
 
 MAX_UPLOAD_BYTES = 50 * 1024 * 1024
 
-app = FastAPI(title="CardCrop Processing Service")
+app = FastAPI(title="GemCheck Processing Service")
 
 
 @app.on_event("startup")

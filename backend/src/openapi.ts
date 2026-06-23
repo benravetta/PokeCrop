@@ -4,7 +4,7 @@
 // docs UI stays in sync with this single source of truth.
 
 const DESCRIPTION = `
-The **CardCrop API** extracts a trading card from a scan or photo: it finds the
+The **GemCheck API** extracts a trading card from a scan or photo: it finds the
 front-most card, straightens it, removes the background, preserves the rounded
 corners, and returns a transparent PNG.
 
@@ -22,7 +22,7 @@ Authorization: Bearer pk_live_xxxxxxxxxxxxxxxxxxxxxxxx
 
 \`\`\`bash
 curl -X POST https://cardcrop.uk/v1/crop \\
-  -H "Authorization: Bearer $CARDCROP_API_KEY" \\
+  -H "Authorization: Bearer $GEMCHECK_API_KEY" \\
   -H "Accept: image/png" \\
   -F "image=@card.jpg" \\
   -o cropped.png
@@ -69,10 +69,10 @@ const errorResponse = (description: string) => ({
 export const openApiSpec = {
   openapi: "3.1.0",
   info: {
-    title: "CardCrop API",
+    title: "GemCheck API",
     version: "1.0.0",
     description: DESCRIPTION,
-    contact: { name: "CardCrop", url: "https://cardcrop.uk" },
+    contact: { name: "GemCheck", url: "https://cardcrop.uk" },
   },
   servers: [
     { url: "https://cardcrop.uk/v1", description: "Production" },
@@ -151,7 +151,7 @@ export const openApiSpec = {
             lang: "curl",
             label: "cURL (file → PNG)",
             source:
-              'curl -X POST https://cardcrop.uk/v1/crop \\\n  -H "Authorization: Bearer $CARDCROP_API_KEY" \\\n  -H "Accept: image/png" \\\n  -F "image=@card.jpg" \\\n  -o cropped.png',
+              'curl -X POST https://cardcrop.uk/v1/crop \\\n  -H "Authorization: Bearer $GEMCHECK_API_KEY" \\\n  -H "Accept: image/png" \\\n  -F "image=@card.jpg" \\\n  -o cropped.png',
           },
           {
             lang: "python",
@@ -232,7 +232,7 @@ export const openApiSpec = {
       bearerApiKey: {
         type: "http",
         scheme: "bearer",
-        description: "Your CardCrop API key (pk_live_...).",
+        description: "Your GemCheck API key (pk_live_...).",
       },
     },
     schemas: {

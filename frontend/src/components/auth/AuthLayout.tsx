@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { Crop } from "lucide-react";
+import { Gem } from "lucide-react";
 
 export function AuthLayout({
   title,
@@ -19,10 +19,10 @@ export function AuthLayout({
         <div className="w-full max-w-sm anim-rise">
           <Link to="/" className="flex items-center justify-center gap-2.5 mb-7">
             <span className="w-9 h-9 rounded-lg bg-accent/15 flex items-center justify-center">
-              <Crop className="w-5 h-5 text-accent" />
+              <Gem className="w-5 h-5 text-accent" />
             </span>
             <span className="text-lg font-semibold text-text-primary tracking-tight">
-              CardCrop
+              GemCheck
             </span>
           </Link>
 

@@ -29,7 +29,7 @@ function extractKey(req: Request): string | null {
   return null;
 }
 
-// Authenticate a request with a CardCrop API key and require an active "api"
+// Authenticate a request with a GemCheck API key and require an active "api"
 // plan. Attaches req.apiUser on success.
 export async function requireApiKey(
   req: Request,

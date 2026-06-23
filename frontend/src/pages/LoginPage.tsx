@@ -36,10 +36,10 @@ export function LoginPage() {
   return (
     <AuthLayout
       title="Welcome back"
-      subtitle="Sign in to crop your cards."
+      subtitle="Sign in to prep and pre-grade your cards."
       footer={
         <>
-          New to CardCrop?{" "}
+          New to GemCheck?{" "}
           <Link to="/register" className="text-accent hover:text-accent-hover font-medium">
             Create an account
           </Link>
