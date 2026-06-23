@@ -20,7 +20,7 @@ export function AuthLayout({
             <img
               src="/gemcheck-logo.png"
               alt="GemCheck — by Looky"
-              className="h-9 w-auto select-none"
+              className="h-12 w-auto select-none"
               draggable={false}
             />
           </Link>

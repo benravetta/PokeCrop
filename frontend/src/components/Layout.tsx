@@ -23,7 +23,7 @@ export function Layout() {
           <img
             src="/gemcheck-logo.png"
             alt="GemCheck — by Looky"
-            className="h-7 sm:h-8 w-auto select-none"
+            className="h-9 sm:h-10 w-auto select-none"
             draggable={false}
           />
         </Link>

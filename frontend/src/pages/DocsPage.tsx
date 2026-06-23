@@ -63,7 +63,7 @@ export function DocsPage() {
           <img
             src="/gemcheck-logo.png"
             alt="GemCheck — by Looky"
-            className="h-6 w-auto select-none"
+            className="h-8 w-auto select-none"
             draggable={false}
           />
           <span className="text-[13px] font-medium text-text-muted uppercase tracking-wide">

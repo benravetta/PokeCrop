@@ -131,7 +131,7 @@ function TopNav({ loggedIn, plan }: { loggedIn: boolean; plan: Plan }) {
     >
       <div className="mx-auto max-w-6xl px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
         <a href="#top" className="shrink-0">
-          <Wordmark className="h-8 sm:h-9" />
+          <Wordmark className="h-10 sm:h-11" />
         </a>
 
         <nav className="hidden md:flex items-center gap-1">
@@ -1329,7 +1329,7 @@ function SiteFooter() {
   return (
     <footer className="border-t border-border-subtle">
       <div className="mx-auto max-w-6xl px-4 sm:px-6 py-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-        <Wordmark className="h-7" />
+        <Wordmark className="h-9" />
         <div className="flex items-center gap-5 text-sm">
           <Link to="/pricing" className="text-text-secondary hover:text-text-primary transition-colors">
             Pricing
