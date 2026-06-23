@@ -25,13 +25,15 @@ function Cell({ value }: { value: CompareCell }) {
   return <span className="text-[12.5px] text-text-secondary leading-snug">{value}</span>;
 }
 
+const COMPARE_PLANS = ["free", "unlimited", "pro", "api", "single"] as const satisfies PlanColumn[];
+
 export function FeatureCompareTable({ highlightPlan }: { highlightPlan?: PlanColumn }) {
   return (
     <div className="overflow-x-auto -mx-1 px-1">
-      <table className="w-full min-w-[720px] border-collapse text-left">
+      <table className="w-full min-w-[880px] border-collapse text-left">
         <thead>
           <tr className="border-b border-border-subtle">
-            <th className="py-3 pr-4 text-xs font-semibold uppercase tracking-wider text-text-muted w-[34%]">
+            <th className="py-3 pr-4 text-xs font-semibold uppercase tracking-wider text-text-muted w-[28%]">
               Feature
             </th>
             {PLAN_COLUMNS.map((col) => {
@@ -39,7 +41,7 @@ export function FeatureCompareTable({ highlightPlan }: { highlightPlan?: PlanCol
               return (
                 <th
                   key={col.id}
-                  className={`py-3 px-2 text-center min-w-[108px] ${
+                  className={`py-3 px-2 text-center min-w-[96px] ${
                     highlighted ? "bg-accent/5 rounded-t-lg" : ""
                   }`}
                 >
@@ -60,7 +62,7 @@ export function FeatureCompareTable({ highlightPlan }: { highlightPlan?: PlanCol
             <Fragment key={section.title}>
               <tr className="border-b border-border-subtle/60">
                 <td
-                  colSpan={5}
+                  colSpan={COMPARE_PLANS.length + 1}
                   className="pt-6 pb-2 text-[11px] font-semibold uppercase tracking-wider text-text-muted"
                 >
                   {section.title}
@@ -77,7 +79,7 @@ export function FeatureCompareTable({ highlightPlan }: { highlightPlan?: PlanCol
                       <div className="text-[11px] text-text-muted mt-0.5 leading-snug">{row.hint}</div>
                     )}
                   </td>
-                  {(["free", "unlimited", "api", "single"] as const).map((plan) => (
+                  {COMPARE_PLANS.map((plan) => (
                     <td
                       key={plan}
                       className={`py-3 px-2 text-center align-middle ${

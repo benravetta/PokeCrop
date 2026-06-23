@@ -1,15 +1,15 @@
 import { getServiceClient } from "./supabase.js";
+import { hasUnlimitedCrops, type Plan } from "./plans.js";
 
+export { type Plan } from "./plans.js";
 export const FREE_DAILY_LIMIT = 3;
-
-export type Plan = "free" | "unlimited" | "api";
 
 function utcDay(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
 export function isUnlimited(plan: Plan): boolean {
-  return plan === "unlimited" || plan === "api";
+  return hasUnlimitedCrops(plan);
 }
 
 // Effective plan: a paid plan only counts while its subscription is active.
@@ -22,7 +22,10 @@ export async function getPlan(userId: string): Promise<Plan> {
 
   if (!data) return "free";
   const active = data.status === "active" || data.status === "trialing";
-  if (active && (data.plan === "unlimited" || data.plan === "api")) {
+  if (
+    active &&
+    (data.plan === "unlimited" || data.plan === "pro" || data.plan === "api")
+  ) {
     return data.plan;
   }
   return "free";

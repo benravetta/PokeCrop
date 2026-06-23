@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import type { Plan, SubscriptionPlan } from "./plans";
 
 const BASE = "/api";
 
@@ -141,7 +142,7 @@ export async function fetchExport(
 }
 
 export interface MeResponse {
-  plan: "free" | "unlimited" | "api";
+  plan: Plan;
   cropsUsedToday: number;
   cropsRemaining: number | null;
   gradeCredits?: number;
@@ -154,7 +155,7 @@ export async function fetchMe(): Promise<MeResponse> {
   return res.json();
 }
 
-export async function startCheckout(plan: "unlimited" | "api"): Promise<string> {
+export async function startCheckout(plan: SubscriptionPlan): Promise<string> {
   const res = await fetch(`${BASE}/billing/checkout`, {
     method: "POST",
     headers: await authHeaders({ "Content-Type": "application/json" }),
@@ -377,7 +378,7 @@ export async function adminSetRole(id: string, role: "user" | "admin"): Promise<
 
 export async function adminSetPlan(
   id: string,
-  plan: "free" | "unlimited" | "api",
+  plan: Plan,
   status?: PlanStatus
 ): Promise<void> {
   const res = await fetch(`${BASE}/admin/users/${id}/plan`, {
@@ -518,7 +519,7 @@ export async function adminCatalogFacets(opts: {
 // ---- AI grading ----
 
 export interface GradeQuota {
-  plan: "free" | "unlimited" | "api";
+  plan: Plan;
   limit: number;
   used: number;
   // Effective remaining = plan allowance left + purchased credits.

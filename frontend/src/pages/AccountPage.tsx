@@ -5,6 +5,7 @@ import { useAuth } from "../hooks/useAuth";
 import { useMe } from "../hooks/useMe";
 import { supabase } from "../lib/supabase";
 import { openBillingPortal, startGradeCheckout, getGradeQuota, type GradeQuota } from "../lib/api";
+import { PLAN_LABELS } from "../lib/plans";
 import { Field } from "../components/auth/AuthLayout";
 import { ApiKeysPanel } from "../components/ApiKeysPanel";
 
@@ -29,12 +30,6 @@ function Section({
     </section>
   );
 }
-
-const PLAN_LABELS: Record<string, string> = {
-  free: "Free",
-  unlimited: "Unlimited",
-  api: "API access",
-};
 
 export function AccountPage() {
   const { user, updatePassword } = useAuth();

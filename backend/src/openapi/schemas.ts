@@ -173,7 +173,7 @@ export const components = {
     GradeQuota: {
       type: "object",
       properties: {
-        plan: { type: "string", enum: ["free", "unlimited", "api"], example: "api" },
+        plan: { type: "string", enum: ["free", "unlimited", "pro", "api"], example: "api" },
         limit: { type: "integer", example: 20, description: "Allowance per window." },
         used: { type: "integer", example: 3 },
         remaining: {

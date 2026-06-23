@@ -30,6 +30,7 @@ import {
   adminRevokeApiKey,
   adminDownloadActivity,
 } from "../lib/api";
+import type { Plan } from "../lib/plans";
 
 const ACTION_LABEL: Record<string, string> = {
   "crop.web": "Cropped (web)",
@@ -84,7 +85,7 @@ function summarize(ev: ActivityEvent): string {
   return parts.join(" · ");
 }
 
-const PLAN_OPTIONS = ["free", "unlimited", "api"] as const;
+const PLAN_OPTIONS: Plan[] = ["free", "unlimited", "pro", "api"];
 const STATUS_OPTIONS: PlanStatus[] = ["active", "trialing", "canceled"];
 
 export function AdminUserDrawer({
@@ -266,7 +267,7 @@ export function AdminUserDrawer({
                 {STATUS_OPTIONS.map((s) => (
                   <button
                     key={s}
-                    onClick={() => run("status", () => adminSetPlan(user.id, plan as "free" | "unlimited" | "api", s))}
+                    onClick={() => run("status", () => adminSetPlan(user.id, plan as Plan, s))}
                     disabled={busy !== null}
                     className={`px-2 py-0.5 text-[11px] rounded border transition-colors disabled:opacity-60 ${
                       d?.status === s

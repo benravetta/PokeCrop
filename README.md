@@ -196,13 +196,24 @@ Settings live in `fly.toml` under `[env]` and `[[vm]]`:
 
 ## Accounts, Billing & Admin
 
-CardCrop gates cropping behind a login. Free accounts get **3 crops/day**; paid
-plans are unlimited. Auth + data live in **Supabase**; subscriptions are billed
-in **GBP** via **Stripe**.
+CardCrop gates cropping behind a login. Free accounts get **3 crops/day** and
+**1 pre-grade/month**; paid plans include unlimited crops and higher grade
+allowances. Auth + data live in **Supabase**; subscriptions are billed in
+**GBP** via **Stripe**.
 
-- **Free** — 3 crops/day
-- **Unlimited** — £7.99/mo, unlimited crops
-- **API access** — £19.99/mo, unlimited crops + a public REST API with self-serve keys (see [Public API](#public-api))
+| Plan | Price | Pre-grades | API |
+|------|-------|------------|-----|
+| **Free** | £0 | 1/month | — |
+| **Premium** | £9.99/mo | 30/month | — |
+| **Pro** | £19.99/mo | 100/month | — |
+| **Enterprise** | £29.99/mo* | 100/month | REST API + keys |
+
+\*Enterprise uses `STRIPE_PRICE_API` — update the Stripe price amount to match
+your listed Enterprise price when ready.
+
+Launch promo (Pro only): promotion code **`GEM50`** — 50% off for 3 months, new
+customers only, until 1 Aug 2026. Create in Stripe with `allow_promotion_codes`
+(already enabled on Checkout).
 
 A "crop" is the first successful extraction of an uploaded image — re-cropping
 and slider tweaks on the same upload are free.
@@ -235,8 +246,9 @@ Node backend  ── verifies JWT (JWKS) ───────► Supabase (plan
 | `VITE_SUPABASE_PUBLISHABLE_KEY` | frontend (build arg) | Publishable key — safe in the browser |
 | `STRIPE_SECRET_KEY` | backend (secret) | Stripe API key |
 | `STRIPE_WEBHOOK_SECRET` | backend (secret) | Verifies Stripe webhook signatures |
-| `STRIPE_PRICE_UNLIMITED` | backend (secret) | Stripe price id for the £7.99 plan |
-| `STRIPE_PRICE_API` | backend (secret) | Stripe price id for the £19.99 plan |
+| `STRIPE_PRICE_UNLIMITED` | backend (secret) | Premium (£9.99/mo) — `price_1TldiFIXClJKdqLnZrYEHwrv` |
+| `STRIPE_PRICE_PRO` | backend (secret) | Pro (£19.99/mo) — `price_1TldjqIXClJKdqLnKCX3k5Xs` |
+| `STRIPE_PRICE_API` | backend (secret) | Enterprise (Pro + API) — existing price id |
 
 For **local dev**, `frontend/.env` holds the public `VITE_SUPABASE_*` values
 (gitignored). The backend reads `SUPABASE_*` / `STRIPE_*` from its environment.
@@ -256,10 +268,14 @@ For **local dev**, `frontend/.env` holds the public `VITE_SUPABASE_*` values
 
 ### Stripe setup
 
-1. Create two **recurring GBP prices** in the Stripe dashboard:
-   - Unlimited — £7.99/month → copy its price id to `STRIPE_PRICE_UNLIMITED`
-   - API access — £19.99/month → copy its price id to `STRIPE_PRICE_API`
-2. Add a **webhook endpoint** → `https://gemcheck.co.uk/api/webhooks/stripe`
+1. Create **recurring GBP prices** in the Stripe dashboard:
+   - **Premium** — £9.99/month → `STRIPE_PRICE_UNLIMITED` (`price_1TldiFIXClJKdqLnZrYEHwrv`)
+   - **Pro** — £19.99/month → `STRIPE_PRICE_PRO` (`price_1TldjqIXClJKdqLnKCX3k5Xs`)
+   - **Enterprise** — Pro + REST API → `STRIPE_PRICE_API` (your existing price id)
+2. **Pro launch promo** — create a coupon (50% off, repeating 3 months, first-time
+   customers only, expires 1 Aug 2026) and promotion code **`GEM50`** restricted
+   to the Pro price. Checkout already allows promotion codes.
+3. Add a **webhook endpoint** → `https://gemcheck.co.uk/api/webhooks/stripe`
    subscribed to at least:
    - `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`
    - `invoice.payment_failed`
@@ -279,7 +295,8 @@ fly secrets set \
   SUPABASE_SERVICE_ROLE_KEY=sb_secret_xxx \
   STRIPE_SECRET_KEY=sk_live_xxx \
   STRIPE_WEBHOOK_SECRET=whsec_xxx \
-  STRIPE_PRICE_UNLIMITED=price_xxx \
+  STRIPE_PRICE_UNLIMITED=price_1TldiFIXClJKdqLnZrYEHwrv \
+  STRIPE_PRICE_PRO=price_1TldjqIXClJKdqLnKCX3k5Xs \
   STRIPE_PRICE_API=price_xxx \
   STRIPE_PRICE_GRADE_SINGLE=price_xxx
 
@@ -470,7 +487,7 @@ Fly machine. Limits apply only to **successful** crops (failed detections do not
 count). Each response carries `X-RateLimit-Limit/Remaining/Reset`; a `429`
 includes `Retry-After`. Defaults: `API_RATE_PER_MIN=60`, `API_DAILY_SOFT_CAP=5000`.
 `crops_today` on `/v1/crop/limits` and `/v1/account` sums usage across all keys
-on the account. Grading uses a separate quota (20/day on the API plan).
+on the account. Grading allowances are monthly (30 Premium, 100 Pro/Enterprise).
 Straighten helper: `API_STRAIGHTEN_RATE_PER_MIN=30` (successful calls only).
 
 ---

@@ -1,37 +1,45 @@
 import { Fragment, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Check, Sparkles, Loader2 } from "lucide-react";
+import { Check, Sparkles, Loader2, Tag } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { useMe } from "../hooks/useMe";
 import { startCheckout, startGradeCheckout, openBillingPortal } from "../lib/api";
+import type { Plan } from "../lib/plans";
 import { SingleGradeOffer } from "../components/landing/PricingSection";
 import { FeatureCompareTable } from "../components/pricing/FeatureCompareTable";
-import { PRICING_FAQ, SUBSCRIPTION_TIERS } from "../components/pricing/pricingCompare";
-import type { PlanColumn } from "../components/pricing/pricingCompare";
-
-type PlanId = "free" | "unlimited" | "api";
+import {
+  PRICING_FAQ,
+  PRO_LAUNCH_PROMO,
+  SUBSCRIPTION_TIERS,
+  isProLaunchPromoActive,
+  type PlanColumn,
+  type SubscriptionPlanId,
+} from "../components/pricing/pricingCompare";
 
 export function PricingPage() {
   const session = useAuth((s) => s.session);
   const loggedIn = !!session;
   const { me, refresh } = useMe();
-  const [busy, setBusy] = useState<PlanId | null>(null);
+  const [busy, setBusy] = useState<SubscriptionPlanId | null>(null);
   const [gradeBusy, setGradeBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const proPromoLive = isProLaunchPromoActive();
 
   useEffect(() => {
     refresh();
   }, [refresh]);
 
-  const currentPlan = me?.plan ?? "free";
+  const currentPlan: Plan = me?.plan ?? "free";
   const isPaying = currentPlan !== "free";
   const highlightPlan: PlanColumn | undefined =
-    currentPlan === "free" || currentPlan === "unlimited" || currentPlan === "api"
+    currentPlan === "free" ||
+    currentPlan === "unlimited" ||
+    currentPlan === "pro" ||
+    currentPlan === "api"
       ? currentPlan
       : undefined;
 
-  const handleUpgrade = async (tierId: PlanId) => {
-    if (tierId === "free") return;
+  const handleUpgrade = async (tierId: SubscriptionPlanId) => {
     setError(null);
     setBusy(tierId);
     try {
@@ -67,6 +75,13 @@ export function PricingPage() {
             company — start free, buy single reports as you need them, or subscribe for regular
             use.
           </p>
+          {proPromoLive && (
+            <p className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-[12.5px] text-accent">
+              <Tag className="w-3.5 h-3.5" />
+              Pro launch: code <span className="font-semibold">{PRO_LAUNCH_PROMO.code}</span> —{" "}
+              {PRO_LAUNCH_PROMO.headline} (new customers, until 1 Aug)
+            </p>
+          )}
         </div>
 
         {error && (
@@ -87,9 +102,10 @@ export function PricingPage() {
           Subscriptions
         </p>
 
-        <div className="grid gap-5 lg:grid-cols-3">
+        <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
           {SUBSCRIPTION_TIERS.map((tier) => {
             const isCurrent = tier.id === currentPlan;
+            const showProPromo = tier.id === "pro" && proPromoLive && tier.promo;
             return (
               <div
                 key={tier.id}
@@ -104,6 +120,11 @@ export function PricingPage() {
                     <Sparkles className="w-3 h-3" /> Most popular
                   </span>
                 )}
+                {showProPromo && (
+                  <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 inline-flex items-center gap-1 rounded-full bg-emerald-600 px-2.5 py-0.5 text-[10.5px] font-semibold text-white whitespace-nowrap">
+                    <Tag className="w-3 h-3" /> {PRO_LAUNCH_PROMO.code} · {tier.promo}
+                  </span>
+                )}
                 <h2 className="text-sm font-semibold text-text-primary">{tier.name}</h2>
                 <div className="mt-2 flex items-baseline gap-0.5">
                   <span className="text-2xl sm:text-3xl font-semibold text-text-primary">
@@ -116,6 +137,11 @@ export function PricingPage() {
                 <p className="mt-2 text-[12.5px] text-text-secondary leading-relaxed">
                   {tier.blurb}
                 </p>
+                {showProPromo && (
+                  <p className="mt-2 text-[11.5px] text-emerald-400/90 leading-snug">
+                    {PRO_LAUNCH_PROMO.detail}
+                  </p>
+                )}
 
                 <ul className="mt-5 flex flex-col gap-2.5 flex-1">
                   {tier.features.map((f) => (

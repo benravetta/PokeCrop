@@ -3,11 +3,12 @@ import { getPlan, type Plan } from "./usage.js";
 
 // Grading is costlier than cropping, so quotas are tighter:
 //   free      -> 1 / month
-//   unlimited -> 10 / day
-//   api       -> 20 / day
+//   unlimited (Premium) -> 30 / month
+//   pro       -> 100 / month
+//   api       (Enterprise) -> 100 / month + REST API access
 function planLimit(plan: Plan): { limit: number; window: "day" | "month" } {
-  if (plan === "api") return { limit: 20, window: "day" };
-  if (plan === "unlimited") return { limit: 10, window: "day" };
+  if (plan === "api" || plan === "pro") return { limit: 100, window: "month" };
+  if (plan === "unlimited") return { limit: 30, window: "month" };
   return { limit: 1, window: "month" };
 }
 

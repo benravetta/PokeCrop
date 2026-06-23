@@ -32,7 +32,7 @@ const scalarConfig = {
   metaData: {
     title: "GemCheck API",
     description:
-      "Crop trading cards and run AI pre-grades — same engine as the web app. Requires an API plan.",
+      "Crop trading cards and run AI pre-grades — same engine as the web app. Requires the Enterprise plan.",
   },
   customCss: `
     .scalar-app { --scalar-color-accent: #7c6cf6; }
@@ -110,9 +110,9 @@ export function DocsPage() {
             Detect and extract cards from photos, run AI pre-grades with per-company estimates,
             and download the same PDF report as the web app. Requires the{" "}
             <Link to="/pricing" className="text-accent hover:underline">
-              API plan
+              Enterprise plan
             </Link>{" "}
-            (£19.99/mo) — create keys on{" "}
+            (£29.99/mo) — create keys on{" "}
             <Link to="/account" className="text-accent hover:underline">
               Account
             </Link>
@@ -138,7 +138,7 @@ export function DocsPage() {
               to="/pricing"
               className="inline-flex items-center gap-1.5 rounded-lg bg-accent/15 border border-accent/30 px-3.5 py-2 text-[13px] text-accent hover:bg-accent/25 transition-colors"
             >
-              Subscribe to API plan
+              Subscribe to Enterprise
             </Link>
           </div>
 
@@ -154,7 +154,7 @@ export function DocsPage() {
             <div className="rounded-xl border border-border-subtle bg-surface p-4">
               <p className="font-medium text-text-primary mb-1">Limits</p>
               <p className="text-text-secondary">
-                60 crops/min · 20 grades/day · PDF via <code>format=pdf</code>
+                60 crops/min · 100 grades/mo (Pro+) · PDF via <code>format=pdf</code>
               </p>
             </div>
           </div>

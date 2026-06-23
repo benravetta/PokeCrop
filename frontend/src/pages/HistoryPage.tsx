@@ -41,7 +41,8 @@ function usageLabel(e: UsageEvent): string {
       : "Purchased credit";
   }
   // Unlimited crops/grades on paid plans record no per-window number.
-  if (e.used_after == null) return e.plan === "api" || e.plan === "unlimited" ? "Unlimited" : "—";
+  if (e.used_after == null)
+    return e.plan === "api" || e.plan === "unlimited" || e.plan === "pro" ? "Unlimited" : "—";
 
   const when =
     e.quota_window === "month" ? "this month" : e.quota_window === "day" ? "today" : "";

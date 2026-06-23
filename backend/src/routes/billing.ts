@@ -65,8 +65,8 @@ router.post("/billing/checkout", requireAuth, async (req: Request, res: Response
     res.status(503).json({ error: "Billing is not configured." });
     return;
   }
-  const plan = req.body?.plan as "unlimited" | "api" | undefined;
-  if (plan !== "unlimited" && plan !== "api") {
+  const plan = req.body?.plan as "unlimited" | "pro" | "api" | undefined;
+  if (plan !== "unlimited" && plan !== "pro" && plan !== "api") {
     res.status(400).json({ error: "Unknown plan." });
     return;
   }

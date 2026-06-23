@@ -14,9 +14,10 @@ an optional **PDF report** identical to the web download.
 
 | Plan | Price | API access |
 |------|-------|------------|
-| Free | £0 | No — use the web app only |
-| Unlimited | £7.99/mo | No |
-| **API** | **£19.99/mo** | **Yes** — self-serve keys, unlimited crops, 20 grades/day |
+| Free | £0 | No — web app only |
+| Premium | £9.99/mo | No — 30 pre-grades/month |
+| Pro | £19.99/mo | No — 100 pre-grades/month |
+| **Enterprise** | **£29.99/mo** | **Yes** — Pro + REST API, 100 pre-grades/month |
 
 Subscribe on the [Pricing](/pricing) page, then create keys on [Account](/account).
 Keys are shown **once** at creation (\`pk_live_…\`). Store them securely.
@@ -153,7 +154,7 @@ Key \`result\` fields: \`card_identification\`, \`company_estimates\`, \`submiss
 **PDF response:** Same request with \`format=pdf\`. Returns \`application/pdf\` attachment.
 Include \`front\` (and \`back\` if available) in the multipart upload — images are embedded in the PDF.
 
-**Quota:** API plan = **20 grades per UTC day**. Purchased one-off credits stack on top.
+**Quota:** Premium = **30 grades per UTC month**. Pro and Enterprise = **100/month**. Purchased one-off credits stack on top.
 \`not_a_card\` responses do **not** consume quota.
 
 **Idempotency:** Send \`Idempotency-Key: your-unique-id\` (8–128 chars, \`[A-Za-z0-9_-]\`).
@@ -169,7 +170,7 @@ If a grade with the same key is still running, you get \`429\` with \`Retry-Afte
 | Burst | Account | 60/min | Successful crops |
 | Daily soft cap | Account | 5000/day | Successful crops |
 | Straighten | Account | 30/min | Successful straighten calls |
-| Grade quota | Account | 20/day | Grades (API plan) |
+| Grade quota | Account | 100/month (Pro/Enterprise) | Grades |
 
 Response headers on crop (and straighten):
 

@@ -1,4 +1,5 @@
 import Stripe from "stripe";
+import { type SubscriptionPlan } from "./plans.js";
 
 const KEY = process.env.STRIPE_SECRET_KEY || "";
 
@@ -18,9 +19,21 @@ export function getStripe(): Stripe {
   return client;
 }
 
-export const PRICE_IDS: Record<"unlimited" | "api", string> = {
-  unlimited: process.env.STRIPE_PRICE_UNLIMITED || "",
-  api: process.env.STRIPE_PRICE_API || "",
+/** Premium (£9.99/mo) — internal plan id `unlimited`. */
+export const PRICE_PREMIUM =
+  process.env.STRIPE_PRICE_UNLIMITED || "price_1TldiFIXClJKdqLnZrYEHwrv";
+
+/** Pro (£19.99/mo). */
+export const PRICE_PRO =
+  process.env.STRIPE_PRICE_PRO || "price_1TldjqIXClJKdqLnKCX3k5Xs";
+
+/** Enterprise (Pro + REST API) — internal plan id `api`. */
+export const PRICE_ENTERPRISE = process.env.STRIPE_PRICE_API || "";
+
+export const PRICE_IDS: Record<SubscriptionPlan, string> = {
+  unlimited: PRICE_PREMIUM,
+  pro: PRICE_PRO,
+  api: PRICE_ENTERPRISE,
 };
 
 // One-time (mode: "payment") price for buying a single grade without a
@@ -32,11 +45,10 @@ export function isGradeSinglePriceConfigured(): boolean {
 }
 
 // Map a Stripe price id back to one of our plan tiers.
-export function planForPrice(
-  priceId: string | undefined | null
-): "unlimited" | "api" | null {
+export function planForPrice(priceId: string | undefined | null): SubscriptionPlan | null {
   if (!priceId) return null;
   if (priceId === PRICE_IDS.unlimited) return "unlimited";
+  if (priceId === PRICE_IDS.pro) return "pro";
   if (priceId === PRICE_IDS.api) return "api";
   return null;
 }

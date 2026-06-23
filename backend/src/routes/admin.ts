@@ -268,7 +268,7 @@ router.post("/admin/users/:id/role", requireAdmin, async (req: Request, res: Res
 // optional status lets an admin set the subscription state explicitly.
 router.post("/admin/users/:id/plan", requireAdmin, async (req: Request, res: Response) => {
   const plan = req.body?.plan;
-  if (plan !== "free" && plan !== "unlimited" && plan !== "api") {
+  if (plan !== "free" && plan !== "unlimited" && plan !== "pro" && plan !== "api") {
     res.status(400).json({ error: "Invalid plan." });
     return;
   }

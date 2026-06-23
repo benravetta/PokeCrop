@@ -87,7 +87,7 @@ export async function requireApiKey(
     sendApiError(
       res,
       "forbidden_plan",
-      "API access requires the API plan. Upgrade at /pricing."
+      "Enterprise access requires the Enterprise plan. Upgrade at /pricing."
     );
     return;
   }

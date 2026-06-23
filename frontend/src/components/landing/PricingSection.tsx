@@ -1,9 +1,9 @@
 import { Link } from "react-router-dom";
-import { ArrowRight, Check, FileText } from "lucide-react";
+import { ArrowRight, Check, FileText, Tag } from "lucide-react";
 import { PRICING_TIERS, SINGLE_GRADE } from "./data";
+import { isProLaunchPromoActive, PRO_LAUNCH_PROMO } from "../pricing/pricingCompare";
+import type { Plan, SubscriptionPlan } from "../../lib/plans";
 import { SectionHeading } from "./shared";
-
-type Plan = "free" | "unlimited" | "api" | null;
 
 export function SingleGradeOffer({
   loggedIn,
@@ -77,18 +77,28 @@ export function PricingSection({
   onBuyGrade,
 }: {
   loggedIn: boolean;
-  plan: Plan;
-  onUpgrade: (plan: "unlimited" | "api") => void;
+  plan: Plan | null;
+  onUpgrade: (plan: SubscriptionPlan) => void;
   onBuyGrade: () => void;
 }) {
+  const proPromoLive = isProLaunchPromoActive();
+
   return (
     <section id="pricing" className="scroll-mt-20 py-16 sm:py-24">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <SectionHeading
           kicker="Simple pricing"
           title="Start free. Pay per card if you prefer."
-          copy="Every account gets one free grade a month. Subscriptions for regular use — or buy a single report whenever you need one."
+          copy="Every account gets one free grade a month. Premium from £9.99/mo — or buy a single report whenever you need one."
         />
+
+        {proPromoLive && (
+          <p className="mt-4 text-center text-[12.5px] text-accent">
+            <Tag className="w-3.5 h-3.5 inline mr-1 -mt-0.5" />
+            Pro launch: {PRO_LAUNCH_PROMO.code} — {PRO_LAUNCH_PROMO.headline} (new customers, until
+            1 Aug)
+          </p>
+        )}
 
         <div className="mt-8">
           <SingleGradeOffer loggedIn={loggedIn} onBuyGrade={onBuyGrade} />
@@ -98,12 +108,14 @@ export function PricingSection({
           Or subscribe
         </p>
 
-        <div className="mt-6 grid md:grid-cols-3 gap-4 lg:gap-6">
+        <div className="mt-6 grid sm:grid-cols-2 xl:grid-cols-4 gap-4 lg:gap-5">
           {PRICING_TIERS.map((tier) => {
             const isCurrent =
               loggedIn &&
+              plan !== null &&
               ((tier.id === "free" && plan === "free") ||
                 (tier.id === "unlimited" && plan === "unlimited") ||
+                (tier.id === "pro" && plan === "pro") ||
                 (tier.id === "api" && plan === "api"));
 
             return (
@@ -116,8 +128,13 @@ export function PricingSection({
                 }`}
               >
                 {tier.highlight && (
-                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-accent px-3 py-0.5 text-[11px] font-semibold text-white">
+                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-accent px-3 py-0.5 text-[11px] font-semibold text-white whitespace-nowrap">
                     Most popular
+                  </span>
+                )}
+                {tier.id === "pro" && proPromoLive && (
+                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-emerald-600 px-3 py-0.5 text-[11px] font-semibold text-white whitespace-nowrap">
+                    {PRO_LAUNCH_PROMO.code} · 50% off 3 mo
                   </span>
                 )}
                 <div className="text-sm font-medium text-text-secondary">{tier.name}</div>
@@ -138,21 +155,14 @@ export function PricingSection({
                     <span className="block w-full rounded-xl border border-border-strong py-2.5 text-sm font-medium text-center text-text-muted">
                       Current plan
                     </span>
-                  ) : tier.id === "unlimited" && loggedIn && plan === "free" ? (
+                  ) : tier.id !== "free" && loggedIn ? (
                     <button
-                      onClick={() => onUpgrade("unlimited")}
+                      onClick={() => onUpgrade(tier.id as SubscriptionPlan)}
                       className={`block w-full rounded-xl py-2.5 text-sm font-semibold text-center transition-colors ${
                         tier.highlight
                           ? "bg-accent text-white hover:bg-accent-hover shadow-lg shadow-accent/20"
                           : "border border-border-strong text-text-primary hover:bg-surface-overlay"
                       }`}
-                    >
-                      {tier.cta}
-                    </button>
-                  ) : tier.id === "api" && loggedIn && plan === "unlimited" ? (
-                    <button
-                      onClick={() => onUpgrade("api")}
-                      className="block w-full rounded-xl border border-border-strong py-2.5 text-sm font-semibold text-center text-text-primary hover:bg-surface-overlay transition-colors"
                     >
                       {tier.cta}
                     </button>
@@ -191,8 +201,8 @@ export function PlanCta({
   onBuyGrade,
 }: {
   loggedIn: boolean;
-  plan: Plan;
-  onUpgrade: (plan: "unlimited" | "api") => void;
+  plan: Plan | null;
+  onUpgrade: (plan: SubscriptionPlan) => void;
   onBuyGrade: () => void;
 }) {
   let title: string;
@@ -210,19 +220,28 @@ export function PlanCta({
     secondary = { label: `Buy one grade — ${SINGLE_GRADE.price}`, to: "/register" };
   } else if (plan === "free") {
     title = "Need more than one grade a month?";
-    copy = `Buy a single report for ${SINGLE_GRADE.price}, or upgrade to Unlimited for up to 10 grades a day.`;
-    primary = { label: "Upgrade to Unlimited", onClick: () => onUpgrade("unlimited") };
+    copy = `Premium is £9.99/mo for 30 reports, or buy a single report for ${SINGLE_GRADE.price}.`;
+    primary = { label: "Go Premium", onClick: () => onUpgrade("unlimited") };
     secondary = { label: `Buy one grade — ${SINGLE_GRADE.price}`, onClick: onBuyGrade };
   } else if (plan === "unlimited") {
-    title = "Add API access for £19.99/mo.";
-    copy = "Everything in Unlimited, plus programmatic cropping for automation and bulk work.";
-    primary = { label: "Upgrade to API", onClick: () => onUpgrade("api") };
+    title = "Grading at volume?";
+    copy = "Pro adds 100 reports per month and priority processing — or jump to Enterprise for API access.";
+    primary = { label: "Upgrade to Pro", onClick: () => onUpgrade("pro") };
+    secondary = { label: "Compare plans", to: "/pricing" };
+  } else if (plan === "pro") {
+    title = "Automate with the Enterprise plan.";
+    copy = "Everything in Pro plus REST API access, self-serve keys, and bulk crop automation.";
+    primary = { label: "Upgrade to Enterprise", onClick: () => onUpgrade("api") };
     secondary = { label: "View the API docs", to: "/docs" };
-  } else {
-    title = "You're on the API plan.";
+  } else if (plan === "api") {
+    title = "You're on Enterprise.";
     copy = "Manage your keys and usage, or jump straight into the app.";
     primary = { label: "Open the app", to: "/crop" };
     secondary = { label: "Manage API keys", to: "/account" };
+  } else {
+    title = "Manage your subscription.";
+    copy = "View plans, billing, and usage on your account page.";
+    primary = { label: "Account settings", to: "/account" };
   }
 
   return (

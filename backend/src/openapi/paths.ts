@@ -161,7 +161,7 @@ const { image_base64, metadata } = await res.json();`
 
 **Idempotency:** \`Idempotency-Key\` header recommended for safe retries.
 
-**Quota:** 20 grades/day on API plan. \`not_a_card\` does not consume quota.`,
+**Quota:** Enterprise includes **100 pre-grades per UTC month** (web + API). Purchased credits stack on top.`,
       parameters: [
         {
           name: "format",

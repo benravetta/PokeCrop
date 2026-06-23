@@ -3,18 +3,12 @@ import { Link } from "react-router-dom";
 import { Menu, Upload, X } from "lucide-react";
 import { NAV_LINKS } from "./data";
 import { Wordmark } from "./shared";
+import { PLAN_LABELS, type Plan, type SubscriptionPlan } from "../../lib/plans";
 
-type Plan = "free" | "unlimited" | "api" | null;
-
-function PlanBadge({ plan }: { plan: Exclude<Plan, null> }) {
-  const labels: Record<string, string> = {
-    free: "Free plan",
-    unlimited: "Unlimited",
-    api: "API plan",
-  };
+function PlanBadge({ plan }: { plan: Plan }) {
   return (
     <span className="rounded-full border border-border-subtle bg-surface-overlay/60 px-2.5 py-1 text-[11px] font-medium text-text-secondary">
-      {labels[plan]}
+      {PLAN_LABELS[plan]}
     </span>
   );
 }
@@ -25,8 +19,8 @@ export function TopNav({
   onUpgrade,
 }: {
   loggedIn: boolean;
-  plan: Plan;
-  onUpgrade: (plan: "unlimited" | "api") => void;
+  plan: Plan | null;
+  onUpgrade: (plan: SubscriptionPlan) => void;
 }) {
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -83,10 +77,18 @@ export function TopNav({
               )}
               {plan === "unlimited" && (
                 <button
+                  onClick={() => onUpgrade("pro")}
+                  className="px-3 py-2 rounded-lg text-sm font-semibold text-accent hover:bg-accent/10 transition-colors"
+                >
+                  Go Pro
+                </button>
+              )}
+              {plan === "pro" && (
+                <button
                   onClick={() => onUpgrade("api")}
                   className="px-3 py-2 rounded-lg text-sm font-semibold text-accent hover:bg-accent/10 transition-colors"
                 >
-                  Get API access
+                  Get Enterprise
                 </button>
               )}
               <Link

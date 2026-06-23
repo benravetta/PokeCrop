@@ -20,7 +20,7 @@ async function requireApiPlan(
     if (plan !== "api") {
       res
         .status(403)
-        .json({ error: "API keys require the API plan. Upgrade at /pricing." });
+        .json({ error: "API keys require the Enterprise plan. Upgrade at /pricing." });
       return;
     }
     next();

@@ -1,6 +1,7 @@
 import { SINGLE_GRADE } from "../landing/data";
+import { PLAN_LABELS, type Plan } from "../../lib/plans";
 
-export type PlanColumn = "free" | "unlimited" | "api" | "single";
+export type PlanColumn = "free" | "unlimited" | "pro" | "api" | "single";
 
 export type CompareCell = boolean | string;
 
@@ -9,6 +10,7 @@ export interface CompareRow {
   hint?: string;
   free: CompareCell;
   unlimited: CompareCell;
+  pro: CompareCell;
   api: CompareCell;
   single: CompareCell;
 }
@@ -18,26 +20,40 @@ export interface CompareSection {
   rows: CompareRow[];
 }
 
+/** Pro launch offer — coupon must exist in Stripe as promotion code GEM50. */
+export const PRO_LAUNCH_PROMO = {
+  code: "GEM50",
+  headline: "50% off for 3 months",
+  detail: "New customers only · enter GEM50 at checkout · offer ends 1 Aug 2026",
+  activeUntil: "2026-08-01",
+} as const;
+
+export function isProLaunchPromoActive(now = new Date()): boolean {
+  return now < new Date(`${PRO_LAUNCH_PROMO.activeUntil}T23:59:59Z`);
+}
+
 export const PLAN_COLUMNS: {
   id: PlanColumn;
   name: string;
   price: string;
   cadence?: string;
 }[] = [
-  { id: "free", name: "Free", price: "£0", cadence: "forever" },
-  { id: "unlimited", name: "Unlimited", price: "£7.99", cadence: "/mo" },
-  { id: "api", name: "API", price: "£19.99", cadence: "/mo" },
+  { id: "free", name: PLAN_LABELS.free, price: "£0", cadence: "forever" },
+  { id: "unlimited", name: PLAN_LABELS.unlimited, price: "£9.99", cadence: "/mo" },
+  { id: "pro", name: PLAN_LABELS.pro, price: "£19.99", cadence: "/mo" },
+  { id: "api", name: PLAN_LABELS.api, price: "£29.99", cadence: "/mo" },
   { id: "single", name: "Pay as you go", price: SINGLE_GRADE.price, cadence: "one-time" },
 ];
 
 export const SUBSCRIPTION_TIERS = [
   {
     id: "free" as const,
-    name: "Free",
+    name: PLAN_LABELS.free,
     price: "£0",
     cadence: "forever",
     blurb: "Try cropping and pre-grading before you commit to a subscription.",
     highlight: false,
+    promo: null as string | null,
     features: [
       "3 crops per day",
       "1 pre-grade report per month",
@@ -48,32 +64,49 @@ export const SUBSCRIPTION_TIERS = [
   },
   {
     id: "unlimited" as const,
-    name: "Unlimited",
-    price: "£7.99",
+    name: PLAN_LABELS.unlimited,
+    price: "£9.99",
     cadence: "/mo",
-    blurb: "For collectors and sellers who crop and check cards regularly.",
+    blurb: "For collectors who crop and check cards regularly.",
     highlight: true,
+    promo: null,
     features: [
       "Unlimited crops every day",
-      "Up to 10 pre-grades per day",
+      "30 pre-grade reports per month",
+      "Full PDF reports & prep checklist",
+      "All 5 grading companies compared",
+      "Buy extra grades anytime",
+    ],
+  },
+  {
+    id: "pro" as const,
+    name: PLAN_LABELS.pro,
+    price: "£19.99",
+    cadence: "/mo",
+    blurb: "For sellers and serious collectors grading at volume.",
+    highlight: false,
+    promo: PRO_LAUNCH_PROMO.headline,
+    features: [
+      "Everything in Premium",
+      "100 pre-grade reports per month",
       "Priority processing",
-      "Everything in Free",
       "Buy extra grades anytime",
     ],
   },
   {
     id: "api" as const,
-    name: "API access",
-    price: "£19.99",
+    name: PLAN_LABELS.api,
+    price: "£29.99",
     cadence: "/mo",
-    blurb: "Automate cropping and pre-grading in your own tools and workflows.",
+    blurb: "Pro features plus REST API access for shops and automation.",
     highlight: false,
+    promo: null,
     features: [
-      "Everything in Unlimited",
+      "Everything in Pro",
       "REST API for crop & grade",
-      "20 API pre-grades per day",
       "Self-serve API keys",
       "Bulk crop automation",
+      "100 pre-grades per month (web + API)",
     ],
   },
 ];
@@ -86,6 +119,7 @@ export const COMPARE_SECTIONS: CompareSection[] = [
         label: "Daily web crops",
         free: "3 per day",
         unlimited: "Unlimited",
+        pro: "Unlimited",
         api: "Unlimited",
         single: "—",
       },
@@ -93,6 +127,7 @@ export const COMPARE_SECTIONS: CompareSection[] = [
         label: "Manual crop editor",
         free: true,
         unlimited: true,
+        pro: true,
         api: true,
         single: "—",
       },
@@ -100,6 +135,7 @@ export const COMPARE_SECTIONS: CompareSection[] = [
         label: "Original & web PNG exports",
         free: true,
         unlimited: true,
+        pro: true,
         api: true,
         single: "—",
       },
@@ -107,6 +143,7 @@ export const COMPARE_SECTIONS: CompareSection[] = [
         label: "Send cropped card to grader",
         free: true,
         unlimited: true,
+        pro: true,
         api: true,
         single: "—",
       },
@@ -115,6 +152,7 @@ export const COMPARE_SECTIONS: CompareSection[] = [
         hint: "Programmatic cropping for automation",
         free: false,
         unlimited: false,
+        pro: false,
         api: true,
         single: false,
       },
@@ -126,8 +164,9 @@ export const COMPARE_SECTIONS: CompareSection[] = [
       {
         label: "Reports included",
         free: "1 / month",
-        unlimited: "10 / day",
-        api: "20 / day (API)",
+        unlimited: "30 / month",
+        pro: "100 / month",
+        api: "100 / month",
         single: "1 per purchase",
       },
       {
@@ -135,6 +174,7 @@ export const COMPARE_SECTIONS: CompareSection[] = [
         hint: "PSA, Beckett, CGC, ACE & TAG",
         free: true,
         unlimited: true,
+        pro: true,
         api: true,
         single: true,
       },
@@ -142,6 +182,7 @@ export const COMPARE_SECTIONS: CompareSection[] = [
         label: "Full PDF report download",
         free: true,
         unlimited: true,
+        pro: true,
         api: true,
         single: true,
       },
@@ -149,6 +190,7 @@ export const COMPARE_SECTIONS: CompareSection[] = [
         label: "Prep checklist & flaw notes",
         free: true,
         unlimited: true,
+        pro: true,
         api: true,
         single: true,
       },
@@ -156,6 +198,7 @@ export const COMPARE_SECTIONS: CompareSection[] = [
         label: "Centering measurement tool",
         free: true,
         unlimited: true,
+        pro: true,
         api: true,
         single: true,
       },
@@ -163,6 +206,7 @@ export const COMPARE_SECTIONS: CompareSection[] = [
         label: "Rough value ranges",
         free: true,
         unlimited: true,
+        pro: true,
         api: true,
         single: true,
       },
@@ -171,6 +215,7 @@ export const COMPARE_SECTIONS: CompareSection[] = [
         hint: "Pay-as-you-go grades add to your allowance",
         free: true,
         unlimited: true,
+        pro: true,
         api: true,
         single: true,
       },
@@ -178,6 +223,7 @@ export const COMPARE_SECTIONS: CompareSection[] = [
         label: "REST API grade endpoint",
         free: false,
         unlimited: false,
+        pro: false,
         api: true,
         single: false,
       },
@@ -189,7 +235,8 @@ export const COMPARE_SECTIONS: CompareSection[] = [
       {
         label: "Priority processing",
         free: false,
-        unlimited: true,
+        unlimited: false,
+        pro: true,
         api: true,
         single: false,
       },
@@ -197,6 +244,7 @@ export const COMPARE_SECTIONS: CompareSection[] = [
         label: "Self-serve API keys",
         free: false,
         unlimited: false,
+        pro: false,
         api: true,
         single: false,
       },
@@ -204,6 +252,7 @@ export const COMPARE_SECTIONS: CompareSection[] = [
         label: "Usage & report history",
         free: true,
         unlimited: true,
+        pro: true,
         api: true,
         single: true,
       },
@@ -211,6 +260,7 @@ export const COMPARE_SECTIONS: CompareSection[] = [
         label: "Cancel any time",
         free: "—",
         unlimited: true,
+        pro: true,
         api: true,
         single: "—",
       },
@@ -225,14 +275,20 @@ export const PRICING_FAQ = [
   },
   {
     q: "Do pay-as-you-go grades expire?",
-    a: "No. Purchased credits remain on your account until you run a report. They stack on top of your free monthly grade or daily subscription allowance.",
+    a: "No. Purchased credits remain on your account until you run a report. They stack on top of your free monthly grade or subscription allowance.",
   },
   {
-    q: "Can I use the API on Unlimited?",
-    a: "API access requires the £19.99/mo API plan. Unlimited covers unlimited web crops and up to 10 web pre-grades per day.",
+    q: "How does the Pro launch offer work?",
+    a: "New customers can enter promotion code GEM50 at checkout for 50% off Pro for the first three months. The offer ends 1 August 2026. Configure the coupon in Stripe with new-customer and duration restrictions.",
+  },
+  {
+    q: "What's the difference between Pro and Enterprise?",
+    a: "Pro includes 100 web pre-grades per month and priority processing. Enterprise adds everything in Pro plus REST API access, self-serve API keys, and programmatic crop & grade endpoints.",
   },
   {
     q: "What counts toward my crop limit?",
-    a: "Each successful crop on the web app counts toward your daily free limit. Failed detections don't. Unlimited and API plans have no daily web crop cap.",
+    a: "Each successful crop on the web app counts toward your daily free limit. Failed detections don't. Premium, Pro, and Enterprise include unlimited web crops.",
   },
 ] as const;
+
+export type SubscriptionPlanId = Exclude<Plan, "free">;

@@ -21,15 +21,17 @@ import {
   type AiSpend,
 } from "../lib/api";
 import { AdminUserDrawer } from "../components/AdminUserDrawer";
+import { PLAN_LABELS } from "../lib/plans";
 
 const PLAN_STYLES: Record<string, string> = {
   free: "bg-surface-overlay text-text-secondary border-border-subtle",
   unlimited: "bg-accent/15 text-accent border-accent/30",
+  pro: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
   api: "bg-purple-500/15 text-purple-300 border-purple-500/30",
 };
 
-type Filter = "all" | "free" | "unlimited" | "api" | "admin" | "suspended";
-const FILTERS: Filter[] = ["all", "free", "unlimited", "api", "admin", "suspended"];
+type Filter = "all" | "free" | "unlimited" | "pro" | "api" | "admin" | "suspended";
+const FILTERS: Filter[] = ["all", "free", "unlimited", "pro", "api", "admin", "suspended"];
 
 export function AdminPage() {
   const [query, setQuery] = useState("");
@@ -106,8 +108,8 @@ export function AdminPage() {
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
           <StatCard icon={<Users className="w-4 h-4" />} label="Users" value={stats?.users_total} />
-          <StatCard icon={<InfinityIcon className="w-4 h-4" />} label="Unlimited" value={stats?.unlimited_active} />
-          <StatCard icon={<KeyRound className="w-4 h-4" />} label="API plan" value={stats?.api_active} />
+          <StatCard icon={<InfinityIcon className="w-4 h-4" />} label="Premium" value={stats?.unlimited_active} />
+          <StatCard icon={<KeyRound className="w-4 h-4" />} label="Enterprise" value={stats?.api_active} />
           <StatCard icon={<Ban className="w-4 h-4" />} label="Suspended" value={stats?.suspended} tone={stats?.suspended ? "error" : undefined} />
           <StatCard icon={<Scissors className="w-4 h-4" />} label="Crops today" value={stats ? stats.crops_web_today + stats.crops_api_today : undefined} />
           <StatCard icon={<KeyRound className="w-4 h-4" />} label="Active keys" value={stats?.active_keys} />
@@ -220,7 +222,7 @@ export function AdminPage() {
                           PLAN_STYLES[u.plan] ?? PLAN_STYLES.free
                         }`}
                       >
-                        {u.plan}
+                        {PLAN_LABELS[u.plan as keyof typeof PLAN_LABELS] ?? u.plan}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-[13px] text-text-secondary hidden sm:table-cell">

@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { useMe } from "../hooks/useMe";
 import { startCheckout, startGradeCheckout } from "../lib/api";
+import type { Plan, SubscriptionPlan } from "../lib/plans";
 import { TopNav } from "../components/landing/TopNav";
 import { HeroSection } from "../components/landing/HeroSection";
 import { HowItWorksSection } from "../components/landing/CompareAndHow";
@@ -12,8 +13,6 @@ import { ReviewsSection } from "../components/landing/SocialProof";
 import { PricingSection, PlanCta } from "../components/landing/PricingSection";
 import { ApiSection, HonestSection, SiteFooter } from "../components/landing/FooterSections";
 
-type Plan = "free" | "unlimited" | "api" | null;
-
 function useViewer() {
   const session = useAuth((s) => s.session);
   const me = useMe((s) => s.me);
@@ -21,7 +20,7 @@ function useViewer() {
   useEffect(() => {
     if (session) void refresh();
   }, [session, refresh]);
-  const plan: Plan = session ? (me?.plan ?? "free") : null;
+  const plan: Plan | null = session ? (me?.plan ?? "free") : null;
   return { loggedIn: !!session, plan };
 }
 
@@ -34,7 +33,7 @@ async function goBuyGrade() {
   }
 }
 
-async function goCheckout(plan: "unlimited" | "api") {
+async function goCheckout(plan: SubscriptionPlan) {
   try {
     const url = await startCheckout(plan);
     window.location.href = url;

@@ -2,15 +2,14 @@ import { Link } from "react-router-dom";
 import { ArrowRight, KeyRound, ShieldCheck, Terminal, Zap } from "lucide-react";
 import { API_SNIPPET } from "./data";
 import { SectionHeading } from "./shared";
-
-type Plan = "free" | "unlimited" | "api" | null;
+import type { Plan } from "../../lib/plans";
 
 export function ApiSection({
   plan,
   loggedIn,
   onUpgrade,
 }: {
-  plan: Plan;
+  plan: Plan | null;
   loggedIn: boolean;
   onUpgrade: () => void;
 }) {
@@ -27,7 +26,7 @@ export function ApiSection({
   if (plan === "api") {
     cta = { label: "Manage your API keys", action: () => (window.location.href = "/account") };
   } else if (loggedIn) {
-    cta = { label: "Upgrade to API — £19.99/mo", action: onUpgrade };
+    cta = { label: "Upgrade to Enterprise — from £29.99/mo", action: onUpgrade };
   } else {
     cta = { label: "Create an account", action: () => (window.location.href = "/register") };
   }
