@@ -1,58 +1,22 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { Check, Sparkles, Loader2 } from "lucide-react";
+import { useAuth } from "../hooks/useAuth";
 import { useMe } from "../hooks/useMe";
-import { startCheckout, openBillingPortal } from "../lib/api";
+import { startCheckout, startGradeCheckout, openBillingPortal } from "../lib/api";
+import { SingleGradeOffer } from "../components/landing/PricingSection";
+import { FeatureCompareTable } from "../components/pricing/FeatureCompareTable";
+import { PRICING_FAQ, SUBSCRIPTION_TIERS } from "../components/pricing/pricingCompare";
+import type { PlanColumn } from "../components/pricing/pricingCompare";
 
 type PlanId = "free" | "unlimited" | "api";
 
-interface Tier {
-  id: PlanId;
-  name: string;
-  price: string;
-  cadence?: string;
-  blurb: string;
-  features: string[];
-  highlight?: boolean;
-}
-
-const TIERS: Tier[] = [
-  {
-    id: "free",
-    name: "Free",
-    price: "£0",
-    blurb: "Get started with a few crops a day.",
-    features: ["3 crops per day", "Full crop editor", "Original & web exports"],
-  },
-  {
-    id: "unlimited",
-    name: "Unlimited",
-    price: "£7.99",
-    cadence: "/mo",
-    blurb: "For sellers and collectors who crop a lot.",
-    features: [
-      "Unlimited crops",
-      "Everything in Free",
-      "Priority processing",
-    ],
-    highlight: true,
-  },
-  {
-    id: "api",
-    name: "API access",
-    price: "£19.99",
-    cadence: "/mo",
-    blurb: "Automate cropping in your own tools.",
-    features: [
-      "Unlimited crops (web + API)",
-      "20 AI pre-grades per day via API",
-      "Self-serve API keys",
-    ],
-  },
-];
-
 export function PricingPage() {
+  const session = useAuth((s) => s.session);
+  const loggedIn = !!session;
   const { me, refresh } = useMe();
   const [busy, setBusy] = useState<PlanId | null>(null);
+  const [gradeBusy, setGradeBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -61,17 +25,17 @@ export function PricingPage() {
 
   const currentPlan = me?.plan ?? "free";
   const isPaying = currentPlan !== "free";
+  const highlightPlan: PlanColumn | undefined =
+    currentPlan === "free" || currentPlan === "unlimited" || currentPlan === "api"
+      ? currentPlan
+      : undefined;
 
-  const handle = async (tier: Tier) => {
-    if (tier.id === "free") return;
+  const handleUpgrade = async (tierId: PlanId) => {
+    if (tierId === "free") return;
     setError(null);
-    setBusy(tier.id);
+    setBusy(tierId);
     try {
-      // Existing subscribers switch/cancel through the Stripe portal; new
-      // subscribers go straight to Checkout.
-      const url = isPaying
-        ? await openBillingPortal()
-        : await startCheckout(tier.id);
+      const url = isPaying ? await openBillingPortal() : await startCheckout(tierId);
       window.location.href = url;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
@@ -79,15 +43,29 @@ export function PricingPage() {
     }
   };
 
+  const handleBuyGrade = async () => {
+    setError(null);
+    setGradeBusy(true);
+    try {
+      const { url } = await startGradeCheckout();
+      window.location.href = url;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong.");
+      setGradeBusy(false);
+    }
+  };
+
   return (
     <div className="flex-1 min-h-0 overflow-y-auto">
-      <div className="max-w-4xl mx-auto px-5 py-10">
-        <div className="text-center mb-9">
-          <h1 className="text-2xl font-semibold text-text-primary">
+      <div className="max-w-6xl mx-auto px-5 py-10 sm:py-12">
+        <div className="text-center mb-10">
+          <h1 className="text-2xl sm:text-3xl font-semibold text-text-primary tracking-tight">
             Simple, fair pricing
           </h1>
-          <p className="mt-2 text-sm text-text-secondary">
-            Crop Pokémon cards perfectly. Upgrade any time.
+          <p className="mt-3 text-sm sm:text-base text-text-secondary max-w-xl mx-auto leading-relaxed">
+            Crop cards cleanly, pre-grade before you submit, and compare every major grading
+            company — start free, buy single reports as you need them, or subscribe for regular
+            use.
           </p>
         </div>
 
@@ -97,39 +75,49 @@ export function PricingPage() {
           </div>
         )}
 
-        <div className="grid gap-5 sm:grid-cols-3">
-          {TIERS.map((tier) => {
+        {gradeBusy ? (
+          <div className="mb-8 flex justify-center">
+            <Loader2 className="w-6 h-6 animate-spin text-accent" />
+          </div>
+        ) : (
+          <SingleGradeOffer loggedIn={loggedIn} onBuyGrade={handleBuyGrade} />
+        )}
+
+        <p className="mt-12 mb-6 text-center text-[11px] font-semibold uppercase tracking-wider text-text-muted">
+          Subscriptions
+        </p>
+
+        <div className="grid gap-5 lg:grid-cols-3">
+          {SUBSCRIPTION_TIERS.map((tier) => {
             const isCurrent = tier.id === currentPlan;
             return (
               <div
                 key={tier.id}
-                className={`relative rounded-2xl border p-5 flex flex-col ${
+                className={`relative rounded-2xl border p-5 sm:p-6 flex flex-col ${
                   tier.highlight
-                    ? "border-accent/50 bg-surface-raised shadow-xl"
+                    ? "border-accent/50 bg-surface-raised shadow-xl shadow-accent/5 ring-1 ring-accent/20"
                     : "border-border-subtle bg-surface-raised"
                 }`}
               >
                 {tier.highlight && (
                   <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 inline-flex items-center gap-1 rounded-full bg-accent px-2.5 py-0.5 text-[10.5px] font-semibold text-white">
-                    <Sparkles className="w-3 h-3" /> Popular
+                    <Sparkles className="w-3 h-3" /> Most popular
                   </span>
                 )}
-                <h2 className="text-sm font-semibold text-text-primary">
-                  {tier.name}
-                </h2>
+                <h2 className="text-sm font-semibold text-text-primary">{tier.name}</h2>
                 <div className="mt-2 flex items-baseline gap-0.5">
-                  <span className="text-2xl font-semibold text-text-primary">
+                  <span className="text-2xl sm:text-3xl font-semibold text-text-primary">
                     {tier.price}
                   </span>
                   {tier.cadence && (
                     <span className="text-[13px] text-text-muted">{tier.cadence}</span>
                   )}
                 </div>
-                <p className="mt-1.5 text-[12.5px] text-text-secondary leading-relaxed">
+                <p className="mt-2 text-[12.5px] text-text-secondary leading-relaxed">
                   {tier.blurb}
                 </p>
 
-                <ul className="mt-4 flex flex-col gap-2 flex-1">
+                <ul className="mt-5 flex flex-col gap-2.5 flex-1">
                   {tier.features.map((f) => (
                     <li key={f} className="flex items-start gap-2 text-[13px] text-text-secondary">
                       <Check className="w-4 h-4 text-accent mt-0.5 shrink-0" />
@@ -138,28 +126,37 @@ export function PricingPage() {
                   ))}
                 </ul>
 
-                <div className="mt-5">
+                <div className="mt-6">
                   {isCurrent ? (
                     <button
                       disabled
-                      className="w-full px-4 py-2.5 text-sm font-medium rounded-lg bg-surface-overlay text-text-muted border border-border-subtle cursor-default"
+                      className="w-full px-4 py-2.5 text-sm font-medium rounded-xl bg-surface-overlay text-text-muted border border-border-subtle cursor-default"
                     >
                       Current plan
                     </button>
                   ) : tier.id === "free" ? (
-                    <button
-                      disabled
-                      className="w-full px-4 py-2.5 text-sm font-medium rounded-lg bg-surface-overlay text-text-muted border border-border-subtle cursor-default"
-                    >
-                      Included
-                    </button>
+                    loggedIn ? (
+                      <button
+                        disabled
+                        className="w-full px-4 py-2.5 text-sm font-medium rounded-xl bg-surface-overlay text-text-muted border border-border-subtle cursor-default"
+                      >
+                        Included
+                      </button>
+                    ) : (
+                      <Link
+                        to="/register"
+                        className="block w-full text-center px-4 py-2.5 text-sm font-semibold rounded-xl bg-surface-overlay text-text-primary border border-border-subtle hover:bg-border-subtle transition-colors"
+                      >
+                        Start free
+                      </Link>
+                    )
                   ) : (
                     <button
-                      onClick={() => handle(tier)}
+                      onClick={() => handleUpgrade(tier.id)}
                       disabled={busy !== null}
-                      className={`w-full inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-medium rounded-lg transition-colors disabled:opacity-60 ${
+                      className={`w-full inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-semibold rounded-xl transition-colors disabled:opacity-60 ${
                         tier.highlight
-                          ? "bg-accent text-white hover:bg-accent-hover"
+                          ? "bg-accent text-white hover:bg-accent-hover shadow-lg shadow-accent/20"
                           : "bg-surface-overlay text-text-primary border border-border-subtle hover:bg-border-subtle"
                       }`}
                     >
@@ -168,7 +165,7 @@ export function PricingPage() {
                       ) : isPaying ? (
                         "Switch plan"
                       ) : (
-                        "Upgrade"
+                        `Upgrade to ${tier.name}`
                       )}
                     </button>
                   )}
@@ -178,9 +175,50 @@ export function PricingPage() {
           })}
         </div>
 
-        <p className="mt-8 text-center text-[11.5px] text-text-muted">
-          Prices in GBP. Cancel any time via the billing portal. The £19.99 API tier
-          reserves access while the public API is being built.
+        <section className="mt-14 sm:mt-16">
+          <div className="text-center mb-8">
+            <h2 className="text-lg sm:text-xl font-semibold text-text-primary">
+              Compare plans
+            </h2>
+            <p className="mt-2 text-sm text-text-secondary max-w-lg mx-auto">
+              Every plan includes the same full pre-grade report. Subscriptions add volume;
+              pay-as-you-go is there when you only need one more check.
+            </p>
+          </div>
+          <div className="rounded-2xl border border-border-subtle bg-surface-raised p-4 sm:p-6">
+            <FeatureCompareTable highlightPlan={highlightPlan} />
+          </div>
+        </section>
+
+        <section className="mt-14 sm:mt-16">
+          <h2 className="text-lg sm:text-xl font-semibold text-text-primary text-center mb-8">
+            Common questions
+          </h2>
+          <div className="grid gap-4 sm:grid-cols-2 max-w-4xl mx-auto">
+            {PRICING_FAQ.map((item) => (
+              <div
+                key={item.q}
+                className="rounded-xl border border-border-subtle bg-surface-raised p-4 sm:p-5"
+              >
+                <h3 className="text-sm font-semibold text-text-primary">{item.q}</h3>
+                <p className="mt-2 text-[13px] text-text-secondary leading-relaxed">{item.a}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <p className="mt-12 text-center text-[11.5px] text-text-muted leading-relaxed max-w-2xl mx-auto">
+          All prices in GBP. Subscriptions cancel any time via the billing portal — no lock-in.
+          Single-grade purchases are one-off; credit stays on your account until you use it.
+          {!loggedIn && (
+            <>
+              {" "}
+              <Link to="/register" className="text-accent hover:text-accent-hover">
+                Create a free account
+              </Link>{" "}
+              to get started.
+            </>
+          )}
         </p>
       </div>
     </div>

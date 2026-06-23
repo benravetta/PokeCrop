@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { ArrowRight, Check, Crop, ScanSearch } from "lucide-react";
+import { SINGLE_GRADE } from "./data";
 import { SectionHeading } from "./shared";
 
 const FEATURES = [
@@ -8,7 +9,11 @@ const FEATURES = [
     tag: "Grade",
     title: "Pre-grade before you submit",
     copy: "Photograph front and back. Get estimates for PSA, Beckett, CGC, ACE and TAG, measured centring, condition scores, and a prep checklist — as a PDF you can keep.",
-    bullets: ["Company-by-company estimates", "Preparation plan with flaw notes", "Rough value ranges"],
+    bullets: [
+      "Company-by-company estimates",
+      "Preparation plan with flaw notes",
+      `Single reports from ${SINGLE_GRADE.price} — no subscription`,
+    ],
     to: "/grade",
     cta: "Try Grade",
   },

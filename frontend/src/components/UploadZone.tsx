@@ -2,6 +2,7 @@ import { useCallback } from "react";
 import { useDropzone } from "react-dropzone";
 import { useAppStore } from "../hooks/useProcessing";
 import { Upload, FileImage, FileText, Loader2, HelpCircle } from "lucide-react";
+import { SingleGradePromo } from "./SingleGradePromo";
 
 export function UploadZone({ onHelp }: { onHelp?: () => void }) {
   const { upload, uploading, error } = useAppStore();
@@ -99,6 +100,8 @@ export function UploadZone({ onHelp }: { onHelp?: () => void }) {
             {error}
           </div>
         )}
+
+        <SingleGradePromo className="mt-6" />
 
         {onHelp && (
           <div className="mt-5 text-center">

@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { useMe } from "../hooks/useMe";
-import { startCheckout } from "../lib/api";
+import { startCheckout, startGradeCheckout } from "../lib/api";
 import { TopNav } from "../components/landing/TopNav";
 import { HeroSection } from "../components/landing/HeroSection";
 import { HowItWorksSection } from "../components/landing/CompareAndHow";
@@ -23,6 +23,15 @@ function useViewer() {
   }, [session, refresh]);
   const plan: Plan = session ? (me?.plan ?? "free") : null;
   return { loggedIn: !!session, plan };
+}
+
+async function goBuyGrade() {
+  try {
+    const { url } = await startGradeCheckout();
+    window.location.href = url;
+  } catch {
+    window.location.href = "/account";
+  }
 }
 
 async function goCheckout(plan: "unlimited" | "api") {
@@ -47,9 +56,14 @@ export function LandingPage() {
       <ReportPreview />
       <CropDemoSection />
       <ReviewsSection />
-      <PricingSection loggedIn={loggedIn} plan={plan} onUpgrade={goCheckout} />
+      <PricingSection
+        loggedIn={loggedIn}
+        plan={plan}
+        onUpgrade={goCheckout}
+        onBuyGrade={goBuyGrade}
+      />
       <ApiSection plan={plan} loggedIn={loggedIn} onUpgrade={() => goCheckout("api")} />
-      <PlanCta loggedIn={loggedIn} plan={plan} onUpgrade={goCheckout} />
+      <PlanCta loggedIn={loggedIn} plan={plan} onUpgrade={goCheckout} onBuyGrade={goBuyGrade} />
       <HonestSection />
       <SiteFooter />
     </div>

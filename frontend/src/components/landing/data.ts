@@ -108,6 +108,16 @@ export const PRICING_TIERS = [
   },
 ] as const;
 
+export const SINGLE_GRADE = {
+  price: "£2.99",
+  features: [
+    "One full pre-grade PDF report",
+    "All 5 grading companies compared",
+    "Prep checklist included",
+    "No subscription — credit stays on your account",
+  ],
+} as const;
+
 export const API_SNIPPET = `curl -X POST https://gemcheck.co.uk/v1/crop \\
   -H "Authorization: Bearer $GEMCHECK_API_KEY" \\
   -H "Accept: image/png" \\

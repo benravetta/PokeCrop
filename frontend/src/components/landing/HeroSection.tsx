@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { ArrowRight, CheckCircle2, Upload } from "lucide-react";
-import { HERO_CARD_IMG, HERO_REVIEW, STATS } from "./data";
+import { HERO_CARD_IMG, HERO_REVIEW, SINGLE_GRADE, STATS } from "./data";
 import { AppWindow, StarRating } from "./shared";
 
 type Plan = "free" | "unlimited" | "api" | null;
@@ -44,12 +44,12 @@ export function HeroSection({ loggedIn, plan }: { loggedIn: boolean; plan: Plan 
 
             <p className="mt-4 text-sm text-text-muted">
               {plan === "free"
-                ? "Free plan — 1 grade a month, 3 crops a day."
+                ? `Free plan — 1 grade a month, 3 crops a day. Need another? ${SINGLE_GRADE.price} per report.`
                 : plan === "unlimited"
                   ? "Unlimited plan active."
                   : plan === "api"
                     ? "API plan active."
-                    : "Free to start. No card details required."}
+                    : `Free to start. Or buy a single report for ${SINGLE_GRADE.price} — no subscription.`}
             </p>
 
             <div className="mt-8 flex flex-wrap justify-center lg:justify-start gap-x-8 gap-y-3">

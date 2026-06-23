@@ -1,29 +1,104 @@
 import { Link } from "react-router-dom";
-import { ArrowRight, Check } from "lucide-react";
-import { PRICING_TIERS } from "./data";
+import { ArrowRight, Check, FileText } from "lucide-react";
+import { PRICING_TIERS, SINGLE_GRADE } from "./data";
 import { SectionHeading } from "./shared";
 
 type Plan = "free" | "unlimited" | "api" | null;
+
+export function SingleGradeOffer({
+  loggedIn,
+  onBuyGrade,
+}: {
+  loggedIn: boolean;
+  onBuyGrade: () => void;
+}) {
+  return (
+    <div className="rounded-2xl border border-border-subtle bg-surface-raised p-6 sm:p-8">
+      <div className="flex flex-col lg:flex-row lg:items-center gap-6 lg:gap-10">
+        <div className="flex-1 min-w-0">
+          <div className="inline-flex items-center gap-2 rounded-full border border-border-subtle bg-surface-overlay/50 px-2.5 py-1 text-[11px] font-medium text-text-secondary">
+            <FileText className="w-3 h-3 text-accent" />
+            Pay as you go
+          </div>
+          <h3 className="mt-3 text-xl sm:text-2xl font-semibold tracking-tight">
+            Just need one report?
+          </h3>
+          <p className="mt-2 text-sm text-text-secondary leading-relaxed max-w-xl">
+            Checking a single card before you submit? Buy one full pre-grade — same PDF as a
+            subscription grade, no monthly plan required.
+          </p>
+          <ul className="mt-4 grid sm:grid-cols-2 gap-x-4 gap-y-2">
+            {SINGLE_GRADE.features.map((f) => (
+              <li key={f} className="flex items-start gap-2 text-sm text-text-secondary">
+                <Check className="w-4 h-4 text-accent mt-0.5 shrink-0" />
+                {f}
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div className="shrink-0 flex flex-col items-stretch sm:items-center lg:items-end gap-3 lg:min-w-[200px]">
+          <div className="text-center lg:text-right">
+            <div className="text-3xl font-semibold tracking-tight">{SINGLE_GRADE.price}</div>
+            <div className="text-sm text-text-muted">one-time</div>
+          </div>
+          {loggedIn ? (
+            <button
+              onClick={onBuyGrade}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-6 py-3 text-sm font-semibold text-white hover:bg-accent-hover transition-colors shadow-lg shadow-accent/20"
+            >
+              Buy one grade
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          ) : (
+            <Link
+              to="/register"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-6 py-3 text-sm font-semibold text-white hover:bg-accent-hover transition-colors shadow-lg shadow-accent/20"
+            >
+              Sign up to buy
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+          )}
+          <p className="text-[11px] text-text-muted text-center lg:text-right">
+            {loggedIn
+              ? "Credit added instantly after checkout."
+              : "Free account required — takes 30 seconds."}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function PricingSection({
   loggedIn,
   plan,
   onUpgrade,
+  onBuyGrade,
 }: {
   loggedIn: boolean;
   plan: Plan;
   onUpgrade: (plan: "unlimited" | "api") => void;
+  onBuyGrade: () => void;
 }) {
   return (
     <section id="pricing" className="scroll-mt-20 py-16 sm:py-24">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <SectionHeading
           kicker="Simple pricing"
-          title="Start free. Upgrade when you're ready."
-          copy="No card details to sign up. One free grade every month — enough to see if it's worth submitting."
+          title="Start free. Pay per card if you prefer."
+          copy="Every account gets one free grade a month. Subscriptions for regular use — or buy a single report whenever you need one."
         />
 
-        <div className="mt-12 grid md:grid-cols-3 gap-4 lg:gap-6">
+        <div className="mt-8">
+          <SingleGradeOffer loggedIn={loggedIn} onBuyGrade={onBuyGrade} />
+        </div>
+
+        <p className="mt-10 text-center text-xs font-semibold uppercase tracking-wider text-text-muted">
+          Or subscribe
+        </p>
+
+        <div className="mt-6 grid md:grid-cols-3 gap-4 lg:gap-6">
           {PRICING_TIERS.map((tier) => {
             const isCurrent =
               loggedIn &&
@@ -99,16 +174,10 @@ export function PricingSection({
           })}
         </div>
 
-        <p className="mt-6 text-center text-sm text-text-muted">
-          Need a one-off grade?{" "}
-          <Link to="/account" className="text-accent hover:text-accent-hover">
-            Buy a single report for £2.99
-          </Link>{" "}
-          — or{" "}
+        <p className="mt-8 text-center text-sm text-text-muted">
           <Link to="/pricing" className="text-accent hover:text-accent-hover">
-            see full pricing details
+            Compare all plans in detail
           </Link>
-          .
         </p>
       </div>
     </section>
@@ -119,24 +188,31 @@ export function PlanCta({
   loggedIn,
   plan,
   onUpgrade,
+  onBuyGrade,
 }: {
   loggedIn: boolean;
   plan: Plan;
   onUpgrade: (plan: "unlimited" | "api") => void;
+  onBuyGrade: () => void;
 }) {
   let title: string;
   let copy: string;
   let primary: { label: string; onClick?: () => void; to?: string };
-  let secondary: { label: string; to: string } | null = { label: "See full pricing", to: "/pricing" };
+  let secondary: { label: string; onClick?: () => void; to?: string } | null = {
+    label: "See pricing",
+    to: "/pricing",
+  };
 
   if (!loggedIn) {
     title = "Check a card before you ever pay to grade.";
-    copy = "Free to start — 1 grade a month and 3 crops a day. No card details to sign up.";
+    copy = `Free to start — or buy a single report for ${SINGLE_GRADE.price} with no subscription.`;
     primary = { label: "Create a free account", to: "/register" };
+    secondary = { label: `Buy one grade — ${SINGLE_GRADE.price}`, to: "/register" };
   } else if (plan === "free") {
-    title = "Grade more, gamble less — £7.99/mo.";
-    copy = "Unlimited crops and up to 10 grading reports a day, no daily crop cap.";
+    title = "Need more than one grade a month?";
+    copy = `Buy a single report for ${SINGLE_GRADE.price}, or upgrade to Unlimited for up to 10 grades a day.`;
     primary = { label: "Upgrade to Unlimited", onClick: () => onUpgrade("unlimited") };
+    secondary = { label: `Buy one grade — ${SINGLE_GRADE.price}`, onClick: onBuyGrade };
   } else if (plan === "unlimited") {
     title = "Add API access for £19.99/mo.";
     copy = "Everything in Unlimited, plus programmatic cropping for automation and bulk work.";
@@ -172,14 +248,22 @@ export function PlanCta({
               <ArrowRight className="w-4 h-4" />
             </button>
           )}
-          {secondary && (
-            <Link
-              to={secondary.to}
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-border-strong bg-surface-raised/60 px-7 py-3.5 text-sm font-semibold text-text-primary hover:bg-surface-overlay transition-colors"
-            >
-              {secondary.label}
-            </Link>
-          )}
+          {secondary &&
+            (secondary.to ? (
+              <Link
+                to={secondary.to}
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-border-strong bg-surface-raised/60 px-7 py-3.5 text-sm font-semibold text-text-primary hover:bg-surface-overlay transition-colors"
+              >
+                {secondary.label}
+              </Link>
+            ) : (
+              <button
+                onClick={secondary.onClick}
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-border-strong bg-surface-raised/60 px-7 py-3.5 text-sm font-semibold text-text-primary hover:bg-surface-overlay transition-colors"
+              >
+                {secondary.label}
+              </button>
+            ))}
         </div>
       </div>
     </section>
