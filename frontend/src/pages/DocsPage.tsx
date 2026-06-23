@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
-import { Gem, ArrowLeft } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 
 // Public API documentation. Renders the Scalar API reference against the live
 // OpenAPI spec at /v1/openapi.json. The CDN script is pinned to an exact,
@@ -59,12 +59,15 @@ export function DocsPage() {
   return (
     <div className="min-h-[100dvh] flex flex-col bg-surface">
       <header className="flex items-center justify-between px-5 h-14 border-b border-border-subtle shrink-0">
-        <Link to="/" className="flex items-center gap-2">
-          <span className="w-7 h-7 rounded-lg bg-accent/15 text-accent flex items-center justify-center">
-            <Gem className="w-4 h-4" />
-          </span>
-          <span className="text-[15px] font-semibold text-text-primary tracking-tight">
-            GemCheck <span className="text-text-muted font-normal">API</span>
+        <Link to="/" className="flex items-center gap-2.5">
+          <img
+            src="/gemcheck-logo.png"
+            alt="GemCheck — by Looky"
+            className="h-6 w-auto select-none"
+            draggable={false}
+          />
+          <span className="text-[13px] font-medium text-text-muted uppercase tracking-wide">
+            API
           </span>
         </Link>
         <Link

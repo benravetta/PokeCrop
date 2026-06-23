@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, NavLink, Outlet, useOutletContext } from "react-router-dom";
-import { Gem, HelpCircle } from "lucide-react";
+import { HelpCircle } from "lucide-react";
 import { HelpDrawer } from "./HelpDrawer";
 import { UserMenu } from "./UserMenu";
 import { CropsBadge } from "./CropsBadge";
@@ -19,18 +19,13 @@ export function Layout() {
   return (
     <div className="h-[100dvh] overflow-hidden bg-surface flex flex-col">
       <header className="border-b border-border-subtle px-4 sm:px-6 py-3 sm:py-3.5 flex items-center justify-between gap-3">
-        <Link to="/crop" className="flex items-center gap-2.5 min-w-0">
-          <span className="w-8 h-8 rounded-lg bg-accent/15 flex items-center justify-center shrink-0">
-            <Gem className="w-[18px] h-[18px] text-accent" />
-          </span>
-          <span className="flex items-baseline gap-2 min-w-0">
-            <span className="text-[17px] font-semibold text-text-primary tracking-tight">
-              GemCheck
-            </span>
-            <span className="hidden sm:inline text-[11px] text-text-muted font-medium tracking-wide uppercase">
-              Prep &amp; Pre-Grade
-            </span>
-          </span>
+        <Link to="/crop" className="flex items-center min-w-0">
+          <img
+            src="/gemcheck-logo.png"
+            alt="GemCheck — by Looky"
+            className="h-7 sm:h-8 w-auto select-none"
+            draggable={false}
+          />
         </Link>
 
         <nav className="flex items-center gap-1">

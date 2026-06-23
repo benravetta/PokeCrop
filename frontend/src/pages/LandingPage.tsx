@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  Gem,
   Upload,
   ArrowRight,
   Camera,
@@ -83,17 +82,14 @@ export function LandingPage() {
 /* Brand                                                               */
 /* ------------------------------------------------------------------ */
 
-function Wordmark({ size = "md" }: { size?: "sm" | "md" }) {
-  const box = size === "sm" ? "w-7 h-7" : "w-8 h-8";
-  const icon = size === "sm" ? "w-4 h-4" : "w-[18px] h-[18px]";
-  const text = size === "sm" ? "text-sm" : "text-[17px]";
+function Wordmark({ className = "h-8" }: { className?: string }) {
   return (
-    <span className="flex items-center gap-2.5">
-      <span className={`${box} rounded-lg bg-accent/15 flex items-center justify-center`}>
-        <Gem className={`${icon} text-accent`} />
-      </span>
-      <span className={`${text} font-semibold tracking-tight`}>GemCheck</span>
-    </span>
+    <img
+      src="/gemcheck-logo.png"
+      alt="GemCheck — by Looky"
+      className={`${className} w-auto select-none`}
+      draggable={false}
+    />
   );
 }
 
@@ -135,7 +131,7 @@ function TopNav({ loggedIn, plan }: { loggedIn: boolean; plan: Plan }) {
     >
       <div className="mx-auto max-w-6xl px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
         <a href="#top" className="shrink-0">
-          <Wordmark />
+          <Wordmark className="h-8 sm:h-9" />
         </a>
 
         <nav className="hidden md:flex items-center gap-1">
@@ -1184,9 +1180,7 @@ function SiteFooter() {
   return (
     <footer className="border-t border-border-subtle">
       <div className="mx-auto max-w-6xl px-4 sm:px-6 py-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div className="flex items-center gap-2">
-          <Wordmark size="sm" />
-        </div>
+        <Wordmark className="h-7" />
         <div className="flex items-center gap-5 text-sm">
           <Link to="/pricing" className="text-text-secondary hover:text-text-primary transition-colors">
             Pricing

@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { Gem } from "lucide-react";
 
 export function AuthLayout({
   title,
@@ -17,13 +16,13 @@ export function AuthLayout({
     <div className="min-h-[100dvh] bg-surface flex flex-col">
       <div className="flex-1 flex items-center justify-center p-6">
         <div className="w-full max-w-sm anim-rise">
-          <Link to="/" className="flex items-center justify-center gap-2.5 mb-7">
-            <span className="w-9 h-9 rounded-lg bg-accent/15 flex items-center justify-center">
-              <Gem className="w-5 h-5 text-accent" />
-            </span>
-            <span className="text-lg font-semibold text-text-primary tracking-tight">
-              GemCheck
-            </span>
+          <Link to="/" className="flex items-center justify-center mb-7">
+            <img
+              src="/gemcheck-logo.png"
+              alt="GemCheck — by Looky"
+              className="h-9 w-auto select-none"
+              draggable={false}
+            />
           </Link>
 
           <div className="rounded-2xl border border-border-subtle bg-surface-raised p-6 shadow-2xl">
