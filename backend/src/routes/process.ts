@@ -18,6 +18,7 @@ import { logActivity } from "../lib/activity.js";
 import { logUsageEvent } from "../lib/usageEvents.js";
 import { archiveCropAsync, pngDimensions } from "../lib/catalog.js";
 import { assessCard, CardAssessment } from "../lib/cardVision.js";
+import { runCropJob } from "../lib/cropPipeline.js";
 
 const router = Router();
 
@@ -262,41 +263,43 @@ router.post("/process", requireAuth, async (req: Request, res: Response) => {
   session.processing = true;
 
   try {
-    // Assess suitability + rough ROI once per upload (cached), then pass the ROI
-    // as a hint to the Python pipeline. Never blocks on failure.
     if (!session.assessed) {
       session.assessed = true;
       session.assessment = await assessCard(session.filePath, userId).catch(() => null);
     }
     const assessment = session.assessment ?? null;
-    if (assessment?.roi && validatedParams.roi === undefined) {
-      const r = assessment.roi;
-      validatedParams.roi = [r.x, r.y, r.w, r.h];
-    }
 
-    const result = await sendToPython(
-      session.filePath,
-      session.filename,
-      validatedParams
-    );
+    const crop = await runCropJob({
+      filePath: session.filePath,
+      filename: session.filename,
+      params: validatedParams,
+      userId,
+      fullResolution: false,
+      identify: false,
+      includeSuitability: false,
+      cachedAssessment: assessment,
+      metadataLevel: "full",
+    });
 
-    if (result.error) {
+    if (!crop.ok) {
       res.json({
-        error: result.error,
-        candidates_found: result.candidates_found || 0,
+        error: crop.error,
+        candidates_found: crop.candidatesFound ?? 0,
         suitability: assessment ?? undefined,
       });
       return;
     }
 
-    if (assessment && result.metadata && typeof result.metadata === "object") {
-      result.metadata.suitability = assessment;
-    }
-
     session.lastParams = validatedParams;
     session.result = {
-      result_web_png: result.result_web_png,
-      metadata: result.metadata,
+      result_web_png: crop.resultWebPng ?? crop.pngBase64,
+      metadata: crop.metadata,
+    };
+
+    const result = {
+      result_web_png: crop.resultWebPng ?? crop.pngBase64,
+      edit_image_jpeg: crop.editImageJpeg,
+      metadata: crop.metadata,
     };
 
     // Meter the successful crop exactly once per upload.

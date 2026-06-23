@@ -68,6 +68,7 @@ export function logUsageEvent(input: UsageEventInput): void {
 export interface HistoryQuery {
   userId: string;
   kind?: UsageKind;
+  source?: UsageSource;
   /** Free-text search over the summary label. */
   q?: string;
   /** ISO date (inclusive lower bound) on created_at. */
@@ -103,6 +104,7 @@ export async function getHistory(query: HistoryQuery): Promise<HistoryResult> {
     .eq("user_id", query.userId);
 
   if (query.kind) q = q.eq("kind", query.kind);
+  if (query.source) q = q.eq("source", query.source);
   if (query.q && query.q.trim()) {
     // Escape PostgREST ilike wildcards/commas in user input.
     const safe = query.q.trim().replace(/[%,]/g, " ");

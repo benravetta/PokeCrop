@@ -1117,12 +1117,19 @@ const API_SNIPPET = `curl -X POST https://gemcheck.co.uk/v1/crop \\
   -H "Authorization: Bearer $GEMCHECK_API_KEY" \\
   -H "Accept: image/png" \\
   -F "image=@charizard.jpg" \\
-  -o cropped.png`;
+  -o cropped.png
+
+curl -X POST https://gemcheck.co.uk/v1/grade \\
+  -H "Authorization: Bearer $GEMCHECK_API_KEY" \\
+  -F "front=@front.jpg" -F "back=@back.jpg"`;
 
 function ApiSection({ plan, loggedIn }: { plan: Plan; loggedIn: boolean }) {
   const endpoints = [
-    ["POST", "/v1/crop", "Crop & straighten a card from an image"],
-    ["GET", "/v1/crop/limits", "Current rate-limit window + daily usage"],
+    ["POST", "/v1/crop", "Crop & straighten a card"],
+    ["POST", "/v1/grade", "AI pre-grade report (multipart photos)"],
+    ["GET", "/v1/grade/quota", "Grading allowance"],
+    ["GET", "/v1/account", "Plan + quota snapshot"],
+    ["GET", "/v1/usage", "API usage history"],
     ["GET", "/v1/openapi.json", "OpenAPI 3.1 spec"],
   ];
 
@@ -1141,7 +1148,7 @@ function ApiSection({ plan, loggedIn }: { plan: Plan; loggedIn: boolean }) {
         <SectionHeading
           kicker="For developers &amp; shops"
           title="Automate prep with the API."
-          copy="Bulk-process listings, build a scanner, or wire GemCheck into your store. One authenticated POST returns a clean, transparent PNG ready for grading or selling."
+          copy="Bulk-process listings, run AI pre-grades, or wire GemCheck into your shop. Crop and grade with the same engine as the web app."
         />
         <div className="mt-12 grid lg:grid-cols-2 gap-8 items-start">
           <div className="rounded-2xl border border-border-subtle bg-[#0e1018] overflow-hidden">
@@ -1163,8 +1170,8 @@ function ApiSection({ plan, loggedIn }: { plan: Plan; loggedIn: boolean }) {
           <div className="space-y-3">
             <div className="grid sm:grid-cols-3 gap-3">
               {[
-                { icon: KeyRound, t: "Key auth", c: "Bearer tokens, per-key rate limits" },
-                { icon: Zap, t: "Fast", c: "~200–500ms per card" },
+                { icon: KeyRound, t: "Key auth", c: "Bearer tokens; rate limits per account" },
+                { icon: Zap, t: "Crop + grade", c: "Same pipeline as the web app" },
                 { icon: ShieldCheck, t: "Safe URLs", c: "SSRF-guarded image fetch" },
               ].map((f) => (
                 <div key={f.t} className="rounded-xl border border-border-subtle bg-surface-raised p-4">

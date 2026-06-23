@@ -43,9 +43,9 @@ const TIERS: Tier[] = [
     cadence: "/mo",
     blurb: "Automate cropping in your own tools.",
     features: [
-      "Unlimited crops",
-      "Everything in Unlimited",
-      "API keys (coming soon)",
+      "Unlimited crops (web + API)",
+      "20 AI pre-grades per day via API",
+      "Self-serve API keys",
     ],
   },
 ];

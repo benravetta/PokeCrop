@@ -7,6 +7,8 @@ export type ApiErrorCode =
   | "unauthorized"
   | "forbidden_plan"
   | "rate_limited"
+  | "quota_exceeded"
+  | "capture_quality"
   | "invalid_request"
   | "not_found"
   | "unsupported_media_type"
@@ -20,6 +22,8 @@ const STATUS_FOR_CODE: Record<ApiErrorCode, number> = {
   unauthorized: 401,
   forbidden_plan: 403,
   rate_limited: 429,
+  quota_exceeded: 429,
+  capture_quality: 422,
   invalid_request: 400,
   not_found: 404,
   unsupported_media_type: 415,
@@ -32,12 +36,14 @@ const STATUS_FOR_CODE: Record<ApiErrorCode, number> = {
 
 export function sendApiError(
   res: Response,
-  code: ApiErrorCode,
+  code: ApiErrorCode | string,
   message: string,
-  extraHeaders?: Record<string, string>
+  extraHeaders?: Record<string, string>,
+  extraBody?: Record<string, unknown>
 ): void {
   if (extraHeaders) {
     for (const [k, v] of Object.entries(extraHeaders)) res.set(k, v);
   }
-  res.status(STATUS_FOR_CODE[code]).json({ error: { code, message } });
+  const status = STATUS_FOR_CODE[code as ApiErrorCode] ?? 400;
+  res.status(status).json({ error: { code, message }, ...extraBody });
 }

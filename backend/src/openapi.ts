@@ -1,24 +1,21 @@
-// OpenAPI 3.1 description of the public GemCheck API (/v1). Served verbatim at
-// GET /v1/openapi.json and rendered by the /docs page. Quickstart prose lives in
-// info.description (markdown) and per-language samples in x-codeSamples so the
-// docs UI stays in sync with this single source of truth.
+// OpenAPI 3.1 description of the public GemCheck API (/v1). Served at GET /v1/openapi.json.
 
 const DESCRIPTION = `
-The **GemCheck API** extracts a trading card from a scan or photo: it finds the
-front-most card, straightens it, removes the background, preserves the rounded
-corners, and returns a transparent PNG.
+The **GemCheck API** extracts trading cards from photos and runs AI pre-grade reports —
+the same capabilities as the [GemCheck web app](https://gemcheck.co.uk), for automation.
 
 ## Authentication
 
-All endpoints (except \`/health\` and \`/version\`) require an API key, available
-on the **API plan**. Create keys on your [Account page](/account). Send the key
-as a Bearer token:
+All endpoints except \`/health\`, \`/version\`, and \`/openapi.json\` require an API key
+from the **API plan** (£19.99/mo). Create keys on your [Account page](/account):
 
 \`\`\`
 Authorization: Bearer pk_live_xxxxxxxxxxxxxxxxxxxxxxxx
 \`\`\`
 
-## Quickstart
+You may also send \`X-API-Key: pk_live_...\`.
+
+## Quickstart — crop
 
 \`\`\`bash
 curl -X POST https://gemcheck.co.uk/v1/crop \\
@@ -28,23 +25,22 @@ curl -X POST https://gemcheck.co.uk/v1/crop \\
   -o cropped.png
 \`\`\`
 
-## Input
+## Quickstart — grade
 
-Send the image one of three ways:
-- **multipart/form-data** with an \`image\` file (recommended), or
-- **JSON** with an \`image_url\` (must be a public http/https URL), or
-- **JSON** with \`image_base64\` (raw base64 or a data URL).
-
-## Output
-
-By default you get JSON \`{ image_base64, metadata }\`. Send
-\`Accept: image/png\` to get the raw PNG bytes instead.
+\`\`\`bash
+curl -X POST https://gemcheck.co.uk/v1/grade \\
+  -H "Authorization: Bearer $GEMCHECK_API_KEY" \\
+  -H "Idempotency-Key: grade-$(date +%s)" \\
+  -F "front=@front.jpg" \\
+  -F "back=@back.jpg"
+\`\`\`
 
 ## Rate limits
 
-Requests are rate limited per key (see the \`X-RateLimit-*\` response headers).
-The API plan is unlimited for normal use; a generous daily cap guards against
-abuse. A \`429\` response includes a \`Retry-After\` header.
+Crop requests are rate limited **per account** (not per key). See \`X-RateLimit-*\` headers.
+The API plan includes unlimited crops for normal use with a generous daily soft cap.
+Grades use a separate quota (20/day on the API plan). Send \`Idempotency-Key\` on grade
+requests to safely retry without double-charging.
 `;
 
 const errorSchema = {
@@ -66,11 +62,13 @@ const errorResponse = (description: string) => ({
   content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } },
 });
 
+const bearerSecurity = [{ bearerApiKey: [] }];
+
 export const openApiSpec = {
   openapi: "3.1.0",
   info: {
     title: "GemCheck API",
-    version: "1.0.0",
+    version: "1.1.0",
     description: DESCRIPTION,
     contact: { name: "GemCheck", url: "https://gemcheck.co.uk" },
   },
@@ -78,15 +76,20 @@ export const openApiSpec = {
     { url: "https://gemcheck.co.uk/v1", description: "Production" },
     { url: "/v1", description: "Relative to this host" },
   ],
-  security: [{ bearerApiKey: [] }],
-  tags: [{ name: "Crop" }, { name: "Meta" }],
+  security: bearerSecurity,
+  tags: [
+    { name: "Crop", description: "Detect, straighten, and extract cards." },
+    { name: "Grade", description: "AI pre-grade reports (same as the web grader)." },
+    { name: "Account", description: "Plan, quota, and usage introspection." },
+    { name: "Meta", description: "Health, version, and OpenAPI spec." },
+  ],
   paths: {
     "/crop": {
       post: {
         tags: ["Crop"],
         summary: "Crop a card from an image",
         description:
-          "Detects and extracts the front-most card and returns a transparent PNG. Provide the image via multipart `image`, or JSON `image_url` / `image_base64`.",
+          "Detects and extracts the front-most card and returns a transparent PNG. Provide the image via multipart `image`, or JSON `image_url` / `image_base64`. Optional `metadata_level` (`full`|`minimal`) and `include_suitability` (default true).",
         requestBody: {
           required: true,
           content: {
@@ -94,15 +97,10 @@ export const openApiSpec = {
               schema: {
                 type: "object",
                 properties: {
-                  image: {
-                    type: "string",
-                    format: "binary",
-                    description: "Image or PDF file (JPEG, PNG, WEBP, PDF; up to 50 MB).",
-                  },
-                  params: {
-                    type: "string",
-                    description: "Optional JSON-encoded CropParams.",
-                  },
+                  image: { type: "string", format: "binary" },
+                  params: { type: "string", description: "JSON-encoded CropParams." },
+                  metadata_level: { type: "string", enum: ["full", "minimal"], default: "full" },
+                  include_suitability: { type: "boolean", default: true },
                 },
                 required: ["image"],
               },
@@ -111,16 +109,11 @@ export const openApiSpec = {
               schema: {
                 type: "object",
                 properties: {
-                  image_url: {
-                    type: "string",
-                    format: "uri",
-                    description: "Public http/https URL of the image.",
-                  },
-                  image_base64: {
-                    type: "string",
-                    description: "Base64-encoded image, or a data URL.",
-                  },
+                  image_url: { type: "string", format: "uri" },
+                  image_base64: { type: "string" },
                   params: { $ref: "#/components/schemas/CropParams" },
+                  metadata_level: { type: "string", enum: ["full", "minimal"], default: "full" },
+                  include_suitability: { type: "boolean", default: true },
                 },
               },
             },
@@ -133,9 +126,7 @@ export const openApiSpec = {
               "application/json": {
                 schema: { $ref: "#/components/schemas/CropResult" },
               },
-              "image/png": {
-                schema: { type: "string", format: "binary" },
-              },
+              "image/png": { schema: { type: "string", format: "binary" } },
             },
           },
           "400": errorResponse("Invalid request."),
@@ -143,46 +134,198 @@ export const openApiSpec = {
           "403": errorResponse("API plan required."),
           "413": errorResponse("Image too large."),
           "415": errorResponse("Unsupported media type."),
-          "422": errorResponse("No card could be detected."),
+          "422": {
+            description: "No card could be detected.",
+            content: {
+              "application/json": {
+                schema: {
+                  allOf: [
+                    { $ref: "#/components/schemas/Error" },
+                    {
+                      type: "object",
+                      properties: {
+                        candidates_found: { type: "integer" },
+                      },
+                    },
+                  ],
+                },
+              },
+            },
+          },
           "429": errorResponse("Rate limit exceeded."),
         },
-        "x-codeSamples": [
-          {
-            lang: "curl",
-            label: "cURL (file → PNG)",
-            source:
-              'curl -X POST https://gemcheck.co.uk/v1/crop \\\n  -H "Authorization: Bearer $GEMCHECK_API_KEY" \\\n  -H "Accept: image/png" \\\n  -F "image=@card.jpg" \\\n  -o cropped.png',
-          },
-          {
-            lang: "python",
-            label: "Python (requests)",
-            source:
-              'import os, requests\n\nresp = requests.post(\n    "https://gemcheck.co.uk/v1/crop",\n    headers={"Authorization": f"Bearer {os.environ[\'GEMCHECK_API_KEY\']}", "Accept": "image/png"},\n    files={"image": open("card.jpg", "rb")},\n)\nresp.raise_for_status()\nwith open("cropped.png", "wb") as f:\n    f.write(resp.content)',
-          },
-          {
-            lang: "javascript",
-            label: "JavaScript (fetch, URL input)",
-            source:
-              'const res = await fetch("https://gemcheck.co.uk/v1/crop", {\n  method: "POST",\n  headers: {\n    Authorization: `Bearer ${process.env.GEMCHECK_API_KEY}`,\n    "Content-Type": "application/json",\n  },\n  body: JSON.stringify({ image_url: "https://example.com/card.jpg" }),\n});\nconst { image_base64, metadata } = await res.json();',
-          },
-        ],
       },
     },
     "/crop/limits": {
       get: {
         tags: ["Crop"],
-        summary: "Current rate limit and usage",
+        summary: "Crop rate limit and daily usage",
         responses: {
           "200": {
-            description: "Caller's limits and today's usage.",
+            description: "Current limits for this account.",
             content: {
               "application/json": {
-                schema: { $ref: "#/components/schemas/Limits" },
+                schema: { $ref: "#/components/schemas/CropLimits" },
               },
             },
           },
           "401": errorResponse("Missing or invalid API key."),
           "403": errorResponse("API plan required."),
+        },
+      },
+    },
+    "/grade": {
+      post: {
+        tags: ["Grade"],
+        summary: "Run an AI pre-grade",
+        description:
+          "Multipart upload: `front` (required), optional `back`, `angled_front`, `angled_back`, `closeups` (up to 6). Optional form field `centering` — JSON with front/back leftRight and topBottom ratios like `\"55/45\"`. Send `Idempotency-Key` header to dedupe retries.",
+        parameters: [
+          {
+            name: "Idempotency-Key",
+            in: "header",
+            required: false,
+            schema: { type: "string", minLength: 8, maxLength: 128 },
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "multipart/form-data": {
+              schema: {
+                type: "object",
+                properties: {
+                  front: { type: "string", format: "binary" },
+                  back: { type: "string", format: "binary" },
+                  angled_front: { type: "string", format: "binary" },
+                  angled_back: { type: "string", format: "binary" },
+                  closeups: { type: "array", items: { type: "string", format: "binary" } },
+                  centering: {
+                    type: "string",
+                    description: "JSON MeasuredCentering object.",
+                  },
+                },
+                required: ["front"],
+              },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description: "Grade result.",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/GradeResponse" },
+              },
+            },
+          },
+          "400": errorResponse("Missing front image or bad request."),
+          "401": errorResponse("Missing or invalid API key."),
+          "403": errorResponse("API plan required or account suspended."),
+          "422": errorResponse("Capture quality too low for grading."),
+          "429": errorResponse("Grade quota exceeded."),
+          "502": errorResponse("Grading failed."),
+          "503": errorResponse("Grading not configured."),
+        },
+      },
+    },
+    "/grade/quota": {
+      get: {
+        tags: ["Grade"],
+        summary: "Grading allowance",
+        responses: {
+          "200": {
+            description: "Quota snapshot.",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: { quota: { $ref: "#/components/schemas/GradeQuota" } },
+                },
+              },
+            },
+          },
+          "401": errorResponse("Missing or invalid API key."),
+          "403": errorResponse("API plan required."),
+        },
+      },
+    },
+    "/grade/straighten": {
+      post: {
+        tags: ["Grade"],
+        summary: "Straighten a card for centering measurement",
+        description: "Helper endpoint — not metered against crop quota.",
+        requestBody: {
+          required: true,
+          content: {
+            "multipart/form-data": {
+              schema: {
+                type: "object",
+                properties: { image: { type: "string", format: "binary" } },
+                required: ["image"],
+              },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description: "Straightened PNG (base64).",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: { png: { type: "string", description: "Base64 PNG." } },
+                },
+              },
+            },
+          },
+          "422": errorResponse("Could not detect a card."),
+        },
+      },
+    },
+    "/account": {
+      get: {
+        tags: ["Account"],
+        summary: "Account snapshot",
+        responses: {
+          "200": {
+            description: "Plan and quota overview.",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/Account" },
+              },
+            },
+          },
+          "401": errorResponse("Missing or invalid API key."),
+        },
+      },
+    },
+    "/usage": {
+      get: {
+        tags: ["Account"],
+        summary: "API usage history",
+        parameters: [
+          { name: "kind", in: "query", schema: { type: "string", enum: ["crop", "grade"] } },
+          { name: "q", in: "query", schema: { type: "string" }, description: "Search summary." },
+          { name: "from", in: "query", schema: { type: "string", format: "date" } },
+          { name: "to", in: "query", schema: { type: "string", format: "date" } },
+          { name: "page", in: "query", schema: { type: "integer", minimum: 1, default: 1 } },
+          {
+            name: "pageSize",
+            in: "query",
+            schema: { type: "integer", minimum: 1, maximum: 100, default: 25 },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Paginated API-sourced events.",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/UsageHistory" },
+              },
+            },
+          },
+          "401": errorResponse("Missing or invalid API key."),
         },
       },
     },
@@ -218,11 +361,24 @@ export const openApiSpec = {
               "application/json": {
                 schema: {
                   type: "object",
-                  properties: { api: { type: "string", example: "v1" } },
+                  properties: {
+                    api: { type: "string", example: "v1" },
+                    spec: { type: "string", example: "1.1.0" },
+                  },
                 },
               },
             },
           },
+        },
+      },
+    },
+    "/openapi.json": {
+      get: {
+        tags: ["Meta"],
+        summary: "OpenAPI specification",
+        security: [],
+        responses: {
+          "200": { description: "This document." },
         },
       },
     },
@@ -232,73 +388,125 @@ export const openApiSpec = {
       bearerApiKey: {
         type: "http",
         scheme: "bearer",
-        description: "Your GemCheck API key (pk_live_...).",
+        description: "GemCheck API key (pk_live_...).",
       },
     },
     schemas: {
       CropParams: {
         type: "object",
-        description: "Optional tuning parameters; all have sensible defaults.",
+        description: "Optional crop tuning; sensible defaults apply.",
         properties: {
-          crop_padding: { type: "integer", minimum: 0, maximum: 100, default: 0 },
-          edge_trim: { type: "integer", minimum: 0, maximum: 40, default: 0 },
-          bg_removal: { type: "number", minimum: 0, maximum: 1, default: 0 },
           corner_radius: { type: "number", minimum: 0, maximum: 1, default: 0.5 },
-          top_edge_cleanup: { type: "number", minimum: 0, maximum: 1, default: 0.7 },
-          edge_sensitivity: { type: "number", minimum: 0, maximum: 1, default: 0.5 },
-          contour_threshold: { type: "number", minimum: 0, maximum: 1, default: 0.5 },
-          rotate_correction: { type: "boolean", default: true },
+          crop_padding: { type: "integer", minimum: 0, maximum: 100, default: 8 },
+          output_rotation: { type: "integer", enum: [0, 90, 180, 270], default: 0 },
+          output_size: { type: "string", enum: ["standard", "high"], default: "standard" },
+          grading_safe: { type: "boolean", default: false },
+          background: {
+            type: "string",
+            description: "white, black, grey, #rrggbb, or omit for transparent.",
+          },
+          roi: {
+            type: "array",
+            items: { type: "number" },
+            minItems: 4,
+            maxItems: 4,
+            description: "Normalised [x, y, w, h] hint.",
+          },
+          manual_corners: {
+            type: "array",
+            items: { type: "array", items: { type: "number" }, minItems: 2, maxItems: 2 },
+            minItems: 4,
+            maxItems: 4,
+          },
+          manual_transform: {
+            type: "array",
+            items: { type: "number" },
+            minItems: 9,
+            maxItems: 9,
+          },
+          rotation_deg: { type: "number" },
         },
       },
       CropResult: {
         type: "object",
         properties: {
-          image_base64: {
-            type: "string",
-            description: "Base64-encoded transparent PNG of the cropped card.",
-          },
+          image_base64: { type: "string" },
           metadata: { $ref: "#/components/schemas/CropMetadata" },
         },
         required: ["image_base64", "metadata"],
       },
       CropMetadata: {
         type: "object",
-        description: "Stable metadata about the crop.",
+        description: "Pipeline metadata. Full mode includes score_breakdown, bbox, suitability, etc.",
         properties: {
-          width: { type: "integer", description: "Output PNG width in pixels." },
-          height: { type: "integer", description: "Output PNG height in pixels." },
-          confidence: {
-            type: "number",
-            description: "Detection confidence, 0-1.",
-          },
-          rotation_deg: {
-            type: "number",
-            description: "Rotation applied to straighten the card, in degrees.",
-          },
-          corner_radius_px: {
-            type: "number",
-            description: "Estimated corner radius in pixels.",
-          },
-          corners: {
-            type: "array",
-            description: "Detected card corners as [x, y] pairs in source pixels.",
-            items: { type: "array", items: { type: "number" } },
-          },
-          processing_ms: {
-            type: "number",
-            description: "Server-side processing time in milliseconds.",
-          },
+          width: { type: "integer" },
+          height: { type: "integer" },
+          confidence: { type: "number" },
+          needs_manual: { type: "boolean" },
+          rotation_deg: { type: "number" },
+          corner_radius_px: { type: "number" },
+          corners: { type: "array", items: { type: "array", items: { type: "number" } } },
+          processing_ms: { type: "number" },
+          candidates_found: { type: "integer" },
+          score_breakdown: { type: "object", additionalProperties: true },
+          bbox: { type: "array", items: { type: "number" } },
+          suitability: { type: "object", additionalProperties: true },
         },
       },
-      Limits: {
+      CropLimits: {
         type: "object",
         properties: {
           plan: { type: "string", example: "api" },
+          rate_limit_scope: { type: "string", example: "account" },
           rate_limit_per_minute: { type: "integer" },
           remaining_this_minute: { type: "integer" },
           reset_at: { type: "string", format: "date-time" },
-          crops_today: { type: "integer" },
+          crops_today: {
+            type: "integer",
+            description: "Successful API crops today across all keys on this account.",
+          },
           daily_soft_cap: { type: "integer" },
+        },
+      },
+      GradeQuota: {
+        type: "object",
+        properties: {
+          plan: { type: "string" },
+          limit: { type: "integer" },
+          used: { type: "integer" },
+          remaining: { type: "integer" },
+          window: { type: "string", enum: ["day", "month"] },
+          allowanceRemaining: { type: "integer" },
+          credits: { type: "integer" },
+        },
+      },
+      GradeResponse: {
+        type: "object",
+        properties: {
+          result: { type: "object", additionalProperties: true },
+          quota: { $ref: "#/components/schemas/GradeQuota" },
+          capture_quality: { type: "object", additionalProperties: true },
+        },
+      },
+      Account: {
+        type: "object",
+        properties: {
+          plan: { type: "string", example: "api" },
+          grade_quota: { $ref: "#/components/schemas/GradeQuota" },
+          active_api_keys: { type: "integer" },
+          crops_today: {
+            type: "integer",
+            description: "Successful API crops today across all keys on this account.",
+          },
+        },
+      },
+      UsageHistory: {
+        type: "object",
+        properties: {
+          events: { type: "array", items: { type: "object", additionalProperties: true } },
+          total: { type: "integer" },
+          page: { type: "integer" },
+          pageSize: { type: "integer" },
         },
       },
       Error: errorSchema,

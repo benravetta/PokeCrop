@@ -389,15 +389,15 @@ Open three terminal windows/tabs and start each service. The frontend won't work
 
 ## Public API
 
-API-plan users get a versioned REST API for cropping cards programmatically.
-Interactive docs (rendered from the live OpenAPI spec) are at **`/docs`**; the
-raw spec is at **`/v1/openapi.json`**.
+API-plan users get a versioned REST API for cropping and AI pre-grading — the
+same capabilities as the web app. Interactive docs are at **`/docs`**; the raw
+spec is at **`/v1/openapi.json`** (OpenAPI **1.1.0**).
 
 ### Authentication
 
-Create keys on the **Account** page (visible on the API plan). Keys are shown
-once; only a SHA-256 hash and a short prefix are stored. Send the key as a
-Bearer token (or `X-API-Key`):
+Create keys on the **Account** page (API plan). Keys are shown once; only a
+SHA-256 hash and a short prefix are stored. Send the key as a Bearer token (or
+`X-API-Key`):
 
 ```
 Authorization: Bearer pk_live_xxxxxxxxxxxxxxxxxxxxxxxx
@@ -405,45 +405,59 @@ Authorization: Bearer pk_live_xxxxxxxxxxxxxxxxxxxxxxxx
 
 ### Endpoints
 
-| Method | Path              | Description                              |
-|--------|-------------------|------------------------------------------|
-| POST   | `/v1/crop`        | Crop a card from an image                |
-| GET    | `/v1/crop/limits` | Current rate-limit window + daily usage  |
-| GET    | `/v1/health`      | Health check (no auth)                   |
-| GET    | `/v1/version`     | API version (no auth)                    |
-| GET    | `/v1/openapi.json`| OpenAPI 3.1 spec                         |
+| Method | Path                   | Description                              |
+|--------|------------------------|------------------------------------------|
+| POST   | `/v1/crop`             | Crop a card from an image                |
+| GET    | `/v1/crop/limits`      | Crop rate limit + daily usage            |
+| POST   | `/v1/grade`            | AI pre-grade (multipart photos)          |
+| GET    | `/v1/grade/quota`      | Grading allowance                        |
+| POST   | `/v1/grade/straighten` | Straighten for centering (helper)      |
+| GET    | `/v1/account`          | Plan + quota snapshot                    |
+| GET    | `/v1/usage`            | Paginated API usage history              |
+| GET    | `/v1/health`           | Health check (no auth)                   |
+| GET    | `/v1/version`          | API version (no auth)                    |
+| GET    | `/v1/openapi.json`     | OpenAPI 3.1 spec                         |
 
 ### `POST /v1/crop`
 
-Provide the image one of three ways: multipart `image` file, JSON `image_url`
-(public http/https URL, SSRF-guarded), or JSON `image_base64`. Optional `params`
-mirror the web tool (`crop_padding`, `edge_trim`, `bg_removal`, `corner_radius`,
-etc.). Returns JSON `{ image_base64, metadata }` by default, or a raw PNG when
-the request sends `Accept: image/png`.
+Provide the image via multipart `image`, JSON `image_url` (SSRF-guarded), or
+JSON `image_base64`. Optional `params` match the web crop tool. Set
+`metadata_level` to `full` (default) or `minimal`; set `include_suitability`
+to `false` to skip the GPT pre-assessment. Returns JSON
+`{ image_base64, metadata }` by default, or raw PNG with `Accept: image/png`.
 
 ```bash
-# File upload, save the PNG directly
 curl -X POST https://gemcheck.co.uk/v1/crop \
   -H "Authorization: Bearer $GEMCHECK_API_KEY" \
   -H "Accept: image/png" \
   -F "image=@card.jpg" \
   -o cropped.png
+```
 
-# From a URL, get JSON + metadata
-curl -X POST https://gemcheck.co.uk/v1/crop \
+### `POST /v1/grade`
+
+Multipart: `front` (required), optional `back`, `angled_front`, `angled_back`,
+`closeups`. Optional form field `centering` (JSON). Send `Idempotency-Key` to
+safely retry without double-charging. Returns `{ result, quota, capture_quality }`.
+
+```bash
+curl -X POST https://gemcheck.co.uk/v1/grade \
   -H "Authorization: Bearer $GEMCHECK_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"image_url":"https://example.com/card.jpg"}'
+  -H "Idempotency-Key: grade-123" \
+  -F "front=@front.jpg" -F "back=@back.jpg"
 ```
 
 Errors use a structured envelope: `{ "error": { "code", "message" } }`.
 
 ### Rate limits
 
-Per-key limits are enforced in-memory (single Fly machine). Each response
-carries `X-RateLimit-Limit/Remaining/Reset`; a `429` includes `Retry-After`.
-Defaults: `API_RATE_PER_MIN=60`, `API_DAILY_SOFT_CAP=5000` (override via env).
-Per-key daily crop counts are metered in the `api_usage` table.
+Crop requests are rate limited **per account** (not per key), in-memory on each
+Fly machine. Limits apply only to **successful** crops (failed detections do not
+count). Each response carries `X-RateLimit-Limit/Remaining/Reset`; a `429`
+includes `Retry-After`. Defaults: `API_RATE_PER_MIN=60`, `API_DAILY_SOFT_CAP=5000`.
+`crops_today` on `/v1/crop/limits` and `/v1/account` sums usage across all keys
+on the account. Grading uses a separate quota (20/day on the API plan).
+Straighten helper: `API_STRAIGHTEN_RATE_PER_MIN=30` (successful calls only).
 
 ---
 

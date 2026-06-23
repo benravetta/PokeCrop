@@ -21,7 +21,7 @@ const webCors = cors({
 const apiCors = cors({
   origin: true,
   methods: ["GET", "POST", "OPTIONS"],
-  allowedHeaders: ["Authorization", "Content-Type", "X-API-Key", "Accept"],
+  allowedHeaders: ["Authorization", "Content-Type", "X-API-Key", "Accept", "Idempotency-Key"],
   maxAge: 86400,
 });
 

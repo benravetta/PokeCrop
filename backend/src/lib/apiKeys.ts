@@ -80,6 +80,25 @@ export async function getApiUsageToday(keyId: string): Promise<number> {
   return data?.count ?? 0;
 }
 
+/** Sum today's API crops across all keys owned by the account. */
+export async function getApiUsageTodayForUser(userId: string): Promise<number> {
+  const { data, error } = await getServiceClient().rpc("get_api_crops_today", {
+    p_user: userId,
+  });
+  if (error) throw error;
+  return typeof data === "number" ? data : 0;
+}
+
+export async function countActiveApiKeys(userId: string): Promise<number> {
+  const { count, error } = await getServiceClient()
+    .from("api_keys")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .is("revoked_at", null);
+  if (error) throw error;
+  return count ?? 0;
+}
+
 export function touchLastUsed(keyId: string): void {
   const now = Date.now();
   const prev = lastTouched.get(keyId) ?? 0;
