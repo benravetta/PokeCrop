@@ -79,7 +79,7 @@ export function HeroSection({ loggedIn, plan }: { loggedIn: boolean; plan: Plan 
   );
 }
 
-/** Single unified report card — cropped card + grades in one panel. */
+/** Report panel with the cropped card layered behind — peeking out on the left. */
 function ProductPreview() {
   const grades: { co: string; g: string; recommended?: boolean }[] = [
     { co: "PSA", g: "9" },
@@ -92,87 +92,84 @@ function ProductPreview() {
   const recommended = grades.find((g) => g.recommended)!;
 
   return (
-    <div className="anim-scale w-full max-w-md lg:max-w-none mx-auto">
-      <AppWindow title="GemCheck — Pre-grade report">
-        <div className="p-4 sm:p-5">
-          <div className="flex gap-4 sm:gap-5">
-            {/* Card — inset in the same panel, no separate frame */}
-            <div className="shrink-0 w-[38%] max-w-[148px]">
-              <div
-                className="relative rounded-xl overflow-hidden aspect-[2.5/3.5] flex items-center justify-center p-2"
-                style={{
-                  background:
-                    "radial-gradient(ellipse 80% 70% at 50% 40%, #1e2230 0%, #12141c 100%)",
-                }}
-              >
-                <img
-                  src={HERO_CARD_IMG}
-                  alt="Charizard"
-                  draggable={false}
-                  className="max-h-full max-w-full object-contain drop-shadow-[0_8px_24px_rgba(0,0,0,0.5)] select-none"
-                />
+    <div className="anim-scale relative w-full max-w-[420px] lg:max-w-[460px] mx-auto py-4 sm:py-6">
+      {/* Card — larger, sits behind the report window */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute left-0 sm:-left-2 top-1/2 -translate-y-[48%] z-0 w-[58%] sm:w-[54%] max-w-[260px]"
+      >
+        <div
+          className="absolute -inset-4 rounded-3xl bg-accent/8 blur-2xl opacity-70"
+          aria-hidden
+        />
+        <img
+          src={HERO_CARD_IMG}
+          alt=""
+          draggable={false}
+          className="relative w-full h-auto select-none drop-shadow-[0_28px_56px_rgba(0,0,0,0.55)]"
+        />
+      </div>
+
+      {/* Report — overlaps the card on the right */}
+      <div className="relative z-10 ml-[26%] sm:ml-[30%]">
+        <AppWindow title="GemCheck — Pre-grade report">
+          <div className="p-4 sm:p-5 bg-surface-raised">
+            <div>
+              <div className="text-[10px] uppercase tracking-wider text-text-muted font-medium">
+                Card identified
+              </div>
+              <div className="mt-0.5 text-base font-semibold leading-tight">Charizard</div>
+              <div className="text-[11px] text-text-muted mt-0.5 leading-snug">
+                Base Set · 1st Ed · Holo · 4/102
               </div>
             </div>
 
-            {/* Identity + grades */}
-            <div className="flex-1 min-w-0 flex flex-col">
-              <div>
-                <div className="text-[10px] uppercase tracking-wider text-text-muted font-medium">
-                  Card identified
-                </div>
-                <div className="mt-0.5 text-base font-semibold leading-tight">Charizard</div>
-                <div className="text-[11px] text-text-muted mt-0.5 leading-snug">
-                  Base Set · 1st Ed · Holo · 4/102
-                </div>
+            <div className="mt-4">
+              <div className="text-[10px] uppercase tracking-wider text-text-muted font-medium mb-2">
+                Estimated grade
               </div>
-
-              <div className="mt-4 flex-1">
-                <div className="text-[10px] uppercase tracking-wider text-text-muted font-medium mb-2">
-                  Estimated grade
-                </div>
-                <div className="space-y-1">
-                  {grades.map(({ co, g, recommended: isRec }) =>
-                    isRec ? (
-                      <div
-                        key={co}
-                        className="flex items-center justify-between rounded-lg bg-success/12 border border-success/35 px-3 py-2"
-                      >
-                        <div>
-                          <span className="text-sm font-semibold text-success">{co}</span>
-                          <span className="block text-[10px] font-medium text-success/80 mt-0.5">
-                            Best fit — submit here
-                          </span>
-                        </div>
-                        <span className="text-2xl font-bold tabular-nums text-success leading-none">
-                          {g}
+              <div className="space-y-1">
+                {grades.map(({ co, g, recommended: isRec }) =>
+                  isRec ? (
+                    <div
+                      key={co}
+                      className="flex items-center justify-between rounded-lg bg-success/12 border border-success/35 px-3 py-2"
+                    >
+                      <div>
+                        <span className="text-sm font-semibold text-success">{co}</span>
+                        <span className="block text-[10px] font-medium text-success/80 mt-0.5">
+                          Best fit — submit here
                         </span>
                       </div>
-                    ) : (
-                      <div
-                        key={co}
-                        className="flex items-center justify-between px-3 py-1 text-sm"
-                      >
-                        <span className="text-text-muted">{co}</span>
-                        <span className="font-medium tabular-nums text-text-secondary">{g}</span>
-                      </div>
-                    )
-                  )}
-                </div>
+                      <span className="text-2xl font-bold tabular-nums text-success leading-none">
+                        {g}
+                      </span>
+                    </div>
+                  ) : (
+                    <div
+                      key={co}
+                      className="flex items-center justify-between px-3 py-1 text-sm"
+                    >
+                      <span className="text-text-muted">{co}</span>
+                      <span className="font-medium tabular-nums text-text-secondary">{g}</span>
+                    </div>
+                  )
+                )}
               </div>
             </div>
-          </div>
 
-          <div className="mt-4 pt-4 border-t border-border-subtle flex items-start gap-2">
-            <CheckCircle2 className="w-4 h-4 text-success shrink-0 mt-0.5" />
-            <p className="text-xs text-text-secondary leading-relaxed">
-              <span className="font-medium text-text-primary">
-                Submit to {recommended.co} for the best shot at a gem mint.
-              </span>{" "}
-              Same card — PSA 9, Beckett 9.5. Company choice matters.
-            </p>
+            <div className="mt-4 pt-4 border-t border-border-subtle flex items-start gap-2">
+              <CheckCircle2 className="w-4 h-4 text-success shrink-0 mt-0.5" />
+              <p className="text-xs text-text-secondary leading-relaxed">
+                <span className="font-medium text-text-primary">
+                  Submit to {recommended.co} for the best shot at a gem mint.
+                </span>{" "}
+                Same card — PSA 9, Beckett 9.5. Company choice matters.
+              </p>
+            </div>
           </div>
-        </div>
-      </AppWindow>
+        </AppWindow>
+      </div>
     </div>
   );
 }
