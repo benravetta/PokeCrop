@@ -342,7 +342,7 @@ export async function buildGradeReportPdf(
         { size: 9, gap: 0 }
       );
     }
-    para(`Confidence: ${pricing.confidence}${pricing.note ? ` — ${pricing.note}` : ""}`, { size: 8, color: MUTE });
+    para(`Confidence: ${pricing.confidence}${pricing.source ? ` · ${pricing.source}` : ""}${pricing.asOf ? ` · ${pricing.asOf}` : ""}${pricing.note ? ` — ${pricing.note}` : ""}`, { size: 8, color: MUTE });
   }
 
   // ------------------------------------------------- blockers + caps

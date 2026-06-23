@@ -177,14 +177,31 @@ export async function openBillingPortal(): Promise<string> {
 
 // Start a one-time Checkout to buy a single grade (no subscription). Returns
 // the Stripe Checkout URL to redirect to.
-export async function startGradeCheckout(): Promise<string> {
+export async function startGradeCheckout(): Promise<{ url: string; sessionId: string }> {
   const res = await fetch(`${BASE}/billing/checkout-grade`, {
     method: "POST",
     headers: await authHeaders(),
   });
   if (!res.ok) await fail(res, "Could not start checkout");
-  const data = (await res.json()) as { url: string };
-  return data.url;
+  return res.json() as Promise<{ url: string; sessionId: string }>;
+}
+
+export type PurchaseStatus =
+  | "credited"
+  | "already_credited"
+  | "pending"
+  | "unpaid"
+  | "expired";
+
+export async function getPurchaseStatus(
+  sessionId: string
+): Promise<{ status: PurchaseStatus; payment_status?: string }> {
+  const res = await fetch(
+    `${BASE}/billing/purchase-status?session_id=${encodeURIComponent(sessionId)}`,
+    { headers: await authHeaders() }
+  );
+  if (!res.ok) await fail(res, "Could not confirm purchase");
+  return res.json();
 }
 
 // ---- Usage history (crops + grades) ----
@@ -570,6 +587,9 @@ export interface CardPricing {
   graded: GradedPrice[];
   confidence: "low" | "medium" | "high";
   note: string;
+  source?: "cardmarket" | "pricecharting" | "mixed" | "ai";
+  rawSource?: "cardmarket" | "pricecharting";
+  asOf?: string;
 }
 
 export interface GradeImages {

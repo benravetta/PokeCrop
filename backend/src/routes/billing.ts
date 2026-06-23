@@ -11,6 +11,12 @@ import {
   PRICE_IDS,
   planForPrice,
 } from "../lib/stripe.js";
+import {
+  creditGradePurchase,
+  refundGradePurchase,
+  markGradePurchaseDisputed,
+  isPurchaseCredited,
+} from "../lib/billingPurchases.js";
 
 const router = Router();
 
@@ -39,8 +45,6 @@ async function getOrCreateCustomer(
     metadata: { user_id: userId },
   });
 
-  // Upsert (not update) so a missing subscriptions row can't silently drop the
-  // customer id and cause a duplicate Stripe customer on the next checkout.
   const { error } = await sb
     .from("subscriptions")
     .upsert(
@@ -56,7 +60,6 @@ async function getOrCreateCustomer(
   return customer.id;
 }
 
-// Start a Stripe Checkout session for a subscription plan.
 router.post("/billing/checkout", requireAuth, async (req: Request, res: Response) => {
   if (!isStripeConfigured()) {
     res.status(503).json({ error: "Billing is not configured." });
@@ -96,8 +99,6 @@ router.post("/billing/checkout", requireAuth, async (req: Request, res: Response
   }
 });
 
-// Start a one-time Checkout session to buy a single grade (no subscription).
-// On payment, the webhook credits one grade to the buyer's account.
 router.post(
   "/billing/checkout-grade",
   requireAuth,
@@ -116,18 +117,16 @@ router.post(
         customer: customerId,
         line_items: [{ price: GRADE_SINGLE_PRICE, quantity: 1 }],
         client_reference_id: userId,
-        // Metadata on the session and the resulting PaymentIntent so the webhook
-        // can attribute and credit the purchase regardless of which it reads.
         metadata: { user_id: userId, product: "grade_single", qty: "1" },
         payment_intent_data: {
           metadata: { user_id: userId, product: "grade_single", qty: "1" },
         },
         allow_promotion_codes: true,
-        success_url: `${origin}/grade?purchase=success`,
+        success_url: `${origin}/grade?purchase=success&session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${origin}/grade?purchase=cancel`,
       });
 
-      res.json({ url: session.url });
+      res.json({ url: session.url, sessionId: session.id });
     } catch (err) {
       console.error("Grade checkout creation failed:", err);
       res.status(500).json({ error: "Could not start checkout." });
@@ -135,7 +134,57 @@ router.post(
   }
 );
 
-// Open the Stripe Customer Portal for managing/cancelling a subscription.
+// Poll after Checkout return — confirms webhook credit landed (or triggers recovery).
+router.get(
+  "/billing/purchase-status",
+  requireAuth,
+  async (req: Request, res: Response) => {
+    const sessionId = typeof req.query.session_id === "string" ? req.query.session_id : "";
+    if (!sessionId) {
+      res.status(400).json({ error: "session_id is required." });
+      return;
+    }
+    if (!isStripeConfigured()) {
+      res.status(503).json({ error: "Billing is not configured." });
+      return;
+    }
+
+    const userId = req.user!.id;
+
+    if (await isPurchaseCredited(userId, sessionId)) {
+      res.json({ status: "credited" });
+      return;
+    }
+
+    try {
+      const session = await getStripe().checkout.sessions.retrieve(sessionId);
+      if (session.client_reference_id && session.client_reference_id !== userId) {
+        res.status(403).json({ error: "Session does not belong to this account." });
+        return;
+      }
+
+      if (session.payment_status === "paid") {
+        const credited = await creditGradePurchase(session);
+        res.json({ status: credited ? "credited" : "already_credited" });
+        return;
+      }
+
+      if (session.status === "expired") {
+        res.json({ status: "expired" });
+        return;
+      }
+
+      res.json({
+        status: session.status === "open" ? "pending" : "unpaid",
+        payment_status: session.payment_status,
+      });
+    } catch (err) {
+      console.error("purchase-status failed:", err);
+      res.status(500).json({ error: "Could not load purchase status." });
+    }
+  }
+);
+
 router.post("/billing/portal", requireAuth, async (req: Request, res: Response) => {
   if (!isStripeConfigured()) {
     res.status(503).json({ error: "Billing is not configured." });
@@ -166,9 +215,6 @@ router.post("/billing/portal", requireAuth, async (req: Request, res: Response) 
   }
 });
 
-// Reflect a Stripe subscription into our subscriptions table. getPlan() treats
-// any non-active status as effectively free, so we store the purchased plan plus
-// the live status.
 async function syncSubscription(sub: Stripe.Subscription): Promise<void> {
   const sb = getServiceClient();
   const customerId =
@@ -191,7 +237,6 @@ async function syncSubscription(sub: Stripe.Subscription): Promise<void> {
   const periodEnd = (sub as unknown as { current_period_end?: number })
     .current_period_end;
 
-  // Upsert keyed on user_id: idempotent, and resilient if the row is missing.
   const { error } = await sb.from("subscriptions").upsert(
     {
       user_id: userId,
@@ -206,10 +251,8 @@ async function syncSubscription(sub: Stripe.Subscription): Promise<void> {
     },
     { onConflict: "user_id" }
   );
-  // Surface failures so the webhook returns non-2xx and Stripe retries.
   if (error) throw error;
 
-  // Audit the billing-driven plan/status change (actor = system/Stripe).
   logActivity({
     userId,
     action: "subscription.synced",
@@ -217,53 +260,72 @@ async function syncSubscription(sub: Stripe.Subscription): Promise<void> {
   });
 }
 
-// Credit purchased grade(s) from a completed one-time Checkout session.
-async function creditGradePurchase(session: Stripe.Checkout.Session): Promise<void> {
-  // Only one-time payments for the single-grade product.
-  if (session.mode !== "payment") return;
-  const meta = session.metadata ?? {};
-  if (meta.product !== "grade_single") return;
-  // Don't credit until the money is actually captured.
-  if (session.payment_status !== "paid") return;
-
-  const userId = (meta.user_id as string | undefined) || session.client_reference_id || undefined;
-  if (!userId) {
-    console.warn("grade purchase with no resolvable user:", session.id);
-    return;
-  }
-  const qty = Math.max(1, parseInt((meta.qty as string) || "1", 10) || 1);
-
-  const sb = getServiceClient();
-  const { error } = await sb.rpc("add_grade_credits", { p_user: userId, p_qty: qty });
-  if (error) throw error;
-
-  logActivity({
-    userId,
-    action: "grade.credit.purchased",
-    detail: { qty, source: "stripe", session: session.id },
-  });
+async function syncSubscriptionFromInvoice(invoice: Stripe.Invoice): Promise<void> {
+  const subRef = invoice.subscription;
+  if (!subRef) return;
+  const subId = typeof subRef === "string" ? subRef : subRef.id;
+  const sub = await getStripe().subscriptions.retrieve(subId);
+  await syncSubscription(sub);
 }
 
-// Record a Stripe event id so retries / at-least-once delivery never double-apply.
-// Returns true if this is the first time we've seen the event (caller should
-// process it), false if it was already processed.
+function paymentIntentIdFromCharge(charge: Stripe.Charge): string | null {
+  const pi = charge.payment_intent;
+  if (!pi) return null;
+  return typeof pi === "string" ? pi : pi.id;
+}
+
+async function handleCheckoutSession(session: Stripe.Checkout.Session): Promise<void> {
+  if (session.mode !== "payment") return;
+  if (session.metadata?.product !== "grade_single") return;
+
+  if (session.payment_status === "paid") {
+    await creditGradePurchase(session);
+    return;
+  }
+
+  if (session.payment_status === "unpaid") {
+    logActivity({
+      userId: session.client_reference_id ?? undefined,
+      action: "grade.purchase.async_failed",
+      detail: { session: session.id, payment_status: session.payment_status },
+    });
+  }
+}
+
+async function handleChargeRefunded(charge: Stripe.Charge): Promise<void> {
+  const pi = paymentIntentIdFromCharge(charge);
+  if (!pi) return;
+
+  const revoked = await refundGradePurchase({ paymentIntentId: pi });
+  if (revoked > 0) {
+    logActivity({
+      action: "grade.credit.refunded",
+      detail: { payment_intent: pi, revoked, charge: charge.id },
+    });
+  } else {
+    logActivity({
+      action: "grade.credit.refund_no_balance",
+      detail: {
+        payment_intent: pi,
+        charge: charge.id,
+        note: "Purchase already refunded or credits already consumed",
+      },
+    });
+  }
+}
+
 async function claimStripeEvent(event: Stripe.Event): Promise<boolean> {
   const sb = getServiceClient();
   const { error } = await sb
     .from("stripe_events")
     .insert({ id: event.id, type: event.type });
   if (error) {
-    // Unique-violation => already processed. Anything else: rethrow so Stripe
-    // retries rather than silently dropping the event.
     if ((error as { code?: string }).code === "23505") return false;
     throw error;
   }
   return true;
 }
 
-// Release a claimed event id so a Stripe retry can reprocess it. Used when
-// processing fails after the claim, otherwise the retry would be deduped away
-// and the side effect (e.g. crediting a grade) lost.
 async function releaseStripeEvent(eventId: string): Promise<void> {
   try {
     await getServiceClient().from("stripe_events").delete().eq("id", eventId);
@@ -272,8 +334,6 @@ async function releaseStripeEvent(eventId: string): Promise<void> {
   }
 }
 
-// Stripe webhook. Mounted with a raw body parser (see index.ts) so the
-// signature can be verified.
 export async function stripeWebhookHandler(req: Request, res: Response): Promise<void> {
   const secret = process.env.STRIPE_WEBHOOK_SECRET;
   const signature = req.headers["stripe-signature"];
@@ -295,8 +355,6 @@ export async function stripeWebhookHandler(req: Request, res: Response): Promise
     return;
   }
 
-  // Idempotency: skip events we've already processed. Crediting a one-off grade
-  // isn't naturally idempotent, so we dedupe on the Stripe event id.
   let claimed = false;
   try {
     claimed = await claimStripeEvent(event);
@@ -317,15 +375,41 @@ export async function stripeWebhookHandler(req: Request, res: Response): Promise
       case "customer.subscription.deleted":
         await syncSubscription(event.data.object as Stripe.Subscription);
         break;
-      case "checkout.session.completed":
-        await creditGradePurchase(event.data.object as Stripe.Checkout.Session);
+      case "invoice.payment_failed":
+        await syncSubscriptionFromInvoice(event.data.object as Stripe.Invoice);
         break;
+      case "checkout.session.completed":
+      case "checkout.session.async_payment_succeeded":
+        await handleCheckoutSession(event.data.object as Stripe.Checkout.Session);
+        break;
+      case "checkout.session.async_payment_failed":
+        await handleCheckoutSession(event.data.object as Stripe.Checkout.Session);
+        break;
+      case "checkout.session.expired":
+        logActivity({
+          action: "grade.checkout.expired",
+          detail: { session: (event.data.object as Stripe.Checkout.Session).id },
+        });
+        break;
+      case "charge.refunded":
+        await handleChargeRefunded(event.data.object as Stripe.Charge);
+        break;
+      case "charge.dispute.created": {
+        const charge = event.data.object as Stripe.Charge;
+        const pi = paymentIntentIdFromCharge(charge);
+        if (pi) {
+          await markGradePurchaseDisputed(pi);
+          logActivity({
+            action: "grade.purchase.disputed",
+            detail: { payment_intent: pi, charge: charge.id },
+          });
+        }
+        break;
+      }
       default:
         break;
     }
   } catch (err) {
-    // Processing failed after we claimed the event: release the claim so the
-    // Stripe retry reprocesses it instead of being deduped away.
     await releaseStripeEvent(event.id);
     console.error("Webhook handling error:", err);
     res.status(500).json({ error: "Webhook handler failed." });

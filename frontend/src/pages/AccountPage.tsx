@@ -88,7 +88,7 @@ export function AccountPage() {
   const buyGrade = async () => {
     setBuyBusy(true);
     try {
-      const url = await startGradeCheckout();
+      const { url } = await startGradeCheckout();
       window.location.href = url;
     } catch {
       setBuyBusy(false);

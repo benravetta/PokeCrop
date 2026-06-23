@@ -24,6 +24,11 @@ export interface CardPricing {
   graded: GradedPrice[];
   confidence: "low" | "medium" | "high";
   note: string;
+  /** Where the numbers came from — shown on reports. */
+  source?: "cardmarket" | "pricecharting" | "mixed" | "ai";
+  rawSource?: "cardmarket" | "pricecharting";
+  /** ISO date (YYYY-MM-DD) the market data was fetched. */
+  asOf?: string;
 }
 
 export interface PriceIdentity {

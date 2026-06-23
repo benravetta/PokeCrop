@@ -260,9 +260,15 @@ For **local dev**, `frontend/.env` holds the public `VITE_SUPABASE_*` values
    - Unlimited — £7.99/month → copy its price id to `STRIPE_PRICE_UNLIMITED`
    - API access — £19.99/month → copy its price id to `STRIPE_PRICE_API`
 2. Add a **webhook endpoint** → `https://gemcheck.co.uk/api/webhooks/stripe`
-   subscribed to `customer.subscription.created/updated/deleted`. Copy the
-   signing secret to `STRIPE_WEBHOOK_SECRET`.
-3. Enable the **Customer Portal** (Settings → Billing → Customer portal) so the
+   subscribed to at least:
+   - `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`
+   - `invoice.payment_failed`
+   - `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, `checkout.session.expired`
+   - `charge.refunded`, `charge.dispute.created`
+   
+   Copy the signing secret to `STRIPE_WEBHOOK_SECRET`.
+3. Create a **one-time GBP price** for single-grade purchases (£2.99) → `STRIPE_PRICE_GRADE_SINGLE` (include `checkout.session.completed` above).
+4. Enable the **Customer Portal** (Settings → Billing → Customer portal) so the
    "Manage billing" button works.
 
 ### Fly secrets
@@ -274,7 +280,18 @@ fly secrets set \
   STRIPE_SECRET_KEY=sk_live_xxx \
   STRIPE_WEBHOOK_SECRET=whsec_xxx \
   STRIPE_PRICE_UNLIMITED=price_xxx \
-  STRIPE_PRICE_API=price_xxx
+  STRIPE_PRICE_API=price_xxx \
+  STRIPE_PRICE_GRADE_SINGLE=price_xxx
+
+# Optional: live market pricing on grade reports (falls back to AI if unset)
+# CARDMARKET_APP_TOKEN=...
+# CARDMARKET_APP_SECRET=...
+# CARDMARKET_ACCESS_TOKEN=...
+# CARDMARKET_ACCESS_TOKEN_SECRET=...
+# PRICECHARTING_API_TOKEN=...
+# EUR_TO_GBP=0.85
+# USD_TO_GBP=0.79
+# MARKET_PRICE_CACHE_HOURS=48
 
 # Public Supabase values are baked into the SPA at build time:
 fly deploy \

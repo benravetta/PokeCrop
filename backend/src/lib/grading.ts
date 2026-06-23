@@ -1,6 +1,6 @@
 import { chatComplete, isOpenAiConfigured, type ChatImage } from "./openai.js";
 import { buildPreparation } from "./preparation.js";
-import { estimateCardPrices } from "./cardPricing.js";
+import { estimateMarketPrices } from "./marketPricing.js";
 import { scoreGrades } from "./gradeScoring.js";
 
 // Strict, anti-hype PSA-style pre-grader. Two passes:
@@ -317,7 +317,7 @@ export async function gradeCard(
   try {
     const identity = (findings as Record<string, unknown>).card_identification;
     if (identity && typeof identity === "object") {
-      pricing = await estimateCardPrices(
+      pricing = await estimateMarketPrices(
         identity as Record<string, unknown>,
         scored.company_estimates,
         userId,
@@ -328,15 +328,20 @@ export async function gradeCard(
     pricing = null;
   }
 
+  const pricingDisclaimer =
+    pricing?.source && pricing.source !== "ai"
+      ? "Not an official grade from PSA, Beckett, CGC, TAG, ACE or any grader. " +
+        "Values shown use third-party market data where available — not guaranteed sale prices."
+      : "Not an official grade from PSA, Beckett, CGC, TAG, ACE or any grader. " +
+        "Values shown are AI estimates when live market data is unavailable.";
+
   return {
     ...findings,
     ...mergedDecision,
     preparation: buildPreparation((findings as Record<string, unknown>).defects),
     ...(pricing ? { pricing } : {}),
     disclaimer:
-      "Not an official grade from PSA, Beckett, CGC, TAG, ACE or any grader. A " +
-      "pre-check estimate from photos to help you decide whether to submit, sell " +
-      "raw, or inspect further. Any values shown are rough AI estimates, not live " +
-      "market prices.",
+      pricingDisclaimer +
+      " Pre-check from photos only — helps you decide whether to submit or sell raw.",
   };
 }

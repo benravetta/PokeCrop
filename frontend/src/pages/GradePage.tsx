@@ -18,6 +18,7 @@ import {
   gradeCard,
   getGradeQuota,
   startGradeCheckout,
+  getPurchaseStatus,
   straightenForGrade,
   ApiError,
   type CaptureIssue,
@@ -162,28 +163,66 @@ export function GradePage() {
       .catch(() => setFrontLongEdge(null));
   }, [files.front]);
 
-  // Returning from a single-grade Checkout: the webhook credits the grade, so
-  // refresh the quota (and the header credits), then strip the query param.
+  // Returning from a single-grade Checkout: poll until webhook credit lands.
   useEffect(() => {
     if (!purchaseStatus) return;
-    if (purchaseStatus === "success") {
-      getGradeQuota()
-        .then((r) => setQuota(r.quota))
-        .catch(() => {});
-      refreshMe();
+    if (purchaseStatus !== "success") {
+      const t = window.setTimeout(() => {
+        searchParams.delete("purchase");
+        searchParams.delete("session_id");
+        setSearchParams(searchParams, { replace: true });
+      }, 5000);
+      return () => window.clearTimeout(t);
     }
+
+    const sessionId = searchParams.get("session_id");
+    let cancelled = false;
+    let attempts = 0;
+
+    const refresh = async () => {
+      if (cancelled) return;
+      attempts += 1;
+      try {
+        if (sessionId) {
+          const st = await getPurchaseStatus(sessionId);
+          if (st.status === "credited" || st.status === "already_credited") {
+            const r = await getGradeQuota();
+            if (!cancelled) setQuota(r.quota);
+            refreshMe();
+            return;
+          }
+          if (st.status === "expired" || st.status === "unpaid") return;
+        } else {
+          const r = await getGradeQuota();
+          if (!cancelled) setQuota(r.quota);
+          refreshMe();
+        }
+      } catch {
+        /* keep polling */
+      }
+      if (!cancelled && attempts < 15) {
+        window.setTimeout(refresh, 2000);
+      }
+    };
+
+    void refresh();
     const t = window.setTimeout(() => {
       searchParams.delete("purchase");
+      searchParams.delete("session_id");
       setSearchParams(searchParams, { replace: true });
-    }, 5000);
-    return () => window.clearTimeout(t);
+    }, 35000);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(t);
+    };
   }, [purchaseStatus, refreshMe, searchParams, setSearchParams]);
 
   const buyGrade = useCallback(async () => {
     setBuyBusy(true);
     setError(null);
     try {
-      const url = await startGradeCheckout();
+      const { url } = await startGradeCheckout();
       window.location.href = url;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not start checkout.");
@@ -615,7 +654,14 @@ function PriceEstimate({ pricing }: { pricing?: CardPricing }) {
         </ul>
       )}
       <p className="mt-3 text-[11px] leading-snug text-text-muted">
-        Rough estimate (confidence: {pricing.confidence}){pricing.note ? ` — ${pricing.note}` : ""}
+        {pricing.source && pricing.source !== "ai" && (
+          <span className="text-text-secondary">
+            Source: {pricing.source}
+            {pricing.asOf ? ` · ${pricing.asOf}` : ""}.{" "}
+          </span>
+        )}
+        Estimate confidence: {pricing.confidence}
+        {pricing.note ? ` — ${pricing.note}` : ""}
       </p>
     </div>
   );
