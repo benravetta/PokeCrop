@@ -39,7 +39,7 @@ ENV PYTHONUNBUFFERED=1 \
     PATH=/opt/venv/bin:$PATH \
     UVICORN_WORKERS=1 \
     PYTHON_TIMEOUT_MS=180000 \
-    CORS_ORIGIN=* \
+    CORS_ORIGIN=https://gemcheck.co.uk \
     # Where rembg looks for / caches model weights. Bundled at build time below
     # so the container never downloads a model at runtime.
     U2NET_HOME=/app/models \

@@ -1,6 +1,6 @@
-# CardCrop
+# GemCheck
 
-A [Looky Collectibles](https://getlooky.uk) tool — built with ❤️ in the English Lake District. Live at [cardcrop.uk](https://cardcrop.uk).
+A [Looky Collectibles](https://getlooky.uk) tool — built with ❤️ in the English Lake District. Live at [gemcheck.co.uk](https://gemcheck.co.uk).
 
 Web application for extracting trading cards from scans and photos. Upload an image or PDF, and CardCrop detects the frontmost card, preserves its exact border and rounded corners, removes the wrapper/backing card/background, and exports a transparent PNG.
 
@@ -154,16 +154,13 @@ remote builders (no local Docker required), and deploys. You'll be prompted to
 choose a globally-unique **app name** and confirm the region. When it finishes
 it prints your `*.fly.dev` URL.
 
-**Custom domain.** The production app is served at **[cardcrop.uk](https://cardcrop.uk)**.
-To attach a custom domain to the Fly app, point your DNS at Fly and run:
+**Custom domain.** Production is served at **[gemcheck.co.uk](https://gemcheck.co.uk)** (TLS cert issued via Fly). If you attach another hostname:
 
 ```bash
-fly certs add cardcrop.uk
-fly certs add www.cardcrop.uk
+fly certs add gemcheck.co.uk
 ```
 
-Then use `https://cardcrop.uk` as the public origin everywhere below (Supabase
-redirect URLs, the Stripe webhook endpoint, etc.).
+Then set `PUBLIC_ORIGIN=https://gemcheck.co.uk` and `CORS_ORIGIN=https://gemcheck.co.uk` (in `fly.toml` `[env]` or Fly secrets) and use that origin in Supabase redirect URLs, the Stripe webhook endpoint, etc.
 
 ### Updating / Continuous deployment
 
@@ -253,7 +250,7 @@ For **local dev**, `frontend/.env` holds the public `VITE_SUPABASE_*` values
    **Authentication → URL Configuration**, set the **Site URL** and add
    **Redirect URLs** for each environment:
    - `http://localhost:5173` and `http://localhost:5173/reset-password` (dev)
-   - `https://YOUR_APP.fly.dev` and `https://YOUR_APP.fly.dev/reset-password` (prod)
+   - `https://gemcheck.co.uk` and `https://gemcheck.co.uk/reset-password` (prod)
 3. **Email** — email confirmation is on by default. For production volume,
    configure custom SMTP under **Authentication → Emails**.
 
@@ -262,7 +259,7 @@ For **local dev**, `frontend/.env` holds the public `VITE_SUPABASE_*` values
 1. Create two **recurring GBP prices** in the Stripe dashboard:
    - Unlimited — £7.99/month → copy its price id to `STRIPE_PRICE_UNLIMITED`
    - API access — £19.99/month → copy its price id to `STRIPE_PRICE_API`
-2. Add a **webhook endpoint** → `https://YOUR_APP.fly.dev/api/webhooks/stripe`
+2. Add a **webhook endpoint** → `https://gemcheck.co.uk/api/webhooks/stripe`
    subscribed to `customer.subscription.created/updated/deleted`. Copy the
    signing secret to `STRIPE_WEBHOOK_SECRET`.
 3. Enable the **Customer Portal** (Settings → Billing → Customer portal) so the
@@ -409,15 +406,15 @@ the request sends `Accept: image/png`.
 
 ```bash
 # File upload, save the PNG directly
-curl -X POST https://cardcrop.uk/v1/crop \
-  -H "Authorization: Bearer $CARDCROP_API_KEY" \
+curl -X POST https://gemcheck.co.uk/v1/crop \
+  -H "Authorization: Bearer $GEMCHECK_API_KEY" \
   -H "Accept: image/png" \
   -F "image=@card.jpg" \
   -o cropped.png
 
 # From a URL, get JSON + metadata
-curl -X POST https://cardcrop.uk/v1/crop \
-  -H "Authorization: Bearer $CARDCROP_API_KEY" \
+curl -X POST https://gemcheck.co.uk/v1/crop \
+  -H "Authorization: Bearer $GEMCHECK_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"image_url":"https://example.com/card.jpg"}'
 ```

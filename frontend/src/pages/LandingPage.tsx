@@ -1113,7 +1113,7 @@ function HowItWorks() {
 /* Developers / API                                                    */
 /* ------------------------------------------------------------------ */
 
-const API_SNIPPET = `curl -X POST https://cardcrop.uk/v1/crop \\
+const API_SNIPPET = `curl -X POST https://gemcheck.co.uk/v1/crop \\
   -H "Authorization: Bearer $GEMCHECK_API_KEY" \\
   -H "Accept: image/png" \\
   -F "image=@charizard.jpg" \\

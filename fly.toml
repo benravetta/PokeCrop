@@ -17,6 +17,8 @@ primary_region = 'lhr'
     VITE_SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_vBGh2FSPsMRgB0YSZpyWeQ_thadWbd0'
 
 [env]
+  PUBLIC_ORIGIN = "https://gemcheck.co.uk"
+  CORS_ORIGIN = "https://gemcheck.co.uk"
   PYTHON_TIMEOUT_MS = '180000'
   UVICORN_WORKERS = '1'
 

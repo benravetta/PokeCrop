@@ -1,4 +1,4 @@
-// OpenAPI 3.1 description of the public CardCrop API (/v1). Served verbatim at
+// OpenAPI 3.1 description of the public GemCheck API (/v1). Served verbatim at
 // GET /v1/openapi.json and rendered by the /docs page. Quickstart prose lives in
 // info.description (markdown) and per-language samples in x-codeSamples so the
 // docs UI stays in sync with this single source of truth.
@@ -21,7 +21,7 @@ Authorization: Bearer pk_live_xxxxxxxxxxxxxxxxxxxxxxxx
 ## Quickstart
 
 \`\`\`bash
-curl -X POST https://cardcrop.uk/v1/crop \\
+curl -X POST https://gemcheck.co.uk/v1/crop \\
   -H "Authorization: Bearer $GEMCHECK_API_KEY" \\
   -H "Accept: image/png" \\
   -F "image=@card.jpg" \\
@@ -72,10 +72,10 @@ export const openApiSpec = {
     title: "GemCheck API",
     version: "1.0.0",
     description: DESCRIPTION,
-    contact: { name: "GemCheck", url: "https://cardcrop.uk" },
+    contact: { name: "GemCheck", url: "https://gemcheck.co.uk" },
   },
   servers: [
-    { url: "https://cardcrop.uk/v1", description: "Production" },
+    { url: "https://gemcheck.co.uk/v1", description: "Production" },
     { url: "/v1", description: "Relative to this host" },
   ],
   security: [{ bearerApiKey: [] }],
@@ -151,19 +151,19 @@ export const openApiSpec = {
             lang: "curl",
             label: "cURL (file → PNG)",
             source:
-              'curl -X POST https://cardcrop.uk/v1/crop \\\n  -H "Authorization: Bearer $GEMCHECK_API_KEY" \\\n  -H "Accept: image/png" \\\n  -F "image=@card.jpg" \\\n  -o cropped.png',
+              'curl -X POST https://gemcheck.co.uk/v1/crop \\\n  -H "Authorization: Bearer $GEMCHECK_API_KEY" \\\n  -H "Accept: image/png" \\\n  -F "image=@card.jpg" \\\n  -o cropped.png',
           },
           {
             lang: "python",
             label: "Python (requests)",
             source:
-              'import os, requests\n\nresp = requests.post(\n    "https://cardcrop.uk/v1/crop",\n    headers={"Authorization": f"Bearer {os.environ[\'CARDCROP_API_KEY\']}", "Accept": "image/png"},\n    files={"image": open("card.jpg", "rb")},\n)\nresp.raise_for_status()\nwith open("cropped.png", "wb") as f:\n    f.write(resp.content)',
+              'import os, requests\n\nresp = requests.post(\n    "https://gemcheck.co.uk/v1/crop",\n    headers={"Authorization": f"Bearer {os.environ[\'GEMCHECK_API_KEY\']}", "Accept": "image/png"},\n    files={"image": open("card.jpg", "rb")},\n)\nresp.raise_for_status()\nwith open("cropped.png", "wb") as f:\n    f.write(resp.content)',
           },
           {
             lang: "javascript",
             label: "JavaScript (fetch, URL input)",
             source:
-              'const res = await fetch("https://cardcrop.uk/v1/crop", {\n  method: "POST",\n  headers: {\n    Authorization: `Bearer ${process.env.CARDCROP_API_KEY}`,\n    "Content-Type": "application/json",\n  },\n  body: JSON.stringify({ image_url: "https://example.com/card.jpg" }),\n});\nconst { image_base64, metadata } = await res.json();',
+              'const res = await fetch("https://gemcheck.co.uk/v1/crop", {\n  method: "POST",\n  headers: {\n    Authorization: `Bearer ${process.env.GEMCHECK_API_KEY}`,\n    "Content-Type": "application/json",\n  },\n  body: JSON.stringify({ image_url: "https://example.com/card.jpg" }),\n});\nconst { image_base64, metadata } = await res.json();',
           },
         ],
       },

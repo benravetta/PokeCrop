@@ -126,7 +126,7 @@ function requestOnce(url: URL): Promise<http.IncomingMessage> {
         timeout: FETCH_TIMEOUT_MS,
         headers: {
           Accept: "image/*,application/pdf",
-          "User-Agent": "GemCheck/1.0 (+https://cardcrop.uk)",
+          "User-Agent": "GemCheck/1.0 (+https://gemcheck.co.uk)",
         },
       },
       (res) => resolve(res)
