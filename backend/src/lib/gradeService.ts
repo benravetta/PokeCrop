@@ -13,6 +13,7 @@ import {
   consumeGradeCredit,
   type GradeQuota,
 } from "./gradeQuota.js";
+import { isAdminRole, type UserRole } from "./adminAccess.js";
 import { isSuspended } from "./usage.js";
 import { logActivity } from "./activity.js";
 import { logUsageEvent, type UsageSource } from "./usageEvents.js";
@@ -193,8 +194,9 @@ export async function executeGrade(opts: {
   centering?: MeasuredCentering;
   source: UsageSource;
   actorEmail?: string | null;
+  role?: UserRole;
 }): Promise<GradeExecuteResult> {
-  const { userId, files, centering, source, actorEmail } = opts;
+  const { userId, files, centering, source, actorEmail, role } = opts;
 
   if (!isGradingConfigured()) {
     return {
@@ -224,8 +226,8 @@ export async function executeGrade(opts: {
     };
   }
 
-  const quota = await getGradeQuota(userId);
-  if (quota.remaining <= 0) {
+  const quota = await getGradeQuota(userId, role);
+  if (!isAdminRole(role) && quota.remaining <= 0) {
     return {
       ok: false,
       status: 429,
@@ -296,11 +298,14 @@ export async function executeGrade(opts: {
   resultRec.capture_quality = captureQA;
 
   const { summary, detail } = summariseGrade(resultRec);
-  let billing: "free" | "subscription" | "one_off";
+  let billing: "free" | "subscription" | "one_off" | "admin";
   let usedAfter: number | null = null;
   let remainingAfter: number | null = null;
 
-  if (quota.allowanceRemaining > 0) {
+  if (isAdminRole(role)) {
+    billing = "admin";
+    remainingAfter = null;
+  } else if (quota.allowanceRemaining > 0) {
     const newCount = await incrementGrade(userId);
     billing = quota.plan === "free" ? "free" : "subscription";
     usedAfter = newCount;
@@ -337,7 +342,7 @@ export async function executeGrade(opts: {
     detail,
   });
 
-  const updated = await getGradeQuota(userId);
+  const updated = await getGradeQuota(userId, role);
   return {
     ok: true,
     result: resultRec,

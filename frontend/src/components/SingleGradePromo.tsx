@@ -4,6 +4,7 @@ import { ArrowRight, CreditCard, FileText, Loader2, ScanSearch } from "lucide-re
 import { useMe } from "../hooks/useMe";
 import { startGradeCheckout } from "../lib/api";
 import { SINGLE_GRADE } from "./landing/data";
+import { isAdminMe } from "../lib/adminAccess";
 
 async function buyGrade(setBusy: (v: boolean) => void) {
   setBusy(true);
@@ -25,7 +26,7 @@ export function SingleGradePromo({
   const { me } = useMe();
   const [busy, setBusy] = useState(false);
 
-  if (!me || me.plan !== "free") return null;
+  if (!me || me.plan !== "free" || isAdminMe(me)) return null;
 
   if (compact) {
     return (

@@ -4,17 +4,32 @@ import { FREE_DAILY_LIMIT, getPlan, getUsageToday } from "../lib/usage.js";
 import { getGradeCredits } from "../lib/gradeQuota.js";
 import { getHistory, type UsageKind } from "../lib/usageEvents.js";
 import { enrichHistoryEvents, updateHistoryEventCentring } from "../lib/historyEnrich.js";
+import { ADMIN_EFFECTIVE_PLAN, isAdminRole } from "../lib/adminAccess.js";
 
 const router = Router();
 
 router.get("/me", requireAuth, async (req: Request, res: Response) => {
   const userId = req.user!.id;
+  const admin = isAdminRole(req.user!.role);
   try {
     const [plan, used, gradeCredits] = await Promise.all([
       getPlan(userId),
       getUsageToday(userId),
       getGradeCredits(userId),
     ]);
+
+    if (admin) {
+      res.json({
+        plan: ADMIN_EFFECTIVE_PLAN,
+        cropsUsedToday: used,
+        cropsRemaining: null,
+        dailyLimit: null,
+        gradeCredits,
+        isAdmin: true,
+      });
+      return;
+    }
+
     const cropsRemaining =
       plan === "free" ? Math.max(0, FREE_DAILY_LIMIT - used) : null;
 
@@ -24,7 +39,7 @@ router.get("/me", requireAuth, async (req: Request, res: Response) => {
       cropsRemaining,
       dailyLimit: plan === "free" ? FREE_DAILY_LIMIT : null,
       gradeCredits,
-      isAdmin: req.user!.role === "admin",
+      isAdmin: false,
     });
   } catch (err) {
     console.error("/me failed:", err);

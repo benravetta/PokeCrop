@@ -4,6 +4,7 @@ import { PRICING_TIERS, SINGLE_GRADE } from "./data";
 import { isProLaunchPromoActive, PRO_LAUNCH_PROMO } from "../pricing/pricingCompare";
 import type { Plan, SubscriptionPlan } from "../../lib/plans";
 import { SectionHeading } from "./shared";
+import { AdminAccessNotice } from "../../lib/adminAccess";
 
 export function SingleGradeOffer({
   loggedIn,
@@ -73,11 +74,13 @@ export function SingleGradeOffer({
 export function PricingSection({
   loggedIn,
   plan,
+  isAdmin = false,
   onUpgrade,
   onBuyGrade,
 }: {
   loggedIn: boolean;
   plan: Plan | null;
+  isAdmin?: boolean;
   onUpgrade: (plan: SubscriptionPlan) => void;
   onBuyGrade: () => void;
 }) {
@@ -100,8 +103,14 @@ export function PricingSection({
           </p>
         )}
 
+        {isAdmin && (
+          <div className="mt-6">
+            <AdminAccessNotice />
+          </div>
+        )}
+
         <div className="mt-8">
-          <SingleGradeOffer loggedIn={loggedIn} onBuyGrade={onBuyGrade} />
+          {!isAdmin && <SingleGradeOffer loggedIn={loggedIn} onBuyGrade={onBuyGrade} />}
         </div>
 
         <p className="mt-10 text-center text-xs font-semibold uppercase tracking-wider text-text-muted">
@@ -111,6 +120,7 @@ export function PricingSection({
         <div className="mt-6 grid sm:grid-cols-2 xl:grid-cols-4 gap-4 lg:gap-5">
           {PRICING_TIERS.map((tier) => {
             const isCurrent =
+              !isAdmin &&
               loggedIn &&
               plan !== null &&
               ((tier.id === "free" && plan === "free") ||
@@ -151,7 +161,11 @@ export function PricingSection({
                   ))}
                 </ul>
                 <div className="mt-6">
-                  {isCurrent ? (
+                  {isAdmin ? (
+                    <span className="block w-full rounded-xl border border-amber-500/30 bg-amber-500/10 py-2.5 text-sm font-medium text-center text-amber-200">
+                      Admin — included
+                    </span>
+                  ) : isCurrent ? (
                     <span className="block w-full rounded-xl border border-border-strong py-2.5 text-sm font-medium text-center text-text-muted">
                       Current plan
                     </span>
@@ -197,11 +211,13 @@ export function PricingSection({
 export function PlanCta({
   loggedIn,
   plan,
+  isAdmin = false,
   onUpgrade,
   onBuyGrade,
 }: {
   loggedIn: boolean;
   plan: Plan | null;
+  isAdmin?: boolean;
   onUpgrade: (plan: SubscriptionPlan) => void;
   onBuyGrade: () => void;
 }) {
@@ -213,7 +229,12 @@ export function PlanCta({
     to: "/pricing",
   };
 
-  if (!loggedIn) {
+  if (isAdmin) {
+    title = "You're signed in as admin.";
+    copy = "Full access to crops, grades, and API keys. Billing and plan changes are not available for admin accounts.";
+    primary = { label: "Open the app", to: "/crop" };
+    secondary = { label: "Admin panel", to: "/admin" };
+  } else if (!loggedIn) {
     title = "Check a card before you ever pay to grade.";
     copy = `Free to start — or buy a single report for ${SINGLE_GRADE.price} with no subscription.`;
     primary = { label: "Create a free account", to: "/register" };

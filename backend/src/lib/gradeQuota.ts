@@ -1,5 +1,6 @@
 import { getServiceClient } from "./supabase.js";
 import { getPlan, type Plan } from "./usage.js";
+import { adminGradeQuota, isAdminRole, type UserRole } from "./adminAccess.js";
 
 // Grading is costlier than cropping, so quotas are tighter:
 //   free      -> 1 / month
@@ -23,6 +24,7 @@ export interface GradeQuota {
   allowanceRemaining: number;
   // One-off grade credits the user has purchased and not yet consumed.
   credits: number;
+  isAdmin?: boolean;
 }
 
 function utcDay(): string {
@@ -62,7 +64,11 @@ export async function getGradeCredits(userId: string): Promise<number> {
   return Math.max(0, data?.grade_credits ?? 0);
 }
 
-export async function getGradeQuota(userId: string): Promise<GradeQuota> {
+export async function getGradeQuota(
+  userId: string,
+  role?: UserRole
+): Promise<GradeQuota> {
+  if (isAdminRole(role)) return adminGradeQuota();
   const plan = await getPlan(userId);
   const { limit, window } = planLimit(plan);
   const used = window === "day" ? await usedToday(userId) : await usedThisMonth(userId);

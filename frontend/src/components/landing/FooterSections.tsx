@@ -7,10 +7,12 @@ import type { Plan } from "../../lib/plans";
 export function ApiSection({
   plan,
   loggedIn,
+  isAdmin = false,
   onUpgrade,
 }: {
   plan: Plan | null;
   loggedIn: boolean;
+  isAdmin?: boolean;
   onUpgrade: () => void;
 }) {
   const endpoints = [
@@ -23,8 +25,11 @@ export function ApiSection({
   ];
 
   let cta: { label: string; action: () => void };
-  if (plan === "api") {
-    cta = { label: "Manage your API keys", action: () => (window.location.href = "/account") };
+  if (isAdmin || plan === "api") {
+    cta = {
+      label: isAdmin ? "Admin — manage API keys" : "Manage your API keys",
+      action: () => (window.location.href = "/account"),
+    };
   } else if (loggedIn) {
     cta = { label: "Upgrade to Enterprise — from £29.99/mo", action: onUpgrade };
   } else {

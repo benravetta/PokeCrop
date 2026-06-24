@@ -5,6 +5,7 @@ import { getPlan } from "../lib/usage.js";
 import { generateApiKey } from "../lib/apiKeys.js";
 import { logActivity } from "../lib/activity.js";
 import { effectiveKeyLimit } from "../lib/keyLimit.js";
+import { effectivePlan } from "../lib/adminAccess.js";
 
 const router = Router();
 
@@ -16,7 +17,7 @@ async function requireApiPlan(
   next: NextFunction
 ): Promise<void> {
   try {
-    const plan = await getPlan(req.user!.id);
+    const plan = effectivePlan(await getPlan(req.user!.id), req.user!.role);
     if (plan !== "api") {
       res
         .status(403)

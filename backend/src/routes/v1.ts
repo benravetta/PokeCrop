@@ -375,7 +375,7 @@ router.post(
 // GET /v1/grade/quota
 router.get("/grade/quota", requireApiKey, async (req: Request, res: Response) => {
   try {
-    const quota = await getGradeQuota(req.apiUser!.userId);
+    const quota = await getGradeQuota(req.apiUser!.userId, req.apiUser!.role);
     res.json({ quota });
   } catch (err) {
     console.error("v1 grade quota failed:", err);
@@ -421,6 +421,7 @@ router.post("/grade", requireApiKey, gradeUpload, async (req: Request, res: Resp
       files: req.files as FileMap | undefined,
       centering,
       source: "api",
+      role: req.apiUser!.role,
     });
 
     if (!out.ok) {
@@ -455,13 +456,15 @@ router.post("/grade", requireApiKey, gradeUpload, async (req: Request, res: Resp
 router.get("/account", requireApiKey, async (req: Request, res: Response) => {
   try {
     const userId = req.apiUser!.userId;
+    const role = req.apiUser!.role;
     const [quota, activeKeys, cropsToday] = await Promise.all([
-      getGradeQuota(userId),
+      getGradeQuota(userId, role),
       countActiveApiKeys(userId),
       getApiUsageTodayForUser(userId),
     ]);
     res.json({
       plan: "api",
+      is_admin: role === "admin",
       grade_quota: quota,
       active_api_keys: activeKeys,
       crops_today: cropsToday,

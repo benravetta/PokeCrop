@@ -1,12 +1,14 @@
 import { Request, Response, NextFunction } from "express";
 import { isSupabaseConfigured } from "../lib/supabase.js";
 import { resolveApiKey, touchLastUsed } from "../lib/apiKeys.js";
-import { getPlan, isSuspended } from "../lib/usage.js";
+import { getPlan, isSuspended, type Plan } from "../lib/usage.js";
 import { sendApiError } from "../lib/apiError.js";
+import { effectivePlan, getUserRole } from "../lib/adminAccess.js";
 
 export interface ApiCaller {
   keyId: string;
   userId: string;
+  role: "user" | "admin";
 }
 
 declare global {
@@ -67,10 +69,12 @@ export async function requireApiKey(
 
   let plan: string;
   let suspended: boolean;
+  let role: "user" | "admin";
   try {
-    [plan, suspended] = await Promise.all([
+    [plan, suspended, role] = await Promise.all([
       getPlan(caller.userId),
       isSuspended(caller.userId),
+      getUserRole(caller.userId),
     ]);
   } catch (err) {
     console.error("API plan check failed:", err);
@@ -83,7 +87,7 @@ export async function requireApiKey(
     return;
   }
 
-  if (plan !== "api") {
+  if (effectivePlan(plan as Plan, role) !== "api") {
     sendApiError(
       res,
       "forbidden_plan",
@@ -93,6 +97,6 @@ export async function requireApiKey(
   }
 
   touchLastUsed(caller.keyId);
-  req.apiUser = caller;
+  req.apiUser = { ...caller, role };
   next();
 }

@@ -532,6 +532,7 @@ export interface GradeQuota {
   allowanceRemaining: number;
   // One-off grade credits the user has bought and not yet used.
   credits: number;
+  isAdmin?: boolean;
 }
 
 // The grade result is the merged inspection + adjudication JSON; typed loosely

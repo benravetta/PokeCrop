@@ -32,6 +32,7 @@ import {
   type CardPricing,
 } from "../lib/api";
 import { useMe } from "../hooks/useMe";
+import { AdminBadge } from "../lib/adminAccess";
 import { GradeProgress } from "../components/grade/GradeProgress";
 import { GradeUploadWorkspace } from "../components/grade/GradeUploadWorkspace";
 import { borderRatios, type Box } from "../lib/centering";
@@ -105,6 +106,7 @@ export function GradePage() {
   const [buyBusy, setBuyBusy] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const refreshMe = useMe((s) => s.refresh);
+  const isAdmin = useMe((s) => s.me?.isAdmin) === true;
   const purchaseStatus = searchParams.get("purchase");
 
   // Optional close-up photos of problem areas — sharpen the surface/defect read.
@@ -219,6 +221,7 @@ export function GradePage() {
   }, [purchaseStatus, refreshMe, searchParams, setSearchParams]);
 
   const buyGrade = useCallback(async () => {
+    if (isAdmin) return;
     setBuyBusy(true);
     setError(null);
     try {
@@ -228,7 +231,7 @@ export function GradePage() {
       setError(err instanceof Error ? err.message : "Could not start checkout.");
       setBuyBusy(false);
     }
-  }, []);
+  }, [isAdmin]);
 
   // Consume a "Send to grading" hand-off from the crop tool: prefill the front
   // slot with the already-cropped/straightened card and skip re-straightening.
@@ -384,9 +387,18 @@ export function GradePage() {
     });
   }
 
-  const outOfQuota = quota ? quota.remaining <= 0 : false;
+  const outOfQuota = isAdmin ? false : quota ? quota.remaining <= 0 : false;
 
   const quotaLabel = quota ? (
+    quota.isAdmin || isAdmin ? (
+      <div className="shrink-0 rounded-xl border border-amber-500/30 bg-amber-500/10 backdrop-blur-sm px-4 py-3 text-right">
+        <div className="text-[11px] uppercase tracking-wide text-amber-200/80">Admin access</div>
+        <div className="mt-1 flex justify-end">
+          <AdminBadge />
+        </div>
+        <div className="text-[11px] text-amber-100/80 mt-1">Unlimited grades</div>
+      </div>
+    ) : (
     <div className="shrink-0 rounded-xl border border-border-subtle bg-surface/60 backdrop-blur-sm px-4 py-3 text-right">
       <div className="text-[11px] uppercase tracking-wide text-text-muted">Grades left</div>
       <div className="text-lg font-semibold text-text-primary tabular-nums">
@@ -400,6 +412,7 @@ export function GradePage() {
         )}
       </div>
     </div>
+    )
   ) : null;
 
   const purchaseBanner =

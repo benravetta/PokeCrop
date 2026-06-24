@@ -7,7 +7,7 @@ import { getServiceClient } from "./supabase.js";
 
 export type UsageKind = "crop" | "grade";
 export type UsageSource = "web" | "api";
-export type UsageBilling = "free" | "subscription" | "one_off";
+export type UsageBilling = "free" | "subscription" | "one_off" | "admin";
 
 export interface UsageEventInput {
   userId: string;

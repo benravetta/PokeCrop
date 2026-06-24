@@ -21,7 +21,8 @@ function useViewer() {
     if (session) void refresh();
   }, [session, refresh]);
   const plan: Plan | null = session ? (me?.plan ?? "free") : null;
-  return { loggedIn: !!session, plan };
+  const isAdmin = me?.isAdmin === true;
+  return { loggedIn: !!session, plan, isAdmin };
 }
 
 async function goBuyGrade() {
@@ -43,12 +44,12 @@ async function goCheckout(plan: SubscriptionPlan) {
 }
 
 export function LandingPage() {
-  const { loggedIn, plan } = useViewer();
+  const { loggedIn, plan, isAdmin } = useViewer();
 
   return (
     <div className="min-h-[100dvh] bg-surface text-text-primary">
-      <TopNav loggedIn={loggedIn} plan={plan} onUpgrade={goCheckout} />
-      <HeroSection loggedIn={loggedIn} plan={plan} />
+      <TopNav loggedIn={loggedIn} plan={plan} isAdmin={isAdmin} onUpgrade={goCheckout} />
+      <HeroSection loggedIn={loggedIn} plan={plan} isAdmin={isAdmin} />
       <HowItWorksSection />
       <WhySection />
       <FeaturesSection />
@@ -58,11 +59,12 @@ export function LandingPage() {
       <PricingSection
         loggedIn={loggedIn}
         plan={plan}
+        isAdmin={isAdmin}
         onUpgrade={goCheckout}
         onBuyGrade={goBuyGrade}
       />
-      <ApiSection plan={plan} loggedIn={loggedIn} onUpgrade={() => goCheckout("api")} />
-      <PlanCta loggedIn={loggedIn} plan={plan} onUpgrade={goCheckout} onBuyGrade={goBuyGrade} />
+      <ApiSection plan={plan} loggedIn={loggedIn} isAdmin={isAdmin} onUpgrade={() => goCheckout("api")} />
+      <PlanCta loggedIn={loggedIn} plan={plan} isAdmin={isAdmin} onUpgrade={goCheckout} onBuyGrade={goBuyGrade} />
       <HonestSection />
       <SiteFooter />
     </div>

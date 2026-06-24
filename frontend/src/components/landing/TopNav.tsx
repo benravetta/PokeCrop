@@ -4,6 +4,7 @@ import { Menu, Upload, X } from "lucide-react";
 import { NAV_LINKS } from "./data";
 import { Wordmark } from "./shared";
 import { PLAN_LABELS, type Plan, type SubscriptionPlan } from "../../lib/plans";
+import { AdminBadge } from "../../lib/adminAccess";
 
 function PlanBadge({ plan }: { plan: Plan }) {
   return (
@@ -16,10 +17,12 @@ function PlanBadge({ plan }: { plan: Plan }) {
 export function TopNav({
   loggedIn,
   plan,
+  isAdmin = false,
   onUpgrade,
 }: {
   loggedIn: boolean;
   plan: Plan | null;
+  isAdmin?: boolean;
   onUpgrade: (plan: SubscriptionPlan) => void;
 }) {
   const [scrolled, setScrolled] = useState(false);
@@ -66,8 +69,12 @@ export function TopNav({
         <div className="hidden lg:flex items-center gap-2">
           {loggedIn ? (
             <>
-              {plan && <PlanBadge plan={plan} />}
-              {plan === "free" && (
+              {isAdmin ? (
+                <AdminBadge />
+              ) : (
+                plan && <PlanBadge plan={plan} />
+              )}
+              {!isAdmin && plan === "free" && (
                 <button
                   onClick={() => onUpgrade("unlimited")}
                   className="px-3 py-2 rounded-lg text-sm font-semibold text-accent hover:bg-accent/10 transition-colors"
@@ -75,7 +82,7 @@ export function TopNav({
                   Upgrade
                 </button>
               )}
-              {plan === "unlimited" && (
+              {!isAdmin && plan === "unlimited" && (
                 <button
                   onClick={() => onUpgrade("pro")}
                   className="px-3 py-2 rounded-lg text-sm font-semibold text-accent hover:bg-accent/10 transition-colors"
@@ -83,7 +90,7 @@ export function TopNav({
                   Go Pro
                 </button>
               )}
-              {plan === "pro" && (
+              {!isAdmin && plan === "pro" && (
                 <button
                   onClick={() => onUpgrade("api")}
                   className="px-3 py-2 rounded-lg text-sm font-semibold text-accent hover:bg-accent/10 transition-colors"

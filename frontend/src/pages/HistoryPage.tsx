@@ -19,6 +19,7 @@ const BILLING_LABELS: Record<string, string> = {
   free: "Free",
   subscription: "Subscription",
   one_off: "One-off",
+  admin: "Admin",
 };
 const BILLING_STYLES: Record<string, string> = {
   free: "bg-surface-overlay text-text-secondary border-border-subtle",

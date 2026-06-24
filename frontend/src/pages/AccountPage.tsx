@@ -6,6 +6,7 @@ import { useMe } from "../hooks/useMe";
 import { supabase } from "../lib/supabase";
 import { openBillingPortal, startGradeCheckout, getGradeQuota, type GradeQuota } from "../lib/api";
 import { PLAN_LABELS } from "../lib/plans";
+import { AdminAccessNotice, AdminBadge, isAdminMe, planDisplayLabel } from "../lib/adminAccess";
 import { Field } from "../components/auth/AuthLayout";
 import { ApiKeysPanel } from "../components/ApiKeysPanel";
 
@@ -145,6 +146,7 @@ export function AccountPage() {
   };
 
   const plan = me?.plan ?? "free";
+  const admin = isAdminMe(me);
 
   return (
     <div className="flex-1 min-h-0 overflow-y-auto">
@@ -181,7 +183,23 @@ export function AccountPage() {
           </form>
         </Section>
 
-        <Section icon={<CreditCard className="w-4 h-4" />} title="Plan &amp; billing">
+        <Section icon={<CreditCard className="w-4 h-4" />} title={admin ? "Admin access" : "Plan &amp; billing"}>
+          {admin ? (
+            <>
+              <AdminAccessNotice />
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <AdminBadge />
+                <span className="text-sm text-text-primary font-medium">
+                  {planDisplayLabel(plan, true)} — unlimited crops &amp; grades
+                </span>
+              </div>
+              <p className="mt-3 text-[12px] text-text-muted">
+                API keys are available below. Plan purchases and billing portal access are disabled
+                for admin accounts.
+              </p>
+            </>
+          ) : (
+            <>
           {checkoutStatus === "success" && (
             <div className="mb-4 rounded-lg bg-success/10 border border-success/20 px-3 py-2 text-[13px] text-success">
               Thanks! Your subscription is active.
@@ -250,6 +268,8 @@ export function AccountPage() {
               Buy 1 grade — £2.99
             </button>
           </div>
+            </>
+          )}
         </Section>
 
         <Section icon={<History className="w-4 h-4" />} title="History">
@@ -267,8 +287,8 @@ export function AccountPage() {
           </div>
         </Section>
 
-        {plan === "api" && (
-          <Section icon={<KeyRound className="w-4 h-4" />} title="API keys">
+        {(plan === "api" || admin) && (
+          <Section icon={<KeyRound className="w-4 h-4" />} title={admin ? "Admin — API keys" : "API keys"}>
             <ApiKeysPanel />
           </Section>
         )}

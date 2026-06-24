@@ -5,6 +5,7 @@ import { useAuth } from "../hooks/useAuth";
 import { useMe } from "../hooks/useMe";
 import { startCheckout, startGradeCheckout, openBillingPortal } from "../lib/api";
 import type { Plan } from "../lib/plans";
+import { AdminAccessNotice, isAdminMe } from "../lib/adminAccess";
 import { SingleGradeOffer } from "../components/landing/PricingSection";
 import { FeatureCompareTable } from "../components/pricing/FeatureCompareTable";
 import {
@@ -30,7 +31,8 @@ export function PricingPage() {
   }, [refresh]);
 
   const currentPlan: Plan = me?.plan ?? "free";
-  const isPaying = currentPlan !== "free";
+  const admin = isAdminMe(me);
+  const isPaying = !admin && currentPlan !== "free";
   const highlightPlan: PlanColumn | undefined =
     currentPlan === "free" ||
     currentPlan === "unlimited" ||
@@ -40,6 +42,7 @@ export function PricingPage() {
       : undefined;
 
   const handleUpgrade = async (tierId: SubscriptionPlanId) => {
+    if (admin) return;
     setError(null);
     setBusy(tierId);
     try {
@@ -52,6 +55,7 @@ export function PricingPage() {
   };
 
   const handleBuyGrade = async () => {
+    if (admin) return;
     setError(null);
     setGradeBusy(true);
     try {
@@ -84,18 +88,28 @@ export function PricingPage() {
           )}
         </div>
 
+        {admin && (
+          <div className="max-w-2xl mx-auto mb-8">
+            <AdminAccessNotice />
+          </div>
+        )}
+
         {error && (
           <div className="max-w-md mx-auto mb-6 rounded-lg bg-error/10 border border-error/20 px-3 py-2 text-[13px] text-error text-center">
             {error}
           </div>
         )}
 
-        {gradeBusy ? (
+        {admin ? (
+          <p className="mb-8 text-center text-sm text-text-muted">
+            Pricing below is for customer accounts. Your admin account already has full access.
+          </p>
+        ) : gradeBusy ? (
           <div className="mb-8 flex justify-center">
             <Loader2 className="w-6 h-6 animate-spin text-accent" />
           </div>
         ) : (
-          <SingleGradeOffer loggedIn={loggedIn} onBuyGrade={handleBuyGrade} />
+          <SingleGradeOffer loggedIn={loggedIn && !admin} onBuyGrade={handleBuyGrade} />
         )}
 
         <p className="mt-12 mb-6 text-center text-[11px] font-semibold uppercase tracking-wider text-text-muted">
@@ -104,7 +118,7 @@ export function PricingPage() {
 
         <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
           {SUBSCRIPTION_TIERS.map((tier) => {
-            const isCurrent = tier.id === currentPlan;
+            const isCurrent = !admin && tier.id === currentPlan;
             const showProPromo = tier.id === "pro" && proPromoLive && tier.promo;
             return (
               <div
@@ -153,7 +167,14 @@ export function PricingPage() {
                 </ul>
 
                 <div className="mt-6">
-                  {isCurrent ? (
+                  {admin ? (
+                    <button
+                      disabled
+                      className="w-full px-4 py-2.5 text-sm font-medium rounded-xl bg-amber-500/10 text-amber-200/80 border border-amber-500/30 cursor-default"
+                    >
+                      Admin — included
+                    </button>
+                  ) : isCurrent ? (
                     <button
                       disabled
                       className="w-full px-4 py-2.5 text-sm font-medium rounded-xl bg-surface-overlay text-text-muted border border-border-subtle cursor-default"

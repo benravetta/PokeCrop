@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { LogOut, Settings, Shield, ChevronDown, Layers, History } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
+import { AdminBadge } from "../lib/adminAccess";
 
 export function UserMenu() {
   const { user, signOut } = useAuth();
@@ -51,6 +52,11 @@ export function UserMenu() {
           <div className="px-4 py-3 border-b border-border-subtle">
             <p className="text-[11px] text-text-muted">Signed in as</p>
             <p className="text-sm text-text-primary truncate">{email}</p>
+            {isAdmin && (
+              <div className="mt-2">
+                <AdminBadge />
+              </div>
+            )}
           </div>
           <Link
             to="/account"
@@ -58,7 +64,7 @@ export function UserMenu() {
             className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-text-secondary hover:bg-border-subtle hover:text-text-primary transition-colors"
           >
             <Settings className="w-4 h-4" />
-            Account &amp; billing
+            {isAdmin ? "Account (Admin)" : "Account & billing"}
           </Link>
           <Link
             to="/history"
@@ -75,7 +81,7 @@ export function UserMenu() {
               className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-text-secondary hover:bg-border-subtle hover:text-text-primary transition-colors"
             >
               <Shield className="w-4 h-4" />
-              Admin
+              Admin panel
             </Link>
           )}
           {isAdmin && (
@@ -85,7 +91,7 @@ export function UserMenu() {
               className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-text-secondary hover:bg-border-subtle hover:text-text-primary transition-colors"
             >
               <Layers className="w-4 h-4" />
-              Catalog
+              Admin catalog
             </Link>
           )}
           <button

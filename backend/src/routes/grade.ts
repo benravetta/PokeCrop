@@ -71,7 +71,7 @@ router.post(
 
 router.get("/grade/quota", requireAuth, async (req: Request, res: Response) => {
   try {
-    const quota = await getGradeQuota(req.user!.id);
+    const quota = await getGradeQuota(req.user!.id, req.user!.role);
     res.json({ quota });
   } catch (err) {
     console.error("grade quota failed:", err);
@@ -88,6 +88,7 @@ router.post("/grade", requireAuth, gradeUpload, async (req: Request, res: Respon
       centering,
       source: "web",
       actorEmail: req.user!.email ?? null,
+      role: req.user!.role,
     });
 
     if (!out.ok) {

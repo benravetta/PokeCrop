@@ -18,6 +18,10 @@ import {
 import { logActivity } from "../lib/activity.js";
 import { logUsageEventAwait } from "../lib/usageEvents.js";
 import { archiveCropAsync, pngDimensions } from "../lib/catalog.js";
+import {
+  ADMIN_EFFECTIVE_PLAN,
+  isAdminRole,
+} from "../lib/adminAccess.js";
 import { assessCard, CardAssessment } from "../lib/cardVision.js";
 import { runCropJob } from "../lib/cropPipeline.js";
 
@@ -240,13 +244,14 @@ router.post("/process", requireAuth, async (req: Request, res: Response) => {
   }
 
   const userId = req.user!.id;
+  const admin = isAdminRole(req.user!.role);
 
   // This crop only counts against the quota the first time a given upload is
   // successfully extracted; re-processing (crop tweaks, slider changes) is free.
   const willCount = !session.counted;
-  let plan: Plan = "free";
+  let plan: Plan = admin ? ADMIN_EFFECTIVE_PLAN : "free";
 
-  if (willCount) {
+  if (willCount && !admin) {
     try {
       plan = await getPlan(userId);
       if (plan === "free") {
@@ -339,12 +344,13 @@ router.post("/process", requireAuth, async (req: Request, res: Response) => {
         userId,
         kind: "crop",
         source: "web",
-        billing: plan === "free" ? "free" : "subscription",
+        billing: admin ? "admin" : plan === "free" ? "free" : "subscription",
         plan,
-        window: plan === "free" ? "day" : null,
-        usedAfter: plan === "free" ? cropCount : null,
-        remainingAfter:
-          plan === "free" && cropCount != null
+        window: admin ? null : plan === "free" ? "day" : null,
+        usedAfter: admin ? null : plan === "free" ? cropCount : null,
+        remainingAfter: admin
+          ? null
+          : plan === "free" && cropCount != null
             ? Math.max(0, FREE_DAILY_LIMIT - cropCount)
             : null,
         summary: safeName,

@@ -17,6 +17,7 @@ import {
   markGradePurchaseDisputed,
   isPurchaseCredited,
 } from "../lib/billingPurchases.js";
+import { rejectAdminBilling } from "../lib/adminAccess.js";
 
 const router = Router();
 
@@ -61,6 +62,7 @@ async function getOrCreateCustomer(
 }
 
 router.post("/billing/checkout", requireAuth, async (req: Request, res: Response) => {
+  if (rejectAdminBilling(req.user!.role, res)) return;
   if (!isStripeConfigured()) {
     res.status(503).json({ error: "Billing is not configured." });
     return;
@@ -103,6 +105,7 @@ router.post(
   "/billing/checkout-grade",
   requireAuth,
   async (req: Request, res: Response) => {
+    if (rejectAdminBilling(req.user!.role, res)) return;
     if (!isStripeConfigured() || !isGradeSinglePriceConfigured()) {
       res.status(503).json({ error: "Single-grade purchases aren't available yet." });
       return;
@@ -139,6 +142,7 @@ router.get(
   "/billing/purchase-status",
   requireAuth,
   async (req: Request, res: Response) => {
+    if (rejectAdminBilling(req.user!.role, res)) return;
     const sessionId = typeof req.query.session_id === "string" ? req.query.session_id : "";
     if (!sessionId) {
       res.status(400).json({ error: "session_id is required." });
@@ -186,6 +190,7 @@ router.get(
 );
 
 router.post("/billing/portal", requireAuth, async (req: Request, res: Response) => {
+  if (rejectAdminBilling(req.user!.role, res)) return;
   if (!isStripeConfigured()) {
     res.status(503).json({ error: "Billing is not configured." });
     return;
