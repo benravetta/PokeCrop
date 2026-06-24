@@ -318,7 +318,7 @@ export const PRICING_FAQ = [
   },
   {
     q: "Can I request a refund?",
-    a: "TODO: Link to refund policy once published. Unused purchased credits can be refunded via Stripe when eligible.",
+    a: "Unused purchased report credits can be refunded through Stripe when eligible. See our refund policy for details.",
   },
 ] as const;
 

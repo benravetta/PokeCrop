@@ -111,3 +111,123 @@ export async function chatComplete(opts: ChatOptions): Promise<ChatResult | null
     return null;
   }
 }
+
+export interface ResponsesWebSearchOptions {
+  model: string;
+  instructions: string;
+  input: string;
+  feature: string;
+  userId?: string | null;
+  timeoutMs?: number;
+  allowedDomains?: string[];
+}
+
+export interface ResponsesWebSearchResult {
+  text: string;
+  citations: { url: string; title?: string }[];
+  promptTokens: number;
+  completionTokens: number;
+  costUsd: number;
+}
+
+type ResponsesPayload = {
+  output?: Array<{
+    type?: string;
+    content?: Array<{
+      type?: string;
+      text?: string;
+      annotations?: Array<{ type?: string; url?: string; title?: string }>;
+    }>;
+  }>;
+  output_text?: string;
+  usage?: { input_tokens?: number; output_tokens?: number };
+};
+
+/** OpenAI-hosted web search (Responses API) — no third-party market API keys. */
+export async function responsesWebSearch(
+  opts: ResponsesWebSearchOptions
+): Promise<ResponsesWebSearchResult | null> {
+  if (!KEY) return null;
+
+  const domains = opts.allowedDomains ?? [
+    "ebay.co.uk",
+    "ebay.com",
+    "pricecharting.com",
+    "cardmarket.com",
+  ];
+
+  try {
+    const res = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: opts.model,
+        instructions: opts.instructions,
+        input: opts.input,
+        tools: [
+          {
+            type: "web_search",
+            search_context_size: "medium",
+            user_location: { type: "approximate", country: "GB" },
+            filters: { allowed_domains: domains },
+          },
+        ],
+        tool_choice: "required",
+      }),
+      signal: AbortSignal.timeout(opts.timeoutMs ?? 55_000),
+    });
+
+    if (!res.ok) {
+      console.error(
+        "OpenAI responses/web_search failed:",
+        res.status,
+        (await res.text().catch(() => "")).slice(0, 400)
+      );
+      return null;
+    }
+
+    const json = (await res.json()) as ResponsesPayload;
+    const citations: { url: string; title?: string }[] = [];
+    let text = json.output_text ?? "";
+
+    for (const item of json.output ?? []) {
+      if (item.type !== "message") continue;
+      for (const block of item.content ?? []) {
+        if (block.text) text = block.text;
+        for (const ann of block.annotations ?? []) {
+          if (ann.type === "url_citation" && ann.url) {
+            citations.push({ url: ann.url, title: ann.title });
+          }
+        }
+      }
+    }
+
+    if (!text.trim()) return null;
+
+    const promptTokens = json.usage?.input_tokens ?? 0;
+    const completionTokens = json.usage?.output_tokens ?? 0;
+    const costUsd = computeCostUsd(opts.model, promptTokens, completionTokens);
+
+    getServiceClient()
+      .from("ai_usage")
+      .insert({
+        user_id: opts.userId ?? null,
+        feature: opts.feature,
+        model: opts.model,
+        prompt_tokens: promptTokens,
+        completion_tokens: completionTokens,
+        cost_usd: Number(costUsd.toFixed(6)),
+      })
+      .then(({ error }) => {
+        if (error) console.error("ai_usage log failed:", error);
+      });
+
+    return { text, citations, promptTokens, completionTokens, costUsd };
+  } catch (err) {
+    console.error("OpenAI responses/web_search error:", err);
+    return null;
+  }
+}

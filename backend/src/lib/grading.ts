@@ -83,7 +83,14 @@ IDENTIFICATION — read the printed card carefully and fill card_identification 
 - illustrator: the "Illus./Illustrator" credit if legible.
 - language: the card's language (English, Japanese, etc.).
 - identifiers: a list of any OTHER distinguishing printed marks or stamps you can see — promo/event stamps (e.g. a gold "POKÉMON" stamp, Prerelease, Staff, Pokémon League, World Championship), set symbols, error/misprint indicators, grading-relevant stamps. Each as a short string. Empty list if none.
-- confidence: low/medium/high for the identification overall.`;
+- confidence: low/medium/high for the identification overall.
+
+MARKET PRICING DEPENDENCY — after this report, automated comp lookups search Cardmarket, PriceCharting and eBay using name + set + number (+ variant). Wrong IDs mean wrong prices:
+- name must be the official printed card name exactly (no nicknames or fan names). For non-English cards, use the printed name if legible; otherwise leave empty and set confidence low.
+- number must be read from the card (including leading zeros). Never infer a number from artwork or memory.
+- set must be the collector-facing English set name people search (e.g. "Scarlet & Violet 151", "Paldea Evolved"), not just an era code.
+- variant must distinguish Holofoil, Reverse Holo, Non-holo, Full Art, Alt Art, Promo, etc. — prices differ sharply.
+- If you cannot read the name AND (set OR number) confidently, set confidence to low even when you recognise the artwork.`;
 
 const ADJUDICATE_SYSTEM =
   "You are the final grading adjudicator for GemCheck. You are given structured " +
@@ -336,19 +343,18 @@ export async function gradeCard(
         identity as Record<string, unknown>,
         scored.company_estimates,
         userId,
-        { timeoutMs: 20000 }
+        { timeoutMs: 65000 }
       );
     }
   } catch {
     pricing = null;
   }
 
-  const pricingDisclaimer =
-    pricing?.source && pricing.source !== "ai"
-      ? "Not an official grade from PSA, Beckett, CGC, TAG, ACE or any grader. " +
-        "Values shown use third-party market data where available — not guaranteed sale prices."
-      : "Not an official grade from PSA, Beckett, CGC, TAG, ACE or any grader. " +
-        "Values shown are AI estimates when live market data is unavailable.";
+  const pricingDisclaimer = pricing
+    ? "Not an official grade from PSA, Beckett, CGC, TAG, ACE or any grader. " +
+      "Values are the average of verified eBay UK sold listings for this exact card — not guaranteed sale prices. Postage excluded."
+    : "Not an official grade from PSA, Beckett, CGC, TAG, ACE or any grader. " +
+      "No verified eBay sold comps were found for this exact card — value estimate omitted.";
 
   return {
     ...findings,

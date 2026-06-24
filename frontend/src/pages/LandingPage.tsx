@@ -1,9 +1,16 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { useMe } from "../hooks/useMe";
 import { startCheckout, startGradeCheckout } from "../lib/api";
 import type { Plan, SubscriptionPlan } from "../lib/plans";
 import { SEO } from "../lib/marketingCopy";
+import {
+  faqJsonLd,
+  howToJsonLd,
+  organizationJsonLd,
+  usePageSeo,
+  webSiteJsonLd,
+} from "../lib/seo";
 import { TopNav } from "../components/landing/TopNav";
 import { HeroSection } from "../components/landing/HeroSection";
 import { HowItWorksSection } from "../components/landing/CompareAndHow";
@@ -53,11 +60,15 @@ async function goCheckout(plan: SubscriptionPlan) {
 export function LandingPage() {
   const { loggedIn, plan, isAdmin } = useViewer();
 
-  useEffect(() => {
-    document.title = SEO.home.title;
-    const meta = document.querySelector('meta[name="description"]');
-    if (meta) meta.setAttribute("content", SEO.home.description);
-  }, []);
+  usePageSeo(
+    useMemo(
+      () => ({
+        ...SEO.home,
+        jsonLd: [organizationJsonLd(), webSiteJsonLd()],
+      }),
+      []
+    )
+  );
 
   return (
     <div className="min-h-[100dvh] bg-surface text-text-primary">

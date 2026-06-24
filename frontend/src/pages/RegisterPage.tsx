@@ -135,6 +135,17 @@ export function RegisterPage() {
           required
         />
         <TurnstileField {...turnstile} />
+        <p className="text-[12px] text-text-muted leading-relaxed">
+          By creating an account you agree to our{" "}
+          <Link to="/terms" className="text-accent hover:text-accent-hover">
+            Terms of service
+          </Link>{" "}
+          and{" "}
+          <Link to="/privacy" className="text-accent hover:text-accent-hover">
+            Privacy policy
+          </Link>
+          .
+        </p>
         <SubmitButton loading={loading} disabled={!turnstile.ready}>
           Create account
         </SubmitButton>

@@ -208,8 +208,12 @@ export const SITE_FAQ = [
     a: `No. Your free account includes ${FREE_GRADES_PER_MONTH} card check per month. Extra reports start at ${SINGLE_REPORT_PRICE}. Subscriptions are optional for heavier use.`,
   },
   {
+    q: "Where do value estimates come from?",
+    a: "When your card is identified clearly enough, GemCheck searches public eBay UK sold listing pages for that exact name, set and number — no pricing APIs and no AI guesses. We show the last verified sold comps and their average. If nothing matches, the value section is omitted.",
+  },
+  {
     q: "What happens to my photos?",
-    a: "Grade photos are processed in memory to build your report and are not stored as image files in your account history. Check history saves report metadata (card name, estimate, date) so you can review past checks. Crop session files are temporary. TODO: Confirm final privacy policy wording and any optional archive behaviour.",
+    a: "Grade photos are processed in memory to build your report and are not stored as image files in your account history. Check history saves report metadata (card name, estimate, date) so you can review past checks. Crop session files are temporary.",
   },
   {
     q: "What happens if a photo is rejected?",
@@ -225,46 +229,93 @@ export const SITE_FAQ = [
   },
   {
     q: "Can I request a refund?",
-    a: "TODO: Link to refund policy once published. Unused purchased credits can be refunded via Stripe when eligible; used credits cannot be restored automatically.",
+    a: "Unused purchased report credits can be refunded through Stripe when eligible. Used credits cannot be restored.",
   },
 ] as const;
+
+export type SeoPageConfig = {
+  title: string;
+  description: string;
+  path: string;
+  robots?: string;
+  ogImage?: string;
+  ogType?: string;
+};
 
 export const SEO = {
   home: {
     title: "GemCheck | Trading Card Pre-Grading Before You Submit",
     description: `Upload front and back card photos for clear pre-grade estimates across ${SUPPORTED_GRADERS_SHORT}. Check ${FREE_GRADES_PER_MONTH} free each month.`,
+    path: "/",
   },
   howItWorks: {
     title: "How GemCheck Works | From Photos to a Grading Decision",
     description:
       "See how GemCheck turns clear front and back photos into a practical pre-grade report for Pokémon, sports and TCG cards.",
+    path: "/how-it-works",
   },
   pricing: {
     title: "GemCheck Pricing | One Free Check, Pay As You Go",
     description: `1 free card check per month. Extra pre-grade reports from ${SINGLE_REPORT_PRICE}. Optional subscriptions for regular collectors.`,
+    path: "/pricing",
   },
   trade: {
     title: "GemCheck for Trade | Bulk Card Pre-Grading",
     description:
       "GemCheck for card shops, breakers, dealers and bulk submitters. Triage more cards and make better grading decisions.",
+    path: "/trade",
   },
   faq: {
     title: "GemCheck FAQ | Estimates, Photos, Pricing and Privacy",
     description:
       "Straight answers on pre-grade estimates, photo tips, supported graders, pricing, credits and privacy.",
+    path: "/faq",
   },
   about: {
     title: "About GemCheck | Independent Pre-Grade Guidance",
     description:
       "Why GemCheck was built, what a pre-grade estimate can do, and what it cannot replace.",
+    path: "/about",
   },
   contact: {
     title: "Contact GemCheck | Support and Trade Enquiries",
     description: "Contact GemCheck for account help, card checks, trade pricing or general questions.",
+    path: "/contact",
   },
   sampleReport: {
     title: "Sample GemCheck Report | Pre-Grade Estimate Example",
     description:
       "See a full example pre-grade report with grader estimates, condition breakdown, centring and preparation notes.",
+    path: "/sample-report",
   },
-} as const;
+  docs: {
+    title: "GemCheck API | Documentation",
+    description:
+      "Crop trading cards and run AI pre-grades via the GemCheck API. Requires the Enterprise plan.",
+    path: "/docs",
+  },
+  privacy: {
+    title: "GemCheck Privacy Policy | How We Handle Your Data",
+    description:
+      "How GemCheck collects, uses and protects account data, card photos, reports and billing information.",
+    path: "/privacy",
+  },
+  terms: {
+    title: "GemCheck Terms of Service | Account and Use",
+    description:
+      "Terms for using GemCheck pre-grade estimates, accounts, subscriptions and the API.",
+    path: "/terms",
+  },
+  refund: {
+    title: "GemCheck Refund Policy | Credits and Subscriptions",
+    description:
+      "When unused report credits and subscriptions can be refunded, and how to request a refund.",
+    path: "/refund",
+  },
+  private: {
+    title: "GemCheck",
+    description: "GemCheck trading card pre-grading app.",
+    path: "/crop",
+    robots: "noindex, nofollow",
+  },
+} as const satisfies Record<string, SeoPageConfig>;

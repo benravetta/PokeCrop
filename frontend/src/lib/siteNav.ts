@@ -53,11 +53,11 @@ export const FOOTER_UTILITY_LINKS: SiteNavItem[] = [
   { label: "Sign in", href: "/login" },
 ];
 
-/** Placeholder until legal pages are published. */
+/** Legal pages linked from the site footer. */
 export const FOOTER_LEGAL_LINKS: SiteNavItem[] = [
-  { label: "Privacy policy (TODO)", href: "/privacy" },
-  { label: "Terms (TODO)", href: "/terms" },
-  { label: "Refunds (TODO)", href: "/refund" },
+  { label: "Privacy policy", href: "/privacy" },
+  { label: "Terms of service", href: "/terms" },
+  { label: "Refund policy", href: "/refund" },
 ];
 
 export const FOOTER_EXTERNAL_LINKS: SiteNavItem[] = [

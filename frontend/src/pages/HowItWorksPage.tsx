@@ -1,15 +1,23 @@
-import { useEffect } from "react";
+import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import { MarketingPageShell } from "../components/marketing/MarketingPageShell";
 import { ESTIMATE_DISCLAIMER, HERO, HOW_IT_WORKS, SEO, WHAT_WE_CHECK } from "../lib/marketingCopy";
+import { howToJsonLd, usePageSeo } from "../lib/seo";
 
 export function HowItWorksPage() {
-  useEffect(() => {
-    document.title = SEO.howItWorks.title;
-    const meta = document.querySelector('meta[name="description"]');
-    if (meta) meta.setAttribute("content", SEO.howItWorks.description);
-  }, []);
+  usePageSeo(
+    useMemo(
+      () => ({
+        ...SEO.howItWorks,
+        jsonLd: howToJsonLd(
+          HOW_IT_WORKS.heading,
+          HOW_IT_WORKS.steps.map((s) => ({ title: s.title, body: s.copy }))
+        ),
+      }),
+      []
+    )
+  );
 
   return (
     <MarketingPageShell>

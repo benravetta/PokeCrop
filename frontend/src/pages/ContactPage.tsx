@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { MarketingPageShell } from "../components/marketing/MarketingPageShell";
@@ -6,8 +6,10 @@ import { TurnstileField } from "../components/TurnstileWidget";
 import { useTurnstileToken } from "../hooks/useTurnstile";
 import { submitContactForm } from "../lib/api";
 import { SEO } from "../lib/marketingCopy";
+import { usePageSeo } from "../lib/seo";
 
 export function ContactPage() {
+  usePageSeo(useMemo(() => SEO.contact, []));
   const turnstile = useTurnstileToken();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -15,10 +17,6 @@ export function ContactPage() {
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    document.title = SEO.contact.title;
-  }, []);
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();

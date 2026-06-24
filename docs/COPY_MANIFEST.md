@@ -104,10 +104,10 @@ Human-first headings. Specific page titles. No keyword stuffing. Homepage title:
 ## Owner confirmation TODOs
 
 - [ ] **VAT:** Confirm inclusive/exclusive wording before publishing
-- [ ] **Legal pages:** `/privacy`, `/terms`, `/refund` routes do not exist; footer links flagged until published
-- [ ] **Photo retention:** Final privacy policy wording (code: in-memory grade photos, metadata in history, 30min crop sessions)
+- [x] **Legal pages:** `/privacy`, `/terms`, `/refund` published with footer links
+- [x] **Photo retention:** Wording aligned with privacy policy (in-memory grade photos, metadata in history, temporary crop sessions)
 - [ ] **Testimonials:** Removed unverified quotes; restore only with permission
-- [ ] **Refund FAQ:** Link to policy when page exists
+- [x] **Refund FAQ:** Points to refund policy
 
 ---
 
@@ -133,7 +133,8 @@ Final strings live in code SSOT files. Summary:
 | Report | `GradePage.tsx`, `REPORT` | Section headings |
 | Errors | `captureQuality.ts`, `UPLOAD_ERRORS` | Actionable messages |
 | Emails | `supabase/email-templates/` | Branded auth emails |
-| SEO | `index.html`, `SEO` | Per-route meta |
+| SEO | `index.html`, `SEO`, `seo.ts` | Per-route meta + sitemap |
+| Legal | `legalCopy.ts`, `PrivacyPage`, `TermsPage`, `RefundPage` | Privacy, terms, refunds |
 
 ---
 

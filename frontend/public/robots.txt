@@ -1,0 +1,25 @@
+User-agent: *
+Allow: /
+Allow: /how-it-works
+Allow: /sample-report
+Allow: /pricing
+Allow: /faq
+Allow: /about
+Allow: /contact
+Allow: /trade
+Allow: /docs
+Allow: /privacy
+Allow: /terms
+Allow: /refund
+
+Disallow: /crop
+Disallow: /grade
+Disallow: /account
+Disallow: /history
+Disallow: /admin
+Disallow: /login
+Disallow: /register
+Disallow: /forgot-password
+Disallow: /reset-password
+
+Sitemap: https://gemcheck.co.uk/sitemap.xml

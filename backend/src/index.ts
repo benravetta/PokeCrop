@@ -9,6 +9,7 @@ import { keyRoutes } from "./routes/keys.js";
 import { gradeRoutes } from "./routes/grade.js";
 import { apiV1Routes } from "./routes/v1.js";
 import { formsRoutes } from "./routes/forms.js";
+import { valuationsRoutes } from "./routes/valuations.js";
 import { sendApiError } from "./lib/apiError.js";
 
 const app = express();
@@ -52,6 +53,7 @@ app.use("/api", keyRoutes);
 app.use("/api", gradeRoutes);
 app.use("/api", processRoutes);
 app.use("/api", formsRoutes);
+app.use("/api", valuationsRoutes);
 app.use("/v1", apiV1Routes);
 
 // API-shaped error handler for /v1 (multer/body-parser errors become the

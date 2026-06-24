@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { Menu, X } from "lucide-react";
-import { Wordmark } from "../landing/shared";
+import { Wordmark, LOGO_CLASS } from "../landing/shared";
 import { SiteNavMenu } from "./SiteNavMenu";
 
 type Props = {
@@ -19,7 +19,7 @@ export function MarketingSiteHeader({
   homeHref = "/",
   highlightActive = false,
   sticky = false,
-  logoClassName = "h-8",
+  logoClassName = LOGO_CLASS,
   actions,
   mobileMenuActions,
 }: Props) {

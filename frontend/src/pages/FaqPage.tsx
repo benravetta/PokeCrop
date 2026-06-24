@@ -1,15 +1,46 @@
-import { useEffect } from "react";
+import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import { MarketingPageShell } from "../components/marketing/MarketingPageShell";
 import { HERO, SITE_FAQ, SEO } from "../lib/marketingCopy";
+import { faqJsonLd, usePageSeo } from "../lib/seo";
+
+function FaqAnswer({ q, a }: { q: string; a: string }) {
+  if (q === "What happens to my photos?") {
+    return (
+      <>
+        {a} See our{" "}
+        <Link to="/privacy" className="text-accent hover:text-accent-hover font-medium">
+          privacy policy
+        </Link>{" "}
+        for full details.
+      </>
+    );
+  }
+  if (q === "Can I request a refund?") {
+    return (
+      <>
+        {a} See our{" "}
+        <Link to="/refund" className="text-accent hover:text-accent-hover font-medium">
+          refund policy
+        </Link>{" "}
+        for details.
+      </>
+    );
+  }
+  return a;
+}
 
 export function FaqPage() {
-  useEffect(() => {
-    document.title = SEO.faq.title;
-    const meta = document.querySelector('meta[name="description"]');
-    if (meta) meta.setAttribute("content", SEO.faq.description);
-  }, []);
+  usePageSeo(
+    useMemo(
+      () => ({
+        ...SEO.faq,
+        jsonLd: faqJsonLd(SITE_FAQ),
+      }),
+      []
+    )
+  );
 
   return (
     <MarketingPageShell>
@@ -23,7 +54,9 @@ export function FaqPage() {
         {SITE_FAQ.map((item) => (
           <div key={item.q} className="rounded-2xl border border-border-subtle bg-surface-raised p-5">
             <h2 className="text-sm font-semibold text-text-primary">{item.q}</h2>
-            <p className="mt-2 text-sm text-text-secondary leading-relaxed">{item.a}</p>
+            <p className="mt-2 text-sm text-text-secondary leading-relaxed">
+              <FaqAnswer q={item.q} a={item.a} />
+            </p>
           </div>
         ))}
       </div>

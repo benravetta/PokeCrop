@@ -1,6 +1,9 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft, ExternalLink, KeyRound, Terminal } from "lucide-react";
+import { Wordmark } from "../components/landing/shared";
+import { SEO } from "../lib/marketingCopy";
+import { usePageSeo } from "../lib/seo";
 
 // Public API documentation. Renders the Scalar API reference against the live
 // OpenAPI spec at /v1/openapi.json. The CDN script is pinned to an exact,
@@ -43,8 +46,9 @@ const scalarConfig = {
 export function DocsPage() {
   const containerRef = useRef<HTMLDivElement>(null);
 
+  usePageSeo(useMemo(() => SEO.docs, []));
+
   useEffect(() => {
-    document.title = "GemCheck API — Documentation";
     const container = containerRef.current;
     if (!container) return;
 
@@ -80,12 +84,7 @@ export function DocsPage() {
     <div className="min-h-[100dvh] flex flex-col bg-surface">
       <header className="flex items-center justify-between px-5 h-14 border-b border-border-subtle shrink-0">
         <Link to="/" className="flex items-center gap-2.5">
-          <img
-            src="/gemcheck-logo.png"
-            alt="GemCheck — by Looky"
-            className="h-8 w-auto select-none"
-            draggable={false}
-          />
+          <Wordmark />
           <span className="text-[13px] font-medium text-text-muted uppercase tracking-wide">
             API
           </span>

@@ -1,16 +1,13 @@
-import { useEffect } from "react";
+import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import { MarketingPageShell } from "../components/marketing/MarketingPageShell";
 import { ReportPreview } from "../components/landing/ReportPreview";
 import { HERO, SEO } from "../lib/marketingCopy";
+import { usePageSeo } from "../lib/seo";
 
 export function SampleReportPage() {
-  useEffect(() => {
-    document.title = SEO.sampleReport.title;
-    const meta = document.querySelector('meta[name="description"]');
-    if (meta) meta.setAttribute("content", SEO.sampleReport.description);
-  }, []);
+  usePageSeo(useMemo(() => SEO.sampleReport, []));
 
   return (
     <MarketingPageShell wide>

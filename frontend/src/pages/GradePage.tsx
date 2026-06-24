@@ -652,47 +652,144 @@ function fmtRange(low: number, high: number, currency: string): string {
   return `${fmtMoney(low, currency)}–${fmtMoney(high, currency)}`;
 }
 
+function saleFormatLabel(fmt: string): string {
+  if (fmt === "auction") return "Auction";
+  if (fmt === "buy_it_now") return "Buy It Now";
+  if (fmt === "best_offer") return "Best Offer";
+  return "Sold";
+}
+
 function PriceEstimate({ pricing }: { pricing?: CardPricing }) {
   if (!pricing || !pricing.raw) return null;
+  const ebay = pricing.ebaySold;
+  const avg = ebay?.valuation.averageSoldPriceGbp;
+  const salesUsed = ebay?.valuation.salesUsed ?? pricing.compCount ?? 0;
+  const evidenceMode = ebay?.valuation.evidenceMode;
+  const allDirect = evidenceMode === "direct_only" && (ebay?.sales.length ?? 0) >= 3;
+  const heading = allDirect ? "Last 3 verified eBay sales" : "Last 3 comparable eBay sales";
+
   return (
     <div className="rounded-xl border border-border-subtle bg-surface-raised p-5">
-      <h3 className="text-sm font-medium text-text-primary mb-3 flex items-center gap-2">
+      <h3 className="text-sm font-medium text-text-primary mb-1 flex items-center gap-2 flex-wrap">
         <Tag className="w-4 h-4 text-accent" />
-        Estimated value
-        <span className="rounded-full bg-amber-500/15 text-amber-300 text-[10px] font-semibold px-2 py-0.5">
-          ESTIMATE
+        {heading}
+        <span className="rounded-full bg-emerald-500/15 text-emerald-300 text-[10px] font-semibold px-2 py-0.5">
+          SOLD COMPS
         </span>
       </h3>
-      <div className="flex items-baseline justify-between border-b border-border-subtle pb-2">
-        <span className="text-sm text-text-secondary">Raw / ungraded</span>
-        <span className="text-base font-semibold text-text-primary">
-          {fmtRange(pricing.raw.low, pricing.raw.high, pricing.currency)}
-        </span>
-      </div>
-      {pricing.graded.length > 0 && (
-        <ul className="divide-y divide-border-subtle">
-          {pricing.graded.map((g, i) => (
-            <li key={i} className="flex items-baseline justify-between py-2">
-              <span className="text-sm text-text-secondary">
-                {g.company}
-                {g.grade ? <span className="text-text-muted"> · {g.grade}</span> : null}
-              </span>
-              <span className="text-sm font-medium text-text-primary">
-                {fmtRange(g.low, g.high, pricing.currency)}
-              </span>
-            </li>
-          ))}
+      <p className="text-[11px] text-text-muted mb-3">
+        Average of the most recent verified comparable eBay sales
+        {pricing.asOf ? ` · checked ${pricing.asOf}` : ""}
+      </p>
+
+      {evidenceMode === "mixed_evidence" ? (
+        <p className="text-[11px] text-amber-200/90 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2 mb-3">
+          This valuation includes historical eBay sale records from public price-history sources
+          because the original completed listings are no longer available on eBay.
+        </p>
+      ) : null}
+      {evidenceMode === "archived_only" ? (
+        <p className="text-[11px] text-amber-200/90 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2 mb-3">
+          This valuation is based entirely on publicly indexed historical eBay sales. The original
+          eBay listing pages are no longer available.
+        </p>
+      ) : null}
+
+      {ebay?.sales?.length ? (
+        <ul className="space-y-3 border-b border-border-subtle pb-3">
+          {ebay.sales.map((sale) => {
+            const isDirect = sale.evidenceLevel === "direct";
+            return (
+              <li key={sale.ebayItemId || sale.url} className="text-sm">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <span
+                    className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                      isDirect
+                        ? "bg-emerald-500/15 text-emerald-300"
+                        : "bg-sky-500/15 text-sky-300"
+                    }`}
+                  >
+                    {isDirect ? "Directly verified" : "Archived sale record"}
+                  </span>
+                  <span className="font-semibold text-text-primary shrink-0">
+                    {sale.priceGbp != null ? fmtMoney(sale.priceGbp, "GBP") : "—"}
+                  </span>
+                </div>
+                <div className="flex items-baseline justify-between gap-2 mt-1">
+                  <span className="text-text-secondary">{sale.soldDate}</span>
+                </div>
+                <p className="text-[11px] text-text-muted mt-0.5 line-clamp-2">{sale.title}</p>
+                <p className="text-[10px] text-text-muted mt-0.5">
+                  {saleFormatLabel(sale.saleFormat)}
+                  {sale.conditionOriginal ? ` · ${sale.conditionOriginal}` : ""}
+                  {sale.currencyOriginal !== "GBP"
+                    ? ` · ${sale.priceOriginal} ${sale.currencyOriginal}`
+                    : ""}
+                  {sale.possibleOutlier ? " · possible outlier" : ""}
+                </p>
+                {!isDirect ? (
+                  <p className="text-[10px] text-text-muted mt-1">
+                    Original eBay listing no longer publicly available. Sale details were recovered
+                    from {sale.sourceName}.
+                  </p>
+                ) : null}
+                <a
+                  href={isDirect ? sale.url : sale.sourceUrl || sale.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[11px] text-accent hover:text-accent-hover font-medium"
+                >
+                  {isDirect ? "View sold listing" : "View archived record"}
+                </a>
+                {!isDirect && sale.originalEbayUrl ? (
+                  <>
+                    {" · "}
+                    <a
+                      href={sale.originalEbayUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[11px] text-text-muted hover:text-accent"
+                    >
+                      Original eBay link
+                    </a>
+                  </>
+                ) : null}
+              </li>
+            );
+          })}
         </ul>
-      )}
-      <p className="mt-3 text-[11px] leading-snug text-text-muted">
-        {pricing.source && pricing.source !== "ai" && (
-          <span className="text-text-secondary">
-            Source: {pricing.source}
-            {pricing.asOf ? ` · ${pricing.asOf}` : ""}.{" "}
+      ) : (
+        <div className="flex items-baseline justify-between border-b border-border-subtle pb-2">
+          <span className="text-sm text-text-secondary">Raw / ungraded range</span>
+          <span className="text-base font-semibold text-text-primary">
+            {fmtRange(pricing.raw.low, pricing.raw.high, pricing.currency)}
           </span>
-        )}
-        Estimate confidence: {pricing.confidence}
-        {pricing.note ? ` — ${pricing.note}` : ""}
+        </div>
+      )}
+
+      {avg != null && (
+        <div className="mt-3 flex items-baseline justify-between">
+          <span className="text-sm font-medium text-text-primary">Average sold price</span>
+          <span className="text-lg font-semibold text-text-primary">{fmtMoney(avg, "GBP")}</span>
+        </div>
+      )}
+
+      {ebay?.valuation.priceRangeGbp != null && ebay.valuation.priceRangeGbp > 0 && (
+        <p className="mt-1 text-[11px] text-text-muted">
+          Range: {fmtMoney(ebay.valuation.lowestSoldPriceGbp ?? pricing.raw.low, "GBP")}–
+          {fmtMoney(ebay.valuation.highestSoldPriceGbp ?? pricing.raw.high, "GBP")}
+          {ebay.confidence.level ? ` · ${ebay.confidence.level} confidence` : ""}
+          {salesUsed ? ` · ${salesUsed} verified sale${salesUsed === 1 ? "" : "s"}` : ""}
+          {ebay.valuation.directSalesCount != null && ebay.valuation.archivedSalesCount != null
+            ? ` (${ebay.valuation.directSalesCount} direct, ${ebay.valuation.archivedSalesCount} archived)`
+            : ""}
+        </p>
+      )}
+
+      <p className="mt-3 text-[11px] leading-snug text-text-muted">
+        Sold prices can vary significantly with card condition, listing quality, timing and buyer
+        demand. Postage is excluded.{" "}
+        {pricing.note ? pricing.note : ""}
       </p>
     </div>
   );

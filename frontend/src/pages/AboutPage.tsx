@@ -1,15 +1,12 @@
-import { useEffect } from "react";
+import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import { MarketingPageShell } from "../components/marketing/MarketingPageShell";
 import { ESTIMATE_DISCLAIMER, GRADER_INDEPENDENCE, HERO, SEO } from "../lib/marketingCopy";
+import { usePageSeo } from "../lib/seo";
 
 export function AboutPage() {
-  useEffect(() => {
-    document.title = SEO.about.title;
-    const meta = document.querySelector('meta[name="description"]');
-    if (meta) meta.setAttribute("content", SEO.about.description);
-  }, []);
+  usePageSeo(useMemo(() => SEO.about, []));
 
   return (
     <MarketingPageShell>

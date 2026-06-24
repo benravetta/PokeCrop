@@ -1,5 +1,9 @@
 import type { ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { useMemo } from "react";
+import { Link, useLocation } from "react-router-dom";
+import { Wordmark } from "../landing/shared";
+import { SEO } from "../../lib/marketingCopy";
+import { usePageSeo } from "../../lib/seo";
 
 export function AuthLayout({
   title,
@@ -14,6 +18,18 @@ export function AuthLayout({
   footer?: ReactNode;
   aside?: ReactNode;
 }) {
+  const location = useLocation();
+
+  usePageSeo(
+    useMemo(
+      () => ({
+        ...SEO.private,
+        title: `${title} | GemCheck`,
+        path: location.pathname,
+      }),
+      [title, location.pathname]
+    )
+  );
   const formCard = (
     <div className="rounded-2xl border border-border-subtle bg-surface-raised p-6 shadow-2xl">
       <div className="mb-5 text-center">
@@ -31,12 +47,7 @@ export function AuthLayout({
       <div className="flex-1 flex items-center justify-center p-6">
         <div className={`w-full anim-rise ${aside ? "max-w-4xl" : "max-w-sm"}`}>
           <Link to="/" className="flex items-center justify-center mb-7">
-            <img
-              src="/gemcheck-logo.png"
-              alt="GemCheck — by Looky"
-              className="h-12 w-auto select-none"
-              draggable={false}
-            />
+            <Wordmark />
           </Link>
 
           {aside ? (

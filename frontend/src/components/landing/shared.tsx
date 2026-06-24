@@ -1,6 +1,9 @@
 import type { ReactNode } from "react";
 
-export function Wordmark({ className = "h-8" }: { className?: string }) {
+/** Standard GemCheck wordmark height — keep in sync across all headers. */
+export const LOGO_CLASS = "h-10 sm:h-11";
+
+export function Wordmark({ className = LOGO_CLASS }: { className?: string }) {
   return (
     <img
       src="/gemcheck-logo.png"

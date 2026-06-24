@@ -1,9 +1,12 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, NavLink, Outlet, useOutletContext } from "react-router-dom";
 import { HelpCircle } from "lucide-react";
 import { HelpDrawer } from "./HelpDrawer";
 import { UserMenu } from "./UserMenu";
 import { CropsBadge } from "./CropsBadge";
+import { Wordmark } from "./landing/shared";
+import { SEO } from "../lib/marketingCopy";
+import { usePageSeo } from "../lib/seo";
 
 export interface LayoutContext {
   openHelp: () => void;
@@ -16,16 +19,13 @@ export function useLayout(): LayoutContext {
 export function Layout() {
   const [helpOpen, setHelpOpen] = useState(false);
 
+  usePageSeo(useMemo(() => SEO.private, []));
+
   return (
     <div className="h-[100dvh] overflow-hidden bg-surface flex flex-col">
       <header className="border-b border-border-subtle px-4 sm:px-6 py-3 sm:py-3.5 flex items-center justify-between gap-3">
         <Link to="/crop" className="flex items-center min-w-0">
-          <img
-            src="/gemcheck-logo.png"
-            alt="GemCheck — by Looky"
-            className="h-9 sm:h-10 w-auto select-none"
-            draggable={false}
-          />
+          <Wordmark />
         </Link>
 
         <nav className="flex items-center gap-1">

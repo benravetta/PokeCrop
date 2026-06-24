@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Check, Sparkles, Loader2, Tag } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
@@ -17,6 +17,7 @@ import {
   type SubscriptionPlanId,
 } from "../components/pricing/pricingCompare";
 import { SEO } from "../lib/marketingCopy";
+import { usePageSeo } from "../lib/seo";
 
 export function PricingPage() {
   const session = useAuth((s) => s.session);
@@ -27,9 +28,10 @@ export function PricingPage() {
   const [error, setError] = useState<string | null>(null);
   const proPromoLive = isProLaunchPromoActive();
 
+  usePageSeo(useMemo(() => SEO.pricing, []));
+
   useEffect(() => {
     refresh();
-    document.title = SEO.pricing.title;
   }, [refresh]);
 
   const currentPlan: Plan = me?.plan ?? "free";

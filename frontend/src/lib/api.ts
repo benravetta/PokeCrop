@@ -711,15 +711,71 @@ export interface GradedPrice {
   high: number;
 }
 
+// eBay sold lookup attached to grade pricing (no external pricing APIs).
+export interface EbayVerifiedSale {
+  ebayItemId: string | null;
+  title: string;
+  url: string;
+  soldDate: string;
+  saleFormat: string;
+  conditionOriginal: string;
+  conditionNormalised: string;
+  priceOriginal: number;
+  currencyOriginal: string;
+  exchangeRateToGbp: number | null;
+  priceGbp: number | null;
+  matchScore: number;
+  possibleOutlier: boolean;
+  evidenceLevel: "direct" | "archived";
+  verificationStatus: "fully_verified" | "historically_indexed";
+  sourceName: string;
+  sourceUrl: string;
+  marketplace: string;
+  originalListingAvailable: boolean;
+  originalEbayUrl?: string | null;
+  verificationNotes: string[];
+}
+
+export interface EbaySoldValuation {
+  status: string;
+  card: Record<string, unknown>;
+  sales: EbayVerifiedSale[];
+  valuation: {
+    salesUsed: number;
+    averageSoldPriceGbp: number | null;
+    medianSoldPriceGbp: number | null;
+    lowestSoldPriceGbp: number | null;
+    highestSoldPriceGbp: number | null;
+    priceRangeGbp: number | null;
+    percentageSpread: number | null;
+    currency: string;
+    evidenceMode?: "direct_only" | "mixed_evidence" | "archived_only" | "insufficient_sales";
+    directSalesCount?: number;
+    archivedSalesCount?: number;
+    limitedAverageLabel?: string;
+  };
+  confidence: { score: number; level: string; reasons: string[] };
+  warnings: string[];
+  searchMetadata?: {
+    searchedAt?: string;
+    cacheHit?: boolean;
+    directEbaySalesFound?: number;
+    archivedSalesFound?: number;
+    archiveSourcesChecked?: string[];
+  };
+}
+
 export interface CardPricing {
   currency: string;
   raw: PriceRange;
   graded: GradedPrice[];
   confidence: "low" | "medium" | "high";
   note: string;
-  source?: "cardmarket" | "pricecharting" | "mixed" | "ai";
-  rawSource?: "cardmarket" | "pricecharting";
+  source?: "cardmarket" | "pricecharting" | "ebay" | "mixed" | "ai";
+  rawSource?: "cardmarket" | "pricecharting" | "ebay";
   asOf?: string;
+  compCount?: number;
+  ebaySold?: EbaySoldValuation;
 }
 
 export interface GradeImages {

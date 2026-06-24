@@ -29,6 +29,9 @@ import { FaqPage } from "./pages/FaqPage";
 import { AboutPage } from "./pages/AboutPage";
 import { ContactPage } from "./pages/ContactPage";
 import { TradePage } from "./pages/TradePage";
+import { PrivacyPage } from "./pages/PrivacyPage";
+import { TermsPage } from "./pages/TermsPage";
+import { RefundPage } from "./pages/RefundPage";
 import { MarketingPageShell } from "./components/marketing/MarketingPageShell";
 
 function FullScreenLoader() {
@@ -92,6 +95,9 @@ export default function App() {
       <Route path="/about" element={<AboutPage />} />
       <Route path="/contact" element={<ContactPage />} />
       <Route path="/trade" element={<TradePage />} />
+      <Route path="/privacy" element={<PrivacyPage />} />
+      <Route path="/terms" element={<TermsPage />} />
+      <Route path="/refund" element={<RefundPage />} />
       <Route
         path="/pricing"
         element={

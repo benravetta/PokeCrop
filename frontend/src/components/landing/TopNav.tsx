@@ -60,7 +60,6 @@ export function TopNav({
     <MarketingSiteHeader
       homeHref="#top"
       sticky
-      logoClassName="h-10 sm:h-11"
       actions={
         loggedIn ? (
           <>

@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, Loader2 } from "lucide-react";
 import { MarketingPageShell } from "../components/marketing/MarketingPageShell";
@@ -6,8 +6,10 @@ import { TurnstileField } from "../components/TurnstileWidget";
 import { useTurnstileToken } from "../hooks/useTurnstile";
 import { submitTradeForm } from "../lib/api";
 import { SEO } from "../lib/marketingCopy";
+import { usePageSeo } from "../lib/seo";
 
 export function TradePage() {
+  usePageSeo(useMemo(() => SEO.trade, []));
   const turnstile = useTurnstileToken();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -16,10 +18,6 @@ export function TradePage() {
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    document.title = SEO.trade.title;
-  }, []);
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();

@@ -5,6 +5,7 @@ import { SectionHeading } from "./shared";
 import { ESTIMATE_DISCLAIMER, FOOTER, GRADER_INDEPENDENCE } from "../../lib/marketingCopy";
 import { FOOTER_EXTERNAL_LINKS, FOOTER_NAV_LINKS } from "../../lib/siteNav";
 import { SiteNavLinks } from "../marketing/SiteNavLinks";
+import { Wordmark } from "./shared";
 import type { Plan } from "../../lib/plans";
 
 export function ApiSection({
@@ -122,12 +123,7 @@ export function SiteFooter() {
       <div className="mx-auto max-w-6xl px-4 sm:px-6 py-10">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
           <div className="text-center sm:text-left max-w-sm">
-            <img
-              src="/gemcheck-logo.png"
-              alt="GemCheck"
-              className="h-9 w-auto mx-auto sm:mx-0"
-              draggable={false}
-            />
+            <Wordmark className="mx-auto sm:mx-0" />
             <p className="mt-2 text-xs text-text-muted leading-relaxed">{FOOTER.tagline}</p>
             <p className="mt-1 text-xs text-text-muted">{FOOTER.location}</p>
           </div>
