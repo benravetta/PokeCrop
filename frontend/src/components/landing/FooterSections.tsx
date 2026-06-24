@@ -3,6 +3,8 @@ import { ArrowRight, KeyRound, ShieldCheck, Terminal, Zap } from "lucide-react";
 import { API_SNIPPET } from "./data";
 import { SectionHeading } from "./shared";
 import { ESTIMATE_DISCLAIMER } from "../../lib/marketingCopy";
+import { FOOTER_EXTERNAL_LINKS, FOOTER_NAV_LINKS } from "../../lib/siteNav";
+import { SiteNavLinks } from "../marketing/SiteNavLinks";
 import type { Plan } from "../../lib/plans";
 
 export function ApiSection({
@@ -149,38 +151,14 @@ export function SiteFooter() {
             </p>
           </div>
           <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm">
-            <Link to="/how-it-works" className="text-text-secondary hover:text-text-primary transition-colors">
-              How it works
-            </Link>
-            <Link to="/pricing" className="text-text-secondary hover:text-text-primary transition-colors">
-              Pricing
-            </Link>
-            <Link to="/faq" className="text-text-secondary hover:text-text-primary transition-colors">
-              FAQ
-            </Link>
-            <Link to="/trade" className="text-text-secondary hover:text-text-primary transition-colors">
-              Trade
-            </Link>
-            <Link to="/about" className="text-text-secondary hover:text-text-primary transition-colors">
-              About
-            </Link>
-            <Link to="/contact" className="text-text-secondary hover:text-text-primary transition-colors">
-              Contact
-            </Link>
-            <Link to="/docs" className="text-text-secondary hover:text-text-primary transition-colors">
-              API docs
-            </Link>
-            <Link to="/login" className="text-text-secondary hover:text-text-primary transition-colors">
-              Sign in
-            </Link>
-            <a
-              href="https://getlooky.uk"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-text-secondary hover:text-text-primary transition-colors"
-            >
-              A Looky Collectibles tool
-            </a>
+            <SiteNavLinks
+              links={FOOTER_NAV_LINKS}
+              linkClassName="text-text-secondary hover:text-text-primary transition-colors"
+            />
+            <SiteNavLinks
+              links={FOOTER_EXTERNAL_LINKS}
+              linkClassName="text-text-secondary hover:text-text-primary transition-colors"
+            />
           </div>
         </div>
         <p className="mt-6 text-center text-xs text-text-muted max-w-2xl mx-auto">

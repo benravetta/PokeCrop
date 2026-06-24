@@ -5,13 +5,6 @@ export const HERO_CARD_BEFORE = "/demo-charizard.png";
 /** Cropped output from GemCheck (detect → straighten → transparent PNG). */
 export const HERO_CARD_IMG = "/demo-charizard-crop.png";
 
-export const NAV_LINKS = [
-  { label: "How it works", href: "/how-it-works" },
-  { label: "Pricing", href: "/pricing" },
-  { label: "FAQ", href: "/faq" },
-  { label: "Trade", href: "/trade" },
-] as const;
-
 export const HERO_REVIEW = {
   name: "Marcus L.",
   role: "Vintage Pokémon collector, Glasgow",
