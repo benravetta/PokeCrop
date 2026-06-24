@@ -71,7 +71,7 @@ curl -X PATCH "https://api.supabase.com/v1/projects/$SUPABASE_PROJECT_REF/config
 ## Design notes
 
 - Light transactional layout for email client compatibility (not the dark app theme).
-- Logo: `https://gemcheck.co.uk/gemcheck-logo.png`
+- Logo: `https://gemcheck.co.uk/gemcheck-logo-light.png` (dark wordmark for light email backgrounds)
 - Accent: `#7c6cf6`
 - Link-based auth emails include a 6-digit OTP fallback (`{{ .Token }}`) for accessibility and Microsoft Safe Links prefetch issues.
 - British English copy throughout.
