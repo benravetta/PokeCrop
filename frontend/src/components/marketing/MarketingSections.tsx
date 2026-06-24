@@ -2,12 +2,14 @@ import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import {
   ESTIMATE_DISCLAIMER,
-  GRADER_COMPARE,
   SITE_FAQ,
   TRANSPARENCY,
   WHAT_WE_CHECK,
 } from "../../lib/marketingCopy";
+import { GraderCompareSection } from "../landing/GraderCompareSection";
 import { SectionHeading } from "../landing/shared";
+
+export { GraderCompareSection };
 
 export function WhatWeCheckSection() {
   return (
@@ -31,39 +33,6 @@ export function WhatWeCheckSection() {
         </div>
         <p className="mt-6 text-center text-xs text-text-muted max-w-2xl mx-auto">
           {WHAT_WE_CHECK.qualification}
-        </p>
-      </div>
-    </section>
-  );
-}
-
-export function GraderCompareSection() {
-  return (
-    <section className="py-14 sm:py-16 border-b border-border-subtle">
-      <div className="mx-auto max-w-6xl px-4 sm:px-6">
-        <SectionHeading
-          kicker={GRADER_COMPARE.kicker}
-          title={GRADER_COMPARE.heading}
-          copy={GRADER_COMPARE.body}
-        />
-        <ul className="mt-8 grid sm:grid-cols-2 gap-3 max-w-2xl">
-          {GRADER_COMPARE.points.map((point) => (
-            <li
-              key={point}
-              className="rounded-xl border border-border-subtle bg-surface-raised px-4 py-3 text-sm text-text-secondary"
-            >
-              {point}
-            </li>
-          ))}
-        </ul>
-        <p className="mt-8 text-center">
-          <a
-            href="#report"
-            className="inline-flex items-center gap-2 text-sm font-semibold text-accent hover:text-accent-hover"
-          >
-            {GRADER_COMPARE.cta}
-            <ArrowRight className="w-4 h-4" />
-          </a>
         </p>
       </div>
     </section>

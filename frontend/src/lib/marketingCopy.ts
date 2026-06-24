@@ -105,10 +105,22 @@ export const GRADER_COMPARE = {
   heading: "One card. Multiple grading perspectives.",
   body: "GemCheck shows separate pre-grade estimates for each supported grader, so you can compare the likely outcomes side by side.",
   points: [
-    "Separate estimates for each supported grader",
-    "Condition breakdown",
-    "Confidence and limiting factors",
-    "Clear best-fit explanation",
+    {
+      title: "Separate grader estimates",
+      copy: "Likely grades for PSA, Beckett, CGC, ACE and TAG in one view.",
+    },
+    {
+      title: "Condition breakdown",
+      copy: "Centering, corners, edges and surface scored with plain-language notes.",
+    },
+    {
+      title: "Confidence and limits",
+      copy: "See when photos support a strong read and when evidence is thin.",
+    },
+    {
+      title: "Likely best fit",
+      copy: "A clear recommendation for which grader your card may suit best.",
+    },
   ],
   cta: "View a sample report",
 } as const;
