@@ -8,8 +8,8 @@ function toPct(grade: string): number {
   return (parseFloat(grade) / SCALE) * 100;
 }
 
-function bestFitName() {
-  let best = EXAMPLE_COMPANIES[0].name;
+function bestFitName(): (typeof EXAMPLE_COMPANIES)[number]["name"] {
+  let best: (typeof EXAMPLE_COMPANIES)[number]["name"] = EXAMPLE_COMPANIES[0].name;
   let bestVal = -1;
   for (const c of EXAMPLE_COMPANIES) {
     const val = parseFloat(c.likely);
