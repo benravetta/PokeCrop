@@ -223,6 +223,15 @@ export const components = {
             reason: { type: "string" },
           },
         },
+        bgs_insight: {
+          type: "object",
+          description: "Present when Beckett subgrades qualify for Black Label or Pristine 10.",
+          properties: {
+            tier: { type: "string", enum: ["black_label", "pristine"] },
+            label: { type: "string", example: "Black Label" },
+            detail: { type: "string" },
+          },
+        },
         company_estimates: {
           type: "array",
           items: {
@@ -232,6 +241,11 @@ export const components = {
               likely: { type: "string", example: "9" },
               low: { type: "string", example: "8" },
               high: { type: "string", example: "10" },
+              bgs_tier: {
+                type: "string",
+                enum: ["black_label", "pristine"],
+                description: "Beckett (BGS) only — Black Label (all subgrades 10) or Pristine 10.",
+              },
               subgrades: {
                 type: "object",
                 properties: {

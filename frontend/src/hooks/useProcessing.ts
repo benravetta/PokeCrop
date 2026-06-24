@@ -45,6 +45,7 @@ export interface AppState {
   // Hand-off payload for "Send to grading": the cropped card (base64 PNG, no
   // data: prefix) is stashed here and consumed once by the grade page on mount.
   gradePrefill: { pngBase64: string; filename: string } | null;
+  historyEventId: number | null;
 
   upload: (file: File) => Promise<void>;
   process: () => Promise<void>;
@@ -107,6 +108,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   params: { ...DEFAULT_PARAMS },
   appliedParams: null,
   gradePrefill: null,
+  historyEventId: null,
 
   upload: async (file: File) => {
     set({
@@ -121,6 +123,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       editImageSize: null,
       editTransform: null,
       cropDirty: false,
+      historyEventId: null,
     });
     try {
       const result = await uploadFile(file);
@@ -170,6 +173,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         appliedCropCorners: corners ? cloneCorners(corners) : null,
         cropDirty: false,
         appliedParams: { ...params },
+        historyEventId: result.historyEventId ?? get().historyEventId,
       });
 
       // Keep the remaining-crops indicator fresh after a metered crop.
@@ -256,6 +260,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       processing: false,
       params: { ...DEFAULT_PARAMS },
       appliedParams: null,
+      historyEventId: null,
     });
   },
 }));

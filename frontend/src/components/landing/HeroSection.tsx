@@ -43,7 +43,7 @@ export function HeroSection({ loggedIn, plan }: { loggedIn: boolean; plan: Plan 
 
             <p className="mt-4 text-sm text-text-muted">
               {plan === "free"
-                ? `Free plan — 1 grade a month, 3 crops a day. Need another? ${SINGLE_GRADE.price} per report.`
+                ? `Free plan — 1 grade a month, 3 crops & centring sessions a day. Need another? ${SINGLE_GRADE.price} per report.`
                 : plan
                   ? `${PLAN_LABELS[plan]} plan active.`
                   : `Free to start. Or buy a single report for ${SINGLE_GRADE.price} — no subscription.`}

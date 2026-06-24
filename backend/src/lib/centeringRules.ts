@@ -31,7 +31,7 @@ const PSA_BACK: Tier[] = [
 
 // Beckett public scale snippets (stricter at the top).
 const BECKETT_FRONT: Tier[] = [
-  [50, 10], // 9.5 Black Label territory
+  [50, 10], // perfect centering — Black Label requires centering 10
   [55, 9],
   [60, 8],
   [65, 7],

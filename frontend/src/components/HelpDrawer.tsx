@@ -1,5 +1,6 @@
 import {
   X,
+  Crosshair,
   Upload,
   Crop,
   SlidersHorizontal,
@@ -95,7 +96,17 @@ export function HelpDrawer({
             </p>
           </Section>
 
-          <Section icon={<Crop className="w-4 h-4" />} title="3 · Adjust the crop">
+          <Section icon={<Crosshair className="w-4 h-4" />} title="3 · Measure centring">
+            <p>
+              On the straightened card, use the{" "}
+              <span className="text-text-primary font-medium">Measure centring</span> panel
+              beside your result: drag the dashed box to the card edge and the solid box to
+              where the artwork starts. Ratios and centring scores save to your{" "}
+              <span className="text-text-primary font-medium">History</span>.
+            </p>
+          </Section>
+
+          <Section icon={<Crop className="w-4 h-4" />} title="4 · Adjust the crop">
             <p>
               If the auto-crop is slightly off, hit{" "}
               <span className="text-text-primary font-medium">Adjust crop</span> to
@@ -135,7 +146,7 @@ export function HelpDrawer({
 
           <Section
             icon={<SlidersHorizontal className="w-4 h-4" />}
-            title="4 · Advanced clean-up"
+            title="5 · Advanced clean-up"
           >
             <p>For stubborn cases, open the Advanced panel:</p>
             <ul className="list-disc pl-4 flex flex-col gap-1 marker:text-text-muted">
@@ -163,7 +174,7 @@ export function HelpDrawer({
             </p>
           </Section>
 
-          <Section icon={<Download className="w-4 h-4" />} title="5 · Download">
+          <Section icon={<Download className="w-4 h-4" />} title="6 · Download">
             <p>
               Grab the finished cut-out as a transparent PNG.{" "}
               <span className="text-text-primary font-medium">Original size</span> keeps

@@ -85,8 +85,8 @@ export function centeringCeiling(result: CenteringResult, side: CardSide): numbe
 }
 
 export function ceilingLabel(grade: number): string {
-  if (grade >= 10) return "PSA 10 centering";
-  return `Caps centering at PSA ${grade}`;
+  if (grade >= 10) return "PSA 10 centring";
+  return `Caps centring at PSA ${grade}`;
 }
 
 function colourDist(a: number[], b: number[]): number {

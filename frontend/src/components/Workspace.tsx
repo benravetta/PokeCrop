@@ -15,6 +15,7 @@ import { CropPanel } from "./CropPanel";
 import { ProcessingStage } from "./ProcessingStage";
 import { AdvancedDrawer } from "./AdvancedDrawer";
 import { ExportControls } from "./ExportControls";
+import { CropCentringPanel } from "./CropCentringPanel";
 import { SingleGradePromo } from "./SingleGradePromo";
 import { useAppStore, paramsDiffer } from "../hooks/useProcessing";
 import { fetchExport } from "../lib/api";
@@ -49,6 +50,7 @@ export function Workspace() {
     revertCrop,
     reset,
     setGradePrefill,
+    historyEventId,
   } = useAppStore();
 
   const navigate = useNavigate();
@@ -136,13 +138,21 @@ export function Workspace() {
       )}
 
       {/* Main stage */}
-      <div className="flex-1 min-h-0 px-4 sm:px-5 flex flex-col">
+      <div className="flex-1 min-h-0 px-4 sm:px-5 flex flex-col lg:flex-row gap-3">
         {busy ? (
           <ProcessingStage phase={uploading ? "uploading" : "processing"} />
         ) : mode === "crop" ? (
           <CropPanel />
         ) : (
-          <ResultStage />
+          <>
+            <ResultStage />
+            {resultBase64 && (
+              <CropCentringPanel
+                imageSrc={`data:image/png;base64,${resultBase64}`}
+                historyEventId={historyEventId}
+              />
+            )}
+          </>
         )}
       </div>
 

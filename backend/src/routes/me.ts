@@ -3,11 +3,10 @@ import { requireAuth } from "../middleware/auth.js";
 import { FREE_DAILY_LIMIT, getPlan, getUsageToday } from "../lib/usage.js";
 import { getGradeCredits } from "../lib/gradeQuota.js";
 import { getHistory, type UsageKind } from "../lib/usageEvents.js";
+import { enrichHistoryEvents, updateHistoryEventCentring } from "../lib/historyEnrich.js";
 
 const router = Router();
 
-// Plan + usage snapshot for the signed-in user. Drives the remaining-crops
-// indicator and the account page.
 router.get("/me", requireAuth, async (req: Request, res: Response) => {
   const userId = req.user!.id;
   try {
@@ -33,7 +32,6 @@ router.get("/me", requireAuth, async (req: Request, res: Response) => {
   }
 });
 
-// Searchable, paginated history of the signed-in user's crops and grades.
 router.get("/me/history", requireAuth, async (req: Request, res: Response) => {
   const userId = req.user!.id;
   try {
@@ -51,10 +49,37 @@ router.get("/me/history", requireAuth, async (req: Request, res: Response) => {
       page: req.query.page ? parseInt(String(req.query.page), 10) : undefined,
       pageSize: req.query.pageSize ? parseInt(String(req.query.pageSize), 10) : undefined,
     });
-    res.json(result);
+    const events = await enrichHistoryEvents(result.events);
+    res.json({ ...result, events });
   } catch (err) {
     console.error("/me/history failed:", err);
     res.status(500).json({ error: "Failed to load history." });
+  }
+});
+
+router.patch("/me/history/:id/centring", requireAuth, async (req: Request, res: Response) => {
+  const userId = req.user!.id;
+  const eventId = parseInt(req.params.id, 10);
+  if (!Number.isFinite(eventId)) {
+    res.status(400).json({ error: "Invalid history id." });
+    return;
+  }
+  const body = req.body as { front?: { leftRight?: string; topBottom?: string } };
+  const front = body?.front;
+  if (!front || (typeof front.leftRight !== "string" && typeof front.topBottom !== "string")) {
+    res.status(400).json({ error: "Provide front.leftRight and/or front.topBottom ratios." });
+    return;
+  }
+  try {
+    const centring = await updateHistoryEventCentring(userId, eventId, front);
+    if (!centring) {
+      res.status(404).json({ error: "Crop history entry not found." });
+      return;
+    }
+    res.json({ centring });
+  } catch (err) {
+    console.error("/me/history centring failed:", err);
+    res.status(500).json({ error: "Failed to save centring." });
   }
 });
 

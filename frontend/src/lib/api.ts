@@ -95,6 +95,7 @@ export interface ProcessResult {
   error?: string;
   candidates_found?: number;
   suitability?: Suitability;
+  historyEventId?: number | null;
 }
 
 export async function uploadFile(file: File): Promise<UploadResult> {
@@ -219,6 +220,7 @@ export interface UsageEvent {
   summary: string | null;
   detail: Record<string, unknown> | null;
   created_at: string;
+  thumbnailUrl?: string | null;
 }
 
 export interface HistoryResponse {
@@ -489,16 +491,17 @@ export interface CatalogFacet {
 
 export interface CatalogItem {
   id: number;
-  r2_key: string;
   tcg: string;
-  card_set: string;
+  cardSet: string;
   number: string;
   name: string | null;
-  confidence: number | null;
+  idConfidence: number | null;
+  pipelineConfidence: number | null;
+  centring: CropCentring | null;
   source: string | null;
   width: number | null;
   height: number | null;
-  created_at: string;
+  createdAt: string;
   url: string | null;
 }
 
@@ -683,21 +686,50 @@ export async function adminGetAiSpend(days = 30): Promise<{ spend: AiSpend; days
 }
 
 export async function adminCatalogItems(opts: {
+  q?: string;
   tcg?: string;
   set?: string;
   number?: string;
-  limit?: number;
-  offset?: number;
-}): Promise<{ items: CatalogItem[]; total: number; limit: number; offset: number }> {
+  page?: number;
+  pageSize?: number;
+}): Promise<{ items: CatalogItem[]; total: number; page: number; pageSize: number }> {
   const q = new URLSearchParams();
+  if (opts.q) q.set("q", opts.q);
   if (opts.tcg) q.set("tcg", opts.tcg);
   if (opts.set) q.set("set", opts.set);
   if (opts.number) q.set("number", opts.number);
-  if (opts.limit) q.set("limit", String(opts.limit));
-  if (opts.offset) q.set("offset", String(opts.offset));
+  if (opts.page) q.set("page", String(opts.page));
+  if (opts.pageSize) q.set("pageSize", String(opts.pageSize));
   const res = await fetch(`${BASE}/admin/catalog/items?${q.toString()}`, {
     headers: await authHeaders(),
   });
   if (!res.ok) await fail(res, "Failed to load catalog items");
+  return res.json();
+}
+
+export interface CropCentringScores {
+  PSA?: number | null;
+  Beckett?: number | null;
+  CGC?: number | null;
+  TAG?: number | null;
+  ACE?: number | null;
+}
+
+export interface CropCentring {
+  measured?: boolean;
+  front?: { leftRight?: string; topBottom?: string };
+  scores?: CropCentringScores;
+}
+
+export async function saveHistoryCentring(
+  eventId: number,
+  front: { leftRight?: string; topBottom?: string }
+): Promise<{ centring: CropCentring }> {
+  const res = await fetch(`${BASE}/me/history/${eventId}/centring`, {
+    method: "PATCH",
+    headers: await authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ front }),
+  });
+  if (!res.ok) await fail(res, "Failed to save centring");
   return res.json();
 }

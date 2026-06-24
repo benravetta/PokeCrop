@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { getServiceClient } from "./supabase.js";
 import { isR2Configured, putObject } from "./r2.js";
 import { identifyCardAI, isAiIdentifyConfigured } from "./identify.js";
+import type { CentringPayload } from "./centringPayload.js";
 
 // Best-effort identity for a card (any field may be null/absent).
 export interface CardIdentity {
@@ -13,7 +14,7 @@ export interface CardIdentity {
 }
 
 // Sanitise a taxonomy value into a safe, lowercase path segment.
-function seg(v: unknown, fallback: string): string {
+export function seg(v: unknown, fallback: string): string {
   if (typeof v !== "string") return fallback;
   const s = v
     .trim()
@@ -47,6 +48,9 @@ export interface ArchiveOpts {
   source: "web" | "api";
   width?: number;
   height?: number;
+  pipelineConfidence?: number | null;
+  metadata?: Record<string, unknown>;
+  centring?: CentringPayload | null;
 }
 
 // Archive a full-resolution PNG crop to R2 and index it in catalog_items,
@@ -92,6 +96,9 @@ export async function archiveCrop(opts: ArchiveOpts): Promise<void> {
     number,
     name,
     confidence,
+    pipeline_confidence: opts.pipelineConfidence ?? null,
+    metadata: opts.metadata ?? {},
+    centring: opts.centring ?? null,
     source: opts.source,
     width: opts.width ?? null,
     height: opts.height ?? null,

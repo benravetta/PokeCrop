@@ -10,6 +10,7 @@ import { sendApiError } from "../lib/apiError.js";
 import { incrementApiUsage, getApiUsageTodayForUser, countActiveApiKeys } from "../lib/apiKeys.js";
 import { logActivity } from "../lib/activity.js";
 import { getHistory, logUsageEvent, type UsageKind } from "../lib/usageEvents.js";
+import crypto from "crypto";
 import { archiveCropAsync } from "../lib/catalog.js";
 import { peekRateLimit, consumeRateLimit, rateLimitHeaders, DAILY_SOFT_CAP } from "../lib/rateLimit.js";
 import { openApiSpec, API_SPEC_VERSION } from "../openapi.js";
@@ -268,8 +269,12 @@ router.post(
         source: "api",
         width: typeof crop.metadata.width === "number" ? crop.metadata.width : undefined,
         height: typeof crop.metadata.height === "number" ? crop.metadata.height : undefined,
+        pipelineConfidence:
+          typeof crop.metadata.confidence === "number" ? crop.metadata.confidence : null,
+        metadata: crop.metadata as Record<string, unknown>,
       });
 
+      const contentHash = crypto.createHash("sha256").update(crop.pngBuffer).digest("hex");
       const wantsPng = req.accepts(["json", "image/png"]) === "image/png";
       logActivity({
         userId: req.apiUser!.userId,
@@ -285,7 +290,15 @@ router.post(
         billing: "subscription",
         plan: "api",
         summary: resolved.filename,
-        detail: { key_id: req.apiUser!.keyId, format: wantsPng ? "png" : "json" },
+        detail: {
+          key_id: req.apiUser!.keyId,
+          format: wantsPng ? "png" : "json",
+          content_hash: contentHash,
+          pipeline_confidence:
+            typeof crop.metadata.confidence === "number" ? crop.metadata.confidence : null,
+          width: typeof crop.metadata.width === "number" ? crop.metadata.width : null,
+          height: typeof crop.metadata.height === "number" ? crop.metadata.height : null,
+        },
       });
 
       if (wantsPng) {

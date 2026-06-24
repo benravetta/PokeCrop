@@ -7,8 +7,10 @@ import {
   ChevronRight,
   Crop as CropIcon,
   ShieldCheck,
+  ImageOff,
 } from "lucide-react";
 import { getHistory, type UsageEvent } from "../lib/api";
+import { centringLabel } from "../lib/centringDisplay";
 
 type KindFilter = "all" | "crop" | "grade";
 const KIND_FILTERS: KindFilter[] = ["all", "grade", "crop"];
@@ -31,8 +33,6 @@ function fmtDate(iso: string): string {
   });
 }
 
-// Human-readable quota usage for a single event, capturing the number used and
-// what remained at the time (the key ask for subscription grades).
 function usageLabel(e: UsageEvent): string {
   if (e.billing === "one_off") {
     const left = e.remaining_after;
@@ -40,7 +40,6 @@ function usageLabel(e: UsageEvent): string {
       ? `Purchased credit · ${left} credit${left === 1 ? "" : "s"} left`
       : "Purchased credit";
   }
-  // Unlimited crops/grades on paid plans record no per-window number.
   if (e.used_after == null)
     return e.plan === "api" || e.plan === "unlimited" || e.plan === "pro" ? "Unlimited" : "—";
 
@@ -50,6 +49,27 @@ function usageLabel(e: UsageEvent): string {
   const leftTxt =
     e.remaining_after != null ? ` · ${e.remaining_after} left ${when}`.trimEnd() : "";
   return `#${e.used_after} ${noun}${when ? ` ${when}` : ""}${leftTxt}`;
+}
+
+function cropDetect(e: UsageEvent): string | null {
+  const p = e.detail?.pipeline_confidence;
+  if (typeof p !== "number") return null;
+  return `${Math.round(p * 100)}%`;
+}
+
+function cropCentring(e: UsageEvent): string {
+  const c = e.detail?.centring;
+  if (c && typeof c === "object") {
+    return centringLabel(c as import("../lib/api").CropCentring);
+  }
+  return "—";
+}
+
+function cropDims(e: UsageEvent): string | null {
+  const w = e.detail?.width;
+  const h = e.detail?.height;
+  if (typeof w === "number" && typeof h === "number") return `${w}×${h}px`;
+  return null;
 }
 
 const PAGE_SIZE = 25;
@@ -74,7 +94,6 @@ export function HistoryPage() {
         kind: kind === "all" ? undefined : kind,
         q: query.trim() || undefined,
         from: from || undefined,
-        // `to` is exclusive on the backend; bump to end-of-day so the chosen day is included.
         to: to ? `${to}T23:59:59.999Z` : undefined,
         page,
         pageSize: PAGE_SIZE,
@@ -88,7 +107,6 @@ export function HistoryPage() {
     }
   }, [kind, query, from, to, page]);
 
-  // Debounce so typing in search / changing dates doesn't spam the API.
   useEffect(() => {
     const t = window.setTimeout(load, 250);
     return () => window.clearTimeout(t);
@@ -104,11 +122,9 @@ export function HistoryPage() {
           <h1 className="text-xl font-semibold text-text-primary">History</h1>
         </div>
         <p className="text-[13px] text-text-secondary mb-5">
-          Every crop and grade on your account, with dates, how it was paid for, and your quota at
-          the time.
+          Every crop and grade — billing, quota, detect confidence, centring scores and dimensions.
         </p>
 
-        {/* Search */}
         <div className="relative mb-3">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
           <input
@@ -122,7 +138,6 @@ export function HistoryPage() {
           />
         </div>
 
-        {/* Filters */}
         <div className="flex flex-wrap items-center gap-3 mb-4">
           <div className="flex flex-wrap gap-1.5">
             {KIND_FILTERS.map((f) => (
@@ -188,77 +203,95 @@ export function HistoryPage() {
           </div>
         )}
 
-        <div className="rounded-xl border border-border-subtle overflow-hidden">
-          <table className="w-full text-left">
-            <thead className="bg-surface-raised text-[11px] uppercase tracking-wide text-text-muted">
-              <tr>
-                <th className="px-4 py-2.5 font-medium">When</th>
-                <th className="px-4 py-2.5 font-medium">Type</th>
-                <th className="px-4 py-2.5 font-medium">Item</th>
-                <th className="px-4 py-2.5 font-medium hidden sm:table-cell">Billing</th>
-                <th className="px-4 py-2.5 font-medium hidden md:table-cell">Quota at the time</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan={5} className="px-4 py-10 text-center">
-                    <Loader2 className="w-5 h-5 text-accent animate-spin inline" />
-                  </td>
-                </tr>
-              ) : events.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-4 py-10 text-center text-[13px] text-text-muted">
-                    No history yet.
-                  </td>
-                </tr>
-              ) : (
-                events.map((e) => (
-                  <tr key={e.id} className="border-t border-border-subtle">
-                    <td className="px-4 py-3 text-[13px] text-text-secondary whitespace-nowrap">
-                      {fmtDate(e.created_at)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="inline-flex items-center gap-1.5 text-[13px] text-text-primary capitalize">
+        {loading ? (
+          <div className="flex justify-center py-16">
+            <Loader2 className="w-6 h-6 text-accent animate-spin" />
+          </div>
+        ) : events.length === 0 ? (
+          <p className="py-16 text-center text-[13px] text-text-muted">No history yet.</p>
+        ) : (
+          <ul className="divide-y divide-border-subtle rounded-xl border border-border-subtle bg-surface-raised overflow-hidden">
+            {events.map((e) => (
+              <li key={e.id} className="flex gap-3 p-3 sm:p-4 hover:bg-surface-overlay/40 transition-colors">
+                {e.kind === "crop" ? (
+                  <div className="w-12 h-16 shrink-0 rounded-lg border border-border-subtle bg-surface-overlay overflow-hidden flex items-center justify-center">
+                    {e.thumbnailUrl ? (
+                      <img
+                        src={e.thumbnailUrl}
+                        alt=""
+                        className="w-full h-full object-contain checkerboard"
+                      />
+                    ) : (
+                      <ImageOff className="w-4 h-4 text-text-muted" />
+                    )}
+                  </div>
+                ) : (
+                  <div className="w-12 h-16 shrink-0 rounded-lg border border-border-subtle bg-accent/10 flex items-center justify-center">
+                    <ShieldCheck className="w-5 h-5 text-accent" />
+                  </div>
+                )}
+
+                <div className="min-w-0 flex-1 grid sm:grid-cols-[1fr_auto] gap-x-4 gap-y-1">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm font-medium text-text-primary truncate">
+                        {e.kind === "crop" && typeof e.detail?.card_name === "string"
+                          ? String(e.detail.card_name)
+                          : e.summary || "—"}
+                      </span>
+                      <span className="inline-flex items-center gap-1 text-[11px] text-text-muted capitalize">
                         {e.kind === "grade" ? (
-                          <ShieldCheck className="w-4 h-4 text-accent" />
+                          <ShieldCheck className="w-3.5 h-3.5 text-accent" />
                         ) : (
-                          <CropIcon className="w-4 h-4 text-text-muted" />
+                          <CropIcon className="w-3.5 h-3.5" />
                         )}
                         {e.kind}
-                        {e.source === "api" && (
-                          <span className="text-[10px] font-medium text-text-muted bg-surface-overlay px-1.5 py-0.5 rounded">
-                            API
-                          </span>
-                        )}
+                        {e.source === "api" && " · API"}
                       </span>
-                    </td>
-                    <td className="px-4 py-3 text-[13px] text-text-primary">
-                      <span className="block truncate max-w-[260px]">{e.summary || "—"}</span>
-                      {e.kind === "grade" && e.detail?.likely ? (
-                        <span className="text-[11px] text-text-muted">
-                          {String(e.detail.likely)}
-                        </span>
-                      ) : null}
-                    </td>
-                    <td className="px-4 py-3 hidden sm:table-cell">
+                    </div>
+                    {e.kind === "crop" && e.summary && typeof e.detail?.card_name === "string" && (
+                      <div className="text-xs text-text-muted truncate">{e.summary}</div>
+                    )}
+                    {e.kind === "grade" && e.detail?.likely ? (
+                      <div className="text-xs text-text-muted">{String(e.detail.likely)}</div>
+                    ) : null}
+                    <div className="text-[11px] text-text-muted mt-0.5">{fmtDate(e.created_at)}</div>
+                  </div>
+
+                  <div className="text-xs text-text-secondary sm:text-right space-y-0.5">
+                    <div>
                       <span
-                        className={`inline-block text-[11px] font-medium px-2 py-0.5 rounded border ${
+                        className={`inline-block text-[10px] font-medium px-1.5 py-0.5 rounded border mr-1.5 ${
                           BILLING_STYLES[e.billing] ?? BILLING_STYLES.free
                         }`}
                       >
                         {BILLING_LABELS[e.billing] ?? e.billing}
                       </span>
-                    </td>
-                    <td className="px-4 py-3 text-[13px] text-text-secondary hidden md:table-cell">
                       {usageLabel(e)}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                    </div>
+                    {e.kind === "crop" && (
+                      <>
+                        {cropDetect(e) && (
+                          <div>
+                            Detect{" "}
+                            <span className="text-text-primary font-medium">{cropDetect(e)}</span>
+                          </div>
+                        )}
+                        <div>
+                          Centring{" "}
+                          <span className="text-text-primary font-medium">{cropCentring(e)}</span>
+                        </div>
+                        {cropDims(e) && (
+                          <div className="text-text-muted">{cropDims(e)}</div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
 
         <div className="flex items-center justify-between mt-4">
           <button

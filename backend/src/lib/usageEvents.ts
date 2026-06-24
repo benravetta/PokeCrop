@@ -45,7 +45,12 @@ const SELECT_COLS =
 // Record a usage event. Fire-and-forget: history must never add latency to (or
 // fail) the crop/grade request that triggered it.
 export function logUsageEvent(input: UsageEventInput): void {
-  getServiceClient()
+  void logUsageEventAwait(input).catch((err) => console.error("logUsageEvent failed:", err));
+}
+
+/** Awaited insert — used when the caller needs the new row id (e.g. crop centring). */
+export async function logUsageEventAwait(input: UsageEventInput): Promise<number | null> {
+  const { data, error } = await getServiceClient()
     .from("usage_events")
     .insert({
       user_id: input.userId,
@@ -59,10 +64,13 @@ export function logUsageEvent(input: UsageEventInput): void {
       summary: input.summary ?? null,
       detail: input.detail ?? null,
     })
-    .then(
-      () => {},
-      (err: unknown) => console.error("logUsageEvent failed:", err)
-    );
+    .select("id")
+    .single();
+  if (error) {
+    console.error("logUsageEventAwait failed:", error);
+    return null;
+  }
+  return typeof data?.id === "number" ? data.id : null;
 }
 
 export interface HistoryQuery {

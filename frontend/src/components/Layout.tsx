@@ -40,7 +40,7 @@ export function Layout() {
               }`
             }
           >
-            Crop
+            Crop &amp; centring
           </NavLink>
           <NavLink
             to="/grade"

@@ -558,6 +558,13 @@ function CompanyEstimate({ obj }: { obj: unknown }) {
   const subs = asObj(o.subgrades);
   const hasSubs = Object.keys(subs).length > 0;
   const likelihood = asStr(o.top_grade_likelihood);
+  const bgsTier = asStr(o.bgs_tier);
+  const tierBadge =
+    bgsTier === "black_label"
+      ? { label: "Black Label", className: "bg-zinc-900 text-amber-200 border-amber-400/40" }
+      : bgsTier === "pristine"
+        ? { label: "Pristine", className: "bg-emerald-500/15 text-emerald-200 border-emerald-500/30" }
+        : null;
   return (
     <div className="rounded-xl border border-border-subtle bg-surface-raised p-4 hover:border-accent/30 hover:bg-surface-overlay/30 transition-colors group">
       <div className="h-0.5 w-full rounded-full bg-gradient-to-r from-accent/60 to-transparent mb-3 opacity-60 group-hover:opacity-100 transition-opacity" />
@@ -572,6 +579,13 @@ function CompanyEstimate({ obj }: { obj: unknown }) {
       <div className="mt-1 text-2xl font-semibold text-text-primary tracking-tight">
         {asStr(o.likely) || "—"}
       </div>
+      {tierBadge && (
+        <div
+          className={`mt-2 inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${tierBadge.className}`}
+        >
+          {tierBadge.label}
+        </div>
+      )}
       <div className="text-xs text-text-muted mt-0.5">
         {asStr(o.low) || "?"} – {asStr(o.high) || "?"}
       </div>
@@ -694,9 +708,49 @@ function GradeReport({
       message: asStr(i.message),
     }))
     .filter((i) => i.severity === "warn");
+  const bgsInsight = asObj(result.bgs_insight);
+  const bgsTier = asStr(bgsInsight.tier);
+  const bgsLabel = asStr(bgsInsight.label);
+  const bgsDetail = asStr(bgsInsight.detail);
 
   return (
     <div className="mt-8 animate-[fade-in_0.25s_ease-out]">
+      {bgsTier && bgsLabel && (
+        <div
+          className={`mb-5 rounded-xl border p-5 ${
+            bgsTier === "black_label"
+              ? "border-amber-400/40 bg-gradient-to-br from-zinc-900/90 to-amber-950/40"
+              : "border-emerald-500/30 bg-emerald-500/10"
+          }`}
+        >
+          <div
+            className={`flex items-center gap-2 font-semibold ${
+              bgsTier === "black_label" ? "text-amber-200" : "text-emerald-200"
+            }`}
+          >
+            <span
+              className={`rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wide ${
+                bgsTier === "black_label"
+                  ? "border-amber-400/50 text-amber-100"
+                  : "border-emerald-500/40 text-emerald-100"
+              }`}
+            >
+              BGS {bgsLabel}
+            </span>
+            {bgsTier === "black_label" ? "Black Label candidate" : "Pristine 10 candidate"}
+          </div>
+          {bgsDetail && (
+            <p
+              className={`mt-2 text-sm leading-relaxed ${
+                bgsTier === "black_label" ? "text-amber-100/85" : "text-emerald-100/85"
+              }`}
+            >
+              {bgsDetail}
+            </p>
+          )}
+        </div>
+      )}
+
       {captureIssues.length > 0 && (
         <div className="mb-5 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
           <div className="flex items-center gap-2 text-amber-200 font-medium text-sm">

@@ -1,3 +1,4 @@
+import { detectBgsTier, formatBgsLikely, type BgsTier } from "./bgsTier.js";
 import {
   centeringGradeFor,
   ratiosFromFindings,
@@ -216,6 +217,8 @@ interface CompanyEstimate {
   high: string;
   top_grade_likelihood: string;
   subgrades: { centering: string; corners: string; edges: string; surface: string } | null;
+  /** Beckett-only: Black Label (all 10s) or Pristine 10 (all ≥9.5, final 10). */
+  bgs_tier?: BgsTier;
 }
 
 export interface ScoreResult {
@@ -307,17 +310,22 @@ export function scoreGrades(findings: Json): ScoreResult {
   const bgsLo = Math.min(...bgsSubs.subs);
   const bgsMean = bgsSubs.subs.reduce((a, b) => a + b, 0) / bgsSubs.subs.length;
   const bgsBlend = Math.min(0.35 * bgsLo + 0.65 * bgsMean, bgsLo + 1.0);
-  estimates.push(
-    build(
-      "Beckett (BGS)",
-      toHalf(clamp(bgsBlend, 1, 10)),
-      (v) => halfStr(toHalf(v)),
-      1,
-      (v) => `BGS ${halfStr(toHalf(v))}`,
-      bgsSubs.centeringKnown,
-      bgsSubs.subs
-    )
+  const bgsLikelyNum = toHalf(clamp(bgsBlend, 1, 10));
+  const bgsTier = detectBgsTier(bgsSubs.subs, bgsLikelyNum);
+  const bgsFmt = (v: number) => `BGS ${halfStr(toHalf(v))}`;
+  const bgsEstimate = build(
+    "Beckett (BGS)",
+    bgsLikelyNum,
+    (v) => halfStr(toHalf(v)),
+    1,
+    (v) => formatBgsLikely(v, bgsTier, bgsFmt),
+    bgsSubs.centeringKnown,
+    bgsSubs.subs
   );
+  if (bgsTier) {
+    bgsEstimate.bgs_tier = bgsTier;
+  }
+  estimates.push(bgsEstimate);
 
   const cgcSubs = subsFor(findings, axes, "CGC");
   const cgcLo = Math.min(...cgcSubs.subs);

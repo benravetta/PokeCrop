@@ -10,9 +10,9 @@ export function CropDemoSection() {
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <div className="grid lg:grid-cols-2 gap-10 items-center">
           <SectionHeading
-            kicker="Crop"
-            title="From desk photo to clean scan."
-            copy="Phone photos work. GemCheck detects the card, straightens it, and lifts it off the background as a transparent PNG — ready for listing or grading."
+            kicker="Crop & centring"
+            title="From desk photo to straight scan — with centring."
+            copy="Phone photos work. GemCheck detects the card, straightens it, lifts it off the background as a transparent PNG, and lets you measure border centring on the same canvas — ready for listing or grading."
             center={false}
           />
           <BeforeAfter />
@@ -87,7 +87,7 @@ function BeforeAfter() {
           />
         </div>
         <span className="absolute right-3 top-3 rounded-md bg-accent/85 px-2 py-1 text-[11px] font-semibold text-white">
-          Clean crop
+          Clean crop &amp; centring
         </span>
       </div>
 

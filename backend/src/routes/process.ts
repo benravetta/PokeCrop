@@ -4,6 +4,7 @@ import path from "path";
 import fs from "fs";
 import os from "os";
 import { v4 as uuid } from "uuid";
+import crypto from "crypto";
 import { sendToPython } from "../services/pythonBridge.js";
 import { requireAuth } from "../middleware/auth.js";
 import { validateParams } from "../lib/cropParams.js";
@@ -15,7 +16,7 @@ import {
   type Plan,
 } from "../lib/usage.js";
 import { logActivity } from "../lib/activity.js";
-import { logUsageEvent } from "../lib/usageEvents.js";
+import { logUsageEventAwait } from "../lib/usageEvents.js";
 import { archiveCropAsync, pngDimensions } from "../lib/catalog.js";
 import { assessCard, CardAssessment } from "../lib/cardVision.js";
 import { runCropJob } from "../lib/cropPipeline.js";
@@ -76,6 +77,7 @@ interface Session {
   // True once this upload's crop has been archived to the catalog, so it's
   // catalogued at most once (one R2 object + one paid identify call) per upload.
   archived?: boolean;
+  historyEventId?: number | null;
   // GPT-4o-mini pre-crop assessment, computed at most once per upload and reused
   // across re-processing so we never pay for it more than once per photo.
   assessment?: CardAssessment | null;
@@ -146,12 +148,20 @@ async function ensureArchived(session: Session): Promise<void> {
     const buf = Buffer.from(session.result.result_png, "base64");
     const dims = pngDimensions(buf);
     const idB64 = session.result.idImageJpeg;
+    const meta = session.result.metadata ?? {};
     archiveCropAsync({
       png: buf,
       idImage: idB64 ? Buffer.from(idB64, "base64") : undefined,
       source: "web",
       width: dims?.width,
       height: dims?.height,
+      pipelineConfidence:
+        typeof meta.confidence === "number" ? meta.confidence : null,
+      metadata: {
+        confidence: meta.confidence,
+        rotation_deg: meta.rotation_deg,
+        needs_manual: meta.needs_manual,
+      },
     });
   } catch (err) {
     console.error("ensureArchived failed:", err);
@@ -312,8 +322,11 @@ router.post("/process", requireAuth, async (req: Request, res: Response) => {
         console.error("Usage increment failed:", err);
       }
       const safeName = sanitizeFilename(session.filename);
-      // Audit the first successful extraction of this upload (re-processing for
-      // crop tweaks is intentionally not logged, to mirror the metering).
+      const webBuf = Buffer.from(session.result!.result_web_png, "base64");
+      const contentHash = crypto.createHash("sha256").update(webBuf).digest("hex");
+      const dims = pngDimensions(webBuf);
+      const meta = crop.metadata ?? {};
+
       logActivity({
         userId,
         action: "crop.web",
@@ -321,9 +334,8 @@ router.post("/process", requireAuth, async (req: Request, res: Response) => {
         actorEmail: req.user!.email ?? null,
         detail: { filename: safeName },
       });
-      // Permanent history entry. Free crops draw on the daily allowance (with a
-      // quota snapshot); paid plans crop unlimited, so no number is recorded.
-      logUsageEvent({
+
+      const historyEventId = await logUsageEventAwait({
         userId,
         kind: "crop",
         source: "web",
@@ -336,12 +348,19 @@ router.post("/process", requireAuth, async (req: Request, res: Response) => {
             ? Math.max(0, FREE_DAILY_LIMIT - cropCount)
             : null,
         summary: safeName,
-        detail: { filename: safeName },
+        detail: {
+          filename: safeName,
+          content_hash: contentHash,
+          pipeline_confidence:
+            typeof meta.confidence === "number" ? meta.confidence : null,
+          width: dims?.width ?? null,
+          height: dims?.height ?? null,
+          rotation_deg: meta.rotation_deg,
+          needs_manual: meta.needs_manual,
+        },
       });
+      if (historyEventId) session.historyEventId = historyEventId;
 
-      // Catalogue this crop to R2 in the background. Runs once per upload (the
-      // first successful extraction), renders the full-res PNG off the response
-      // path, and is a no-op when R2 is unconfigured.
       void ensureArchived(session);
     }
 
@@ -349,6 +368,7 @@ router.post("/process", requireAuth, async (req: Request, res: Response) => {
       result_web_png: result.result_web_png,
       edit_image_jpeg: result.edit_image_jpeg,
       metadata: result.metadata,
+      historyEventId: session.historyEventId ?? null,
     });
   } catch (err: unknown) {
     console.error("Processing error:", err);

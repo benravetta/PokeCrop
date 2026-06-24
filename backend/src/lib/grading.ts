@@ -113,7 +113,7 @@ const ADJUDICATE_PROMPT = `Given the inspection findings, return ONLY this JSON 
 
 Company scales — map the SAME condition onto each scale; do not invent different defects per company:
 - PSA: whole numbers 1-10, top grade "Gem Mint 10". No subgrades (use null). Strictest on centering (PSA 10 front <= ~55/45) and surface. Write grades as "PSA N".
-- Beckett (BGS): 0.5 steps 1-10, four subgrades (centering/corners/edges/surface) in 0.5 steps. Final ~ the weighted blend, usually held down by the lowest subgrade. "Black Label" needs all four subgrades = 10; Pristine 10 needs subgrades 9.5/10. Write "BGS 8.5" and subgrades like "8.5".
+- Beckett (BGS): 0.5 steps 1-10, four subgrades (centering/corners/edges/surface) in 0.5 steps. Final ~ the weighted blend, usually held down by the lowest subgrade. "Black Label" needs all four subgrades = 10; Pristine 10 needs subgrades 9.5/10 with a blended 10. Write "BGS 8.5" and subgrades like "8.5". (Black Label / Pristine tiers are computed deterministically from subgrades — do not invent them in JSON.)
 - CGC: 0.5 steps 1-10, top grade "Pristine 10" (perfect under magnification) then "Gem Mint 10". Provide subgrades in 0.5 steps. Write "CGC 9".
 - TAG: one-decimal 1-10 from a computer-vision point system (e.g. "TAG 8.7"); subgrades to one decimal. Very granular, generally aligns with or slightly stricter than PSA. 
 - ACE: one-decimal 1-10 AI grader with decimal subgrades (e.g. "ACE 8.6"). Provide subgrades to one decimal.
@@ -282,6 +282,21 @@ export async function gradeCard(
     company_estimates: scored.company_estimates,
     hard_grade_caps: [...detCap, ...llmCaps],
   };
+
+  const bgsEstimate = scored.company_estimates.find((c) => c.company === "Beckett (BGS)");
+  const bgsTier = bgsEstimate?.bgs_tier;
+  if (bgsTier && !scored.caps.authenticOnly) {
+    const tierLabel = bgsTier === "black_label" ? "Black Label" : "Pristine 10";
+    const tierDetail =
+      bgsTier === "black_label"
+        ? "All four BGS subgrades read at 10 — Black Label territory if surface confirms under magnification."
+        : "All BGS subgrades read at 9.5 or better with a blended 10 — Pristine 10 territory on Beckett.";
+    mergedDecision.bgs_insight = {
+      tier: bgsTier,
+      label: tierLabel,
+      detail: tierDetail,
+    };
+  }
 
   if (scored.caps.authenticOnly) {
     const existingAuth =

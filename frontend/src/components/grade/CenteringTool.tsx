@@ -187,7 +187,7 @@ export function CenteringTool({
             )}
           </>
         ) : (
-          <span className="text-sm text-text-muted">Centering skipped for this side.</span>
+          <span className="text-sm text-text-muted">Centring skipped for this side.</span>
         )}
       </div>
 
@@ -195,7 +195,7 @@ export function CenteringTool({
         <p className="mt-2 text-[11px] text-amber-300/80 flex items-start gap-1.5">
           <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
           Side numbers off? A curled card (often holos) or one shot inside a
-          sleeve/toploader skews L/R centering — lay it flat and bare and re-shoot.
+          sleeve/toploader skews L/R centring — lay it flat and bare and re-shoot.
         </p>
       )}
 

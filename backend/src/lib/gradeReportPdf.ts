@@ -226,6 +226,33 @@ export async function buildGradeReportPdfBuffer(
     if (asStr(rec.reason)) para(asStr(rec.reason));
   }
 
+  const bgsInsight = asObj(result.bgs_insight);
+  const bgsTier = asStr(bgsInsight.tier);
+  const bgsLabel = asStr(bgsInsight.label);
+  if (bgsTier && bgsLabel) {
+    ensure(14);
+    const isBlack = bgsTier === "black_label";
+    doc.setFillColor(isBlack ? 24 : 236, isBlack ? 24 : 253, isBlack ? 27 : 245);
+    doc.rect(M, y, CONTENT_W, 12, "F");
+    setColor(isBlack ? [212, 175, 55] : ACCENT);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.text(
+      isBlack ? `BGS Black Label candidate — ${bgsLabel}` : `BGS Pristine 10 candidate — ${bgsLabel}`,
+      M + 3,
+      y + 5
+    );
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8.5);
+    setColor(MUTE);
+    const detail = asStr(bgsInsight.detail);
+    if (detail) {
+      const r = doc.splitTextToSize(detail, CONTENT_W - 6) as string[];
+      doc.text(r[0] ?? "", M + 3, y + 9.5);
+    }
+    y += 14;
+  }
+
   const authentic = asObj(result.authentic);
   if (authentic.is_authentic_only === true) {
     ensure(16);

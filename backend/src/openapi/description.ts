@@ -148,7 +148,7 @@ See **CropParams** schema. Notable fields:
 }
 \`\`\`
 
-Key \`result\` fields: \`card_identification\`, \`company_estimates\`, \`submission_recommendation\`,
+Key \`result\` fields: \`card_identification\`, \`company_estimates\` (Beckett rows may include \`bgs_tier\`), \`bgs_insight\`, \`submission_recommendation\`,
 \`corners\`, \`edges\`, \`surface\`, \`centering\`, \`pricing\`, \`preparation\`, \`summary\`.
 
 **PDF response:** Same request with \`format=pdf\`. Returns \`application/pdf\` attachment.

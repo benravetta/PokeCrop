@@ -51,15 +51,15 @@ export const SUBSCRIPTION_TIERS = [
     name: PLAN_LABELS.free,
     price: "£0",
     cadence: "forever",
-    blurb: "Try cropping and pre-grading before you commit to a subscription.",
+    blurb: "Try straightening, centring and pre-grading before you commit to a subscription.",
     highlight: false,
     promo: null as string | null,
     features: [
-      "3 crops per day",
+      "3 crop & centring sessions per day",
       "1 pre-grade report per month",
       "Full PDF reports & prep checklist",
       "All 5 grading companies compared",
-      "Manual crop editor & exports",
+      "Manual crop editor, centring tool & exports",
     ],
   },
   {
@@ -67,11 +67,11 @@ export const SUBSCRIPTION_TIERS = [
     name: PLAN_LABELS.unlimited,
     price: "£9.99",
     cadence: "/mo",
-    blurb: "For collectors who crop and check cards regularly.",
+    blurb: "For collectors who straighten, measure centring and check cards regularly.",
     highlight: true,
     promo: null,
     features: [
-      "Unlimited crops every day",
+      "Unlimited crop & centring every day",
       "30 pre-grade reports per month",
       "Full PDF reports & prep checklist",
       "All 5 grading companies compared",
@@ -113,10 +113,10 @@ export const SUBSCRIPTION_TIERS = [
 
 export const COMPARE_SECTIONS: CompareSection[] = [
   {
-    title: "Crop",
+    title: "Crop & centring",
     rows: [
       {
-        label: "Daily web crops",
+        label: "Daily web crop & centring sessions",
         free: "3 per day",
         unlimited: "Unlimited",
         pro: "Unlimited",
@@ -141,6 +141,24 @@ export const COMPARE_SECTIONS: CompareSection[] = [
       },
       {
         label: "Send cropped card to grader",
+        free: true,
+        unlimited: true,
+        pro: true,
+        api: true,
+        single: "—",
+      },
+      {
+        label: "Border centring measurement",
+        hint: "On the straightened crop and in Grade",
+        free: true,
+        unlimited: true,
+        pro: true,
+        api: true,
+        single: "—",
+      },
+      {
+        label: "Crop history with centring & detect scores",
+        hint: "Searchable in History",
         free: true,
         unlimited: true,
         pro: true,
@@ -195,7 +213,8 @@ export const COMPARE_SECTIONS: CompareSection[] = [
         single: true,
       },
       {
-        label: "Centering measurement tool",
+        label: "Border centring measurement",
+        hint: "On the straightened crop and in Grade",
         free: true,
         unlimited: true,
         pro: true,
@@ -287,7 +306,7 @@ export const PRICING_FAQ = [
   },
   {
     q: "What counts toward my crop limit?",
-    a: "Each successful crop on the web app counts toward your daily free limit. Failed detections don't. Premium, Pro, and Enterprise include unlimited web crops.",
+    a: "Each successful straighten/crop on the web app counts toward your daily free limit (centring measurement on the same session is included). Failed detections don't. Premium, Pro, and Enterprise include unlimited web crops.",
   },
 ] as const;
 

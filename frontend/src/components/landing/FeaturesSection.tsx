@@ -19,12 +19,12 @@ const FEATURES = [
   },
   {
     icon: Crop,
-    tag: "Crop",
-    title: "Clean scans from any photo",
-    copy: "Drop a desk photo, binder snap or PDF. GemCheck finds the card, straightens it, and exports a transparent PNG — no Photoshop required.",
-    bullets: ["Auto-detect & de-skew", "Manual crop editor", "Original & web-size exports"],
+    tag: "Crop & centring",
+    title: "Straighten, crop and measure centring",
+    copy: "Drop a desk photo, binder snap or PDF. GemCheck straightens the card, exports a transparent PNG, and measures border centring on the same canvas — no Photoshop required.",
+    bullets: ["Auto-detect & de-skew", "Border centring measurement", "Original & web-size exports"],
     to: "/crop",
-    cta: "Try Crop",
+    cta: "Try crop & centring",
   },
 ] as const;
 
@@ -35,7 +35,7 @@ export function FeaturesSection() {
         <SectionHeading
           kicker="What you get"
           title="Two tools. One decision."
-          copy="Check whether a card is worth grading, and prep the photos properly — without jumping between apps."
+          copy="Check whether a card is worth grading, and prep the photos properly — straighten, measure centring, export — without jumping between apps."
         />
 
         <div className="mt-12 grid md:grid-cols-2 gap-6">
