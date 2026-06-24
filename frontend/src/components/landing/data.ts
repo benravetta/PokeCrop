@@ -15,6 +15,14 @@ export const EXAMPLE_COMPANIES = [
   { name: "TAG", likely: "8.2", low: "7.6", high: "8.8", subs: ["8.4", "7.8", "8.3", "8.5"] },
 ] as const;
 
+/** Demo data for the Compare estimates section (Oddish report, distinct from hero Charizard). */
+export const GRADER_COMPARE_DEMO = {
+  card: "Erika's Oddish",
+  set: "Gym Heroes · 1st Edition · 52/132",
+  thumb: AFTER_IMG,
+  subgradeLabels: ["Corners", "Centering", "Edges", "Surface"] as const,
+} as const;
+
 export const EX_IDENT: [string, string][] = [
   ["Set", "Gym Heroes"],
   ["No.", "52 / 132"],
