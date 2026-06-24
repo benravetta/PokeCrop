@@ -3,7 +3,7 @@ import multer from "multer";
 import os from "os";
 import path from "path";
 import fs from "fs";
-import { requireAuth } from "../middleware/auth.js";
+import { requireActiveAuth } from "../middleware/auth.js";
 import {
   executeGrade,
   parseCentering,
@@ -52,7 +52,7 @@ const gradeUpload = upload.fields([
 
 router.post(
   "/grade/straighten",
-  requireAuth,
+  requireActiveAuth,
   upload.single("image"),
   async (req: Request, res: Response) => {
     const file = req.file;
@@ -69,7 +69,7 @@ router.post(
   }
 );
 
-router.get("/grade/quota", requireAuth, async (req: Request, res: Response) => {
+router.get("/grade/quota", requireActiveAuth, async (req: Request, res: Response) => {
   try {
     const quota = await getGradeQuota(req.user!.id, req.user!.role);
     res.json({ quota });
@@ -79,7 +79,7 @@ router.get("/grade/quota", requireAuth, async (req: Request, res: Response) => {
   }
 });
 
-router.post("/grade", requireAuth, gradeUpload, async (req: Request, res: Response) => {
+router.post("/grade", requireActiveAuth, gradeUpload, async (req: Request, res: Response) => {
   try {
     const centering = parseCentering((req.body as Record<string, unknown>)?.centering);
     const out = await executeGrade({

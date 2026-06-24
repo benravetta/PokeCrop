@@ -322,9 +322,10 @@ fly deploy \
 
 ### Make yourself an admin
 
-The admin console lives at `/admin` and is gated on
-`auth.users.app_metadata.role = 'admin'`. After signing up, set your role once
-(via the Supabase MCP `execute_sql`, the SQL editor, or the Admin API):
+The ops console lives at `/admin` (overview, users, revenue, usage, operations,
+catalog) and is gated on `auth.users.app_metadata.role = 'admin'`. After
+signing up, set your role once (via the Supabase MCP `execute_sql`, the SQL
+editor, or the Admin API):
 
 ```sql
 update auth.users
@@ -342,12 +343,32 @@ Sign out and back in so a fresh token carries the role.
 | `POST /api/billing/checkout` | user | Start Stripe Checkout (`{ plan }`) |
 | `POST /api/billing/portal` | user | Open the Stripe Customer Portal |
 | `POST /api/webhooks/stripe` | Stripe sig | Subscription sync (raw body) |
-| `GET /api/admin/users` | admin | List/search users with plan + usage |
+| `GET /api/admin/users` | admin | List/search users with plan + usage (filters: `plan`, `status`, `suspended`, `role`) |
+| `GET /api/admin/stats` | admin | Dashboard aggregates (`admin_overview` RPC) |
+| `GET /api/admin/revenue/overview` | admin | MRR estimate, active subs, one-off revenue, failures |
+| `GET /api/admin/revenue/purchases` | admin | Grade credit purchases joined to user email |
+| `GET /api/admin/revenue/subscriptions` | admin | Subscription mirror + Stripe links |
+| `GET /api/admin/revenue/invoices` | admin | Stripe invoices (cached) |
+| `GET /api/admin/revenue/failures` | admin | Open invoices, disputes, disputed purchases |
+| `GET /api/admin/usage/events` | admin | Global usage event explorer |
+| `GET /api/admin/usage/events.csv` | admin | CSV export (cap 10k rows) |
+| `GET /api/admin/forms/submissions` | admin | Contact/trade form inbox |
+| `GET /api/admin/stripe/events` | admin | Webhook dedup log |
+| `GET /api/admin/ai-spend` | admin | Token-exact OpenAI spend rollup |
+| `GET /api/admin/catalog/*` | admin | Catalog facets and items |
 | `POST /api/admin/users/:id/role` | admin | Promote/demote admin |
 | `POST /api/admin/users/:id/plan` | admin | Manual plan override |
 | `POST /api/admin/users/:id/suspend` | admin | Ban/reinstate |
 | `GET/POST /api/admin/users/:id/api-keys` | admin | List / issue API keys |
-| `DELETE /api/admin/api-keys/:id` | admin | Revoke an API key |
+| `DELETE /api/admin/api-keys/:id` | admin (live role check) | Revoke an API key |
+
+Admin RPCs (`admin_overview`, `ai_spend_summary`, `catalog_facets`, `admin_user_emails`)
+are `SECURITY DEFINER` and executable only by the service role. Schedule
+`select public.prune_admin_audit_log()` periodically to enforce 90-day audit retention.
+
+Mutating admin routes re-verify `app_metadata.role` from the database (not just the JWT).
+CSV exports are audit-logged. API key issuance respects the user's key limit unless
+the admin POST body includes `{ "force": true }`.
 
 > All crop endpoints (`/api/upload`, `/api/process`, `/api/export`,
 > `/api/session`) now require a `Authorization: Bearer <token>` header and are

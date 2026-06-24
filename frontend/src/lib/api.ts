@@ -341,16 +341,133 @@ export interface AdminUserDetail {
   activeKeys: number;
   totalKeys: number;
   activity: ActivityEvent[];
+  grade_credits?: number;
+  stripe_customer_id?: string | null;
+  stripe_customer_url?: string | null;
+  recentPurchases?: AdminUserPurchase[];
+  recentUsage?: AdminUsageEvent[];
+}
+
+export interface AdminUserPurchase {
+  id: number;
+  qty: number;
+  status: string;
+  creditedAt: string | null;
+  refundedAt: string | null;
+  stripeSessionId: string | null;
+}
+
+export interface RevenueOverview {
+  stripeConfigured: boolean;
+  days: number;
+  mrrEstimateGbp: number;
+  activeSubscriptions: number;
+  subscriptionsByPlan: Record<string, number>;
+  oneOffRevenueGbp: number;
+  oneOffPurchases: number;
+  refundedPurchases: number;
+  disputedPurchases: number;
+  failedInvoices: number;
+  pastDueSubscriptions: number;
+  gradeCreditsOutstanding: number;
+  note: string;
+}
+
+export interface AdminPurchase {
+  id: number;
+  userId: string;
+  email: string | null;
+  qty: number;
+  status: string;
+  stripeSessionId: string | null;
+  stripePaymentIntentId: string | null;
+  creditedAt: string | null;
+  refundedAt: string | null;
+  amountGbp: number;
+  stripeSessionUrl: string | null;
+}
+
+export interface AdminSubscription {
+  userId: string;
+  email: string | null;
+  plan: string;
+  status: string | null;
+  currentPeriodEnd: string | null;
+  stripeCustomerId: string | null;
+  stripeSubscriptionId: string | null;
+  gradeCredits: number;
+  comped: boolean;
+  stripeCustomerUrl: string | null;
+  stripeSubscriptionUrl: string | null;
+}
+
+export interface AdminInvoice {
+  id: string;
+  number: string | null;
+  status: string | null;
+  amountDueGbp: number;
+  amountPaidGbp: number;
+  currency: string;
+  customerId: string | null;
+  customerEmail: string | null;
+  userId: string | null;
+  createdAt: string;
+  hostedUrl: string | null;
+  pdfUrl: string | null;
+}
+
+export interface AdminFailure {
+  kind: "invoice" | "dispute" | "purchase";
+  id: string;
+  status: string;
+  amountGbp: number | null;
+  email: string | null;
+  userId: string | null;
+  createdAt: string;
+  url: string | null;
+  detail: string | null;
+}
+
+export interface AdminUsageEvent {
+  id: number;
+  userId: string;
+  email: string | null;
+  kind: string;
+  source: string;
+  billing: string;
+  plan: string | null;
+  summary: string | null;
+  createdAt: string;
+}
+
+export interface FormSubmission {
+  id: string;
+  kind: string;
+  email: string | null;
+  payload: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface StripeEventLog {
+  id: string;
+  type: string;
+  createdAt: string;
 }
 
 export interface AdminStats {
   users_total: number;
   unlimited_active: number;
+  pro_active?: number;
   api_active: number;
+  free_active?: number;
   suspended: number;
   crops_web_today: number;
   crops_api_today: number;
+  grades_today?: number;
+  grade_purchases_today?: number;
+  grade_credits_outstanding?: number;
   active_keys: number;
+  forms_total?: number;
 }
 
 export type PlanStatus = "active" | "trialing" | "canceled";
@@ -358,10 +475,18 @@ export type PlanStatus = "active" | "trialing" | "canceled";
 export async function adminListUsers(opts: {
   query?: string;
   page?: number;
+  plan?: string;
+  status?: string;
+  suspended?: string;
+  role?: string;
 }): Promise<{ users: AdminUser[]; page: number; hasMore: boolean }> {
   const q = new URLSearchParams();
   if (opts.query) q.set("query", opts.query);
   if (opts.page) q.set("page", String(opts.page));
+  if (opts.plan) q.set("plan", opts.plan);
+  if (opts.status) q.set("status", opts.status);
+  if (opts.suspended) q.set("suspended", opts.suspended);
+  if (opts.role) q.set("role", opts.role);
   const res = await fetch(`${BASE}/admin/users?${q.toString()}`, {
     headers: await authHeaders(),
   });
@@ -420,7 +545,7 @@ export async function adminGetActivity(
 
 // Download the full (2-day) activity log for a user as a CSV file.
 export async function adminDownloadActivity(id: string, email?: string): Promise<void> {
-  const res = await fetch(`${BASE}/admin/users/${id}/activity?download=csv`, {
+  const res = await fetch(`${BASE}/admin/users/${id}/activity/export`, {
     headers: await authHeaders(),
   });
   if (!res.ok) await fail(res, "Failed to download activity");
@@ -683,6 +808,148 @@ export async function adminGetAiSpend(days = 30): Promise<{ spend: AiSpend; days
     headers: await authHeaders(),
   });
   if (!res.ok) await fail(res, "Failed to load AI spend");
+  return res.json();
+}
+
+export async function adminGetRevenueOverview(
+  days = 30
+): Promise<{ overview: RevenueOverview }> {
+  const res = await fetch(`${BASE}/admin/revenue/overview?days=${days}`, {
+    headers: await authHeaders(),
+  });
+  if (!res.ok) await fail(res, "Failed to load revenue overview");
+  return res.json();
+}
+
+export async function adminGetRevenuePurchases(opts: {
+  page?: number;
+  status?: string;
+}): Promise<{ purchases: AdminPurchase[]; total: number; page: number; pageSize: number }> {
+  const q = new URLSearchParams();
+  if (opts.page) q.set("page", String(opts.page));
+  if (opts.status) q.set("status", opts.status);
+  const res = await fetch(`${BASE}/admin/revenue/purchases?${q}`, {
+    headers: await authHeaders(),
+  });
+  if (!res.ok) await fail(res, "Failed to load purchases");
+  return res.json();
+}
+
+export async function adminGetRevenueSubscriptions(opts: {
+  page?: number;
+  plan?: string;
+  status?: string;
+}): Promise<{ subscriptions: AdminSubscription[]; total: number; page: number; pageSize: number }> {
+  const q = new URLSearchParams();
+  if (opts.page) q.set("page", String(opts.page));
+  if (opts.plan) q.set("plan", opts.plan);
+  if (opts.status) q.set("status", opts.status);
+  const res = await fetch(`${BASE}/admin/revenue/subscriptions?${q}`, {
+    headers: await authHeaders(),
+  });
+  if (!res.ok) await fail(res, "Failed to load subscriptions");
+  return res.json();
+}
+
+export async function adminGetRevenueInvoices(opts: {
+  page?: number;
+  status?: string;
+}): Promise<{ invoices: AdminInvoice[]; hasMore: boolean; page: number }> {
+  const q = new URLSearchParams();
+  if (opts.page) q.set("page", String(opts.page));
+  if (opts.status) q.set("status", opts.status);
+  const res = await fetch(`${BASE}/admin/revenue/invoices?${q}`, {
+    headers: await authHeaders(),
+  });
+  if (!res.ok) await fail(res, "Failed to load invoices");
+  return res.json();
+}
+
+export async function adminGetRevenueFailures(
+  days = 30
+): Promise<{ failures: AdminFailure[] }> {
+  const res = await fetch(`${BASE}/admin/revenue/failures?days=${days}`, {
+    headers: await authHeaders(),
+  });
+  if (!res.ok) await fail(res, "Failed to load payment failures");
+  return res.json();
+}
+
+export async function adminListUsageEvents(opts: {
+  page?: number;
+  kind?: string;
+  billing?: string;
+  source?: string;
+  from?: string;
+  to?: string;
+  userId?: string;
+}): Promise<{ events: AdminUsageEvent[]; total: number; page: number; pageSize: number }> {
+  const q = new URLSearchParams();
+  if (opts.page) q.set("page", String(opts.page));
+  if (opts.kind) q.set("kind", opts.kind);
+  if (opts.billing) q.set("billing", opts.billing);
+  if (opts.source) q.set("source", opts.source);
+  if (opts.from) q.set("from", opts.from);
+  if (opts.to) q.set("to", opts.to);
+  if (opts.userId) q.set("userId", opts.userId);
+  const res = await fetch(`${BASE}/admin/usage/events?${q}`, {
+    headers: await authHeaders(),
+  });
+  if (!res.ok) await fail(res, "Failed to load usage events");
+  return res.json();
+}
+
+export async function adminExportUsageEvents(opts: {
+  kind?: string;
+  billing?: string;
+  source?: string;
+  from?: string;
+  to?: string;
+}): Promise<void> {
+  const q = new URLSearchParams();
+  if (opts.kind) q.set("kind", opts.kind);
+  if (opts.billing) q.set("billing", opts.billing);
+  if (opts.source) q.set("source", opts.source);
+  if (opts.from) q.set("from", opts.from);
+  if (opts.to) q.set("to", opts.to);
+  const res = await fetch(`${BASE}/admin/usage/events.csv?${q}`, {
+    headers: await authHeaders(),
+  });
+  if (!res.ok) await fail(res, "Failed to export usage events");
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "usage-events.csv";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+export async function adminListFormSubmissions(opts: {
+  page?: number;
+  kind?: string;
+}): Promise<{ submissions: FormSubmission[]; total: number; page: number; pageSize: number }> {
+  const q = new URLSearchParams();
+  if (opts.page) q.set("page", String(opts.page));
+  if (opts.kind) q.set("kind", opts.kind);
+  const res = await fetch(`${BASE}/admin/forms/submissions?${q}`, {
+    headers: await authHeaders(),
+  });
+  if (!res.ok) await fail(res, "Failed to load form submissions");
+  return res.json();
+}
+
+export async function adminListStripeEvents(opts: {
+  page?: number;
+}): Promise<{ events: StripeEventLog[]; total: number; page: number; pageSize: number }> {
+  const q = new URLSearchParams();
+  if (opts.page) q.set("page", String(opts.page));
+  const res = await fetch(`${BASE}/admin/stripe/events?${q}`, {
+    headers: await authHeaders(),
+  });
+  if (!res.ok) await fail(res, "Failed to load Stripe events");
   return res.json();
 }
 

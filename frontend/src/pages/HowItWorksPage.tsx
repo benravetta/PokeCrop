@@ -31,7 +31,7 @@ export function HowItWorksPage() {
         ))}
       </ol>
 
-      <section id="report" className="mt-10 scroll-mt-20">
+      <section className="mt-10">
         <h2 className="text-lg font-semibold">{WHAT_WE_CHECK.heading}</h2>
         <p className="mt-2 text-sm text-text-secondary">{WHAT_WE_CHECK.intro}</p>
         <div className="mt-4 grid sm:grid-cols-2 gap-3">

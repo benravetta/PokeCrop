@@ -13,6 +13,9 @@ import {
   Clock,
   Mail,
   Activity,
+  ExternalLink,
+  GraduationCap,
+  CreditCard,
 } from "lucide-react";
 import {
   type AdminUser,
@@ -35,6 +38,9 @@ import type { Plan } from "../lib/plans";
 const ACTION_LABEL: Record<string, string> = {
   "crop.web": "Cropped (web)",
   "crop.api": "Cropped (API)",
+  "grade.web": "Graded (web)",
+  "grade.api": "Graded (API)",
+  "grade.credit.purchased": "Grade credit purchased",
   "key.created": "API key created",
   "key.revoked": "API key revoked",
   "plan.changed": "Plan changed",
@@ -74,6 +80,10 @@ function summarize(ev: ActivityEvent): string {
   } else if (ev.action === "plan.changed" || ev.action === "subscription.synced") {
     if (d.plan) parts.push(String(d.plan));
     if (d.status) parts.push(String(d.status));
+  } else if (ev.action === "grade.web" || ev.action === "grade.api") {
+    if (d.summary) parts.push(String(d.summary));
+  } else if (ev.action === "grade.credit.purchased") {
+    if (d.qty) parts.push(`${String(d.qty)} credit(s)`);
   } else if (ev.action === "role.changed") {
     if (d.role) parts.push(String(d.role));
   } else if (ev.action === "key.created" || ev.action === "key.revoked") {
@@ -225,7 +235,19 @@ export function AdminUserDrawer({
             <InfoCell icon={<Clock className="w-3.5 h-3.5" />} label="Last sign in" value={fmtDate(d?.last_sign_in_at)} />
             <InfoCell icon={<Mail className="w-3.5 h-3.5" />} label="Email confirmed" value={d ? (d.email_confirmed_at ? "Yes" : "No") : "…"} />
             <InfoCell icon={<Activity className="w-3.5 h-3.5" />} label="Crops today" value={String(d?.cropsUsedToday ?? user.cropsUsedToday)} />
+            <InfoCell icon={<GraduationCap className="w-3.5 h-3.5" />} label="Grade credits" value={String(d?.grade_credits ?? 0)} />
           </div>
+
+          {d?.stripe_customer_url && (
+            <a
+              href={d.stripe_customer_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-[13px] text-accent hover:underline"
+            >
+              Stripe customer <ExternalLink className="w-3.5 h-3.5" />
+            </a>
+          )}
 
           {/* Role */}
           <Row title="Admin access" sub="Full management permissions">
@@ -416,6 +438,52 @@ export function AdminUserDrawer({
               )}
             </div>
           </div>
+
+          {/* Recent purchases & usage */}
+          {d && (d.recentPurchases?.length || d.recentUsage?.length) ? (
+            <div className="border-t border-border-subtle pt-5 flex flex-col gap-4">
+              {d.recentPurchases && d.recentPurchases.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <CreditCard className="w-4 h-4 text-accent" />
+                    <p className="text-sm text-text-primary font-medium">Recent purchases</p>
+                  </div>
+                  <ul className="flex flex-col gap-1.5">
+                    {d.recentPurchases.map((p) => (
+                      <li
+                        key={p.id}
+                        className="text-[12px] text-text-secondary rounded-lg bg-surface-overlay border border-border-subtle px-3 py-2"
+                      >
+                        {p.qty} grade(s) · {p.status}
+                        {p.creditedAt && (
+                          <span className="text-text-muted"> · {fmtDate(p.creditedAt)}</span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {d.recentUsage && d.recentUsage.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Activity className="w-4 h-4 text-accent" />
+                    <p className="text-sm text-text-primary font-medium">Recent usage</p>
+                  </div>
+                  <ul className="flex flex-col gap-1.5">
+                    {d.recentUsage.map((e) => (
+                      <li
+                        key={e.id}
+                        className="text-[12px] text-text-secondary rounded-lg bg-surface-overlay border border-border-subtle px-3 py-2"
+                      >
+                        {e.kind} · {e.source} · {e.billing}
+                        {e.summary && <span className="text-text-muted"> · {e.summary}</span>}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          ) : null}
 
           {/* Activity */}
           <div className="border-t border-border-subtle pt-5">

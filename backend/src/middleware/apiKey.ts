@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { isSupabaseConfigured } from "../lib/supabase.js";
-import { resolveApiKey, touchLastUsed } from "../lib/apiKeys.js";
+import { resolveApiKey, touchLastUsed, type ResolvedKey } from "../lib/apiKeys.js";
 import { getPlan, isSuspended, type Plan } from "../lib/usage.js";
 import { sendApiError } from "../lib/apiError.js";
 import { effectivePlan, getUserRole } from "../lib/adminAccess.js";
@@ -53,7 +53,7 @@ export async function requireApiKey(
     return;
   }
 
-  let caller: ApiCaller | null;
+  let caller: ResolvedKey | null;
   try {
     caller = await resolveApiKey(key);
   } catch (err) {

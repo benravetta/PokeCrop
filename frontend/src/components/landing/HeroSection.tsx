@@ -50,13 +50,13 @@ export function HeroSection({
                 <Upload className="w-4 h-4" />
                 {primary.label}
               </Link>
-              <a
-                href="#report"
+              <Link
+                to="/sample-report"
                 className="inline-flex items-center justify-center gap-2 rounded-xl border border-border-strong bg-surface-raised/60 px-6 py-3.5 text-sm font-semibold text-text-primary hover:bg-surface-overlay transition-colors"
               >
                 {HERO.secondaryCta}
                 <ArrowRight className="w-4 h-4 text-text-muted" />
-              </a>
+              </Link>
             </div>
 
             <p className="mt-4 text-sm text-text-muted">{supportLine}</p>

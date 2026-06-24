@@ -67,10 +67,12 @@ function Snap({ position }: { position: string }) {
   );
 }
 
-export function ReportPreview() {
+export function ReportPreview({ asPage = false }: { asPage?: boolean }) {
   return (
-    <section id="report" className="relative scroll-mt-20 py-16 sm:py-24">
-      <div className="mx-auto max-w-6xl px-4 sm:px-6">
+    <section
+      className={asPage ? "pb-4" : "relative scroll-mt-20 py-16 sm:py-24"}
+    >
+      <div className={`mx-auto px-4 sm:px-6 ${asPage ? "max-w-4xl" : "max-w-6xl"}`}>
         <SectionHeading
           kicker="Sample report"
           title="This is what you download"

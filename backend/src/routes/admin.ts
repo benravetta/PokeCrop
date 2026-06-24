@@ -1,5 +1,5 @@
 import { Router, Request, Response } from "express";
-import { requireAdmin } from "../middleware/auth.js";
+import { requireAdmin, requireAdminMutating } from "../middleware/auth.js";
 import { getServiceClient } from "../lib/supabase.js";
 import { generateApiKey } from "../lib/apiKeys.js";
 import { listAdminCatalogItems } from "../lib/adminCatalog.js";
@@ -14,7 +14,32 @@ import {
   DEFAULT_MAX_ACTIVE_KEYS,
   MAX_KEY_LIMIT,
   getKeyLimitOverride,
+  effectiveKeyLimit,
 } from "../lib/keyLimit.js";
+import { logAdminAudit } from "../lib/adminAudit.js";
+import {
+  getRevenueOverview,
+  listPurchases,
+  listSubscriptions,
+  listInvoices,
+  listFailures,
+} from "../lib/adminRevenue.js";
+import { listUsageEvents, exportUsageEventsCsv, listUserUsageEvents } from "../lib/adminUsage.js";
+import { listFormSubmissions, listStripeEvents, listUserPurchases } from "../lib/adminOps.js";
+import { listAdminUsers } from "../lib/adminUsers.js";
+import {
+  parsePlan,
+  parseSubStatus,
+  parsePurchaseStatus,
+  parseUsageKind,
+  parseUsageBilling,
+  parseUsageSource,
+  parseInvoiceStatus,
+  parseIsoDate,
+  parseDays,
+  parseUuid,
+  parseFormKind,
+} from "../lib/adminFilters.js";
 
 const router = Router();
 
@@ -32,18 +57,6 @@ function isSuspendedNow(bannedUntil: string | null | undefined): boolean {
   return Boolean(bannedUntil && new Date(bannedUntil) > new Date());
 }
 
-interface AdminUserRow {
-  id: string;
-  email: string | undefined;
-  role: "user" | "admin";
-  created_at: string;
-  suspended: boolean;
-  plan: string;
-  status: string | null;
-  current_period_end: string | null;
-  cropsUsedToday: number;
-}
-
 // GET /admin/stats — dashboard aggregates in a single round-trip.
 router.get("/admin/stats", requireAdmin, async (_req: Request, res: Response) => {
   try {
@@ -56,6 +69,20 @@ router.get("/admin/stats", requireAdmin, async (_req: Request, res: Response) =>
   }
 });
 
+function audit(req: Request, action: Parameters<typeof logAdminAudit>[0]["action"], targetUserId?: string, detail?: Record<string, unknown>) {
+  logAdminAudit({
+    actorId: req.user!.id,
+    actorEmail: req.user!.email ?? null,
+    action,
+    targetUserId,
+    detail,
+  });
+}
+
+function invalid(res: Response, message: string): void {
+  res.status(400).json({ error: message });
+}
+
 // GET /admin/users — paginated list with plan + today's usage, optional email search.
 router.get("/admin/users", requireAdmin, async (req: Request, res: Response) => {
   const page = Math.max(1, parseInt(String(req.query.page ?? "1"), 10) || 1);
@@ -63,67 +90,44 @@ router.get("/admin/users", requireAdmin, async (req: Request, res: Response) => 
     200,
     Math.max(1, parseInt(String(req.query.perPage ?? "50"), 10) || 50)
   );
-  const query = String(req.query.query ?? "").trim().toLowerCase();
+  const query = String(req.query.query ?? "").trim().toLowerCase() || undefined;
+
+  const planRaw = typeof req.query.plan === "string" ? req.query.plan : null;
+  const statusRaw = typeof req.query.status === "string" ? req.query.status : null;
+  if (planRaw && !parsePlan(planRaw)) {
+    invalid(res, "Invalid plan filter.");
+    return;
+  }
+  if (statusRaw && !parseSubStatus(statusRaw)) {
+    invalid(res, "Invalid status filter.");
+    return;
+  }
+
+  const suspendedFilter =
+    req.query.suspended === "true" ? true : req.query.suspended === "false" ? false : null;
+  const roleFilter =
+    req.query.role === "admin" ? "admin" : req.query.role === "user" ? "user" : null;
+  if (req.query.role && !roleFilter) {
+    invalid(res, "Invalid role filter.");
+    return;
+  }
 
   try {
-    const sb = getServiceClient();
-    const { data, error } = await sb.auth.admin.listUsers({ page, perPage });
-    if (error) throw error;
-
-    let users = data.users;
-    if (query) {
-      users = users.filter((u) => (u.email ?? "").toLowerCase().includes(query));
-    }
-
-    const ids = users.map((u) => u.id);
-    const subsById = new Map<
-      string,
-      { plan: string; status: string | null; current_period_end: string | null }
-    >();
-    const usageById = new Map<string, number>();
-
-    if (ids.length) {
-      const [{ data: subs }, { data: usage }] = await Promise.all([
-        sb
-          .from("subscriptions")
-          .select("user_id, plan, status, current_period_end")
-          .in("user_id", ids),
-        sb
-          .from("usage_days")
-          .select("user_id, crop_count")
-          .eq("day", utcDay())
-          .in("user_id", ids),
-      ]);
-      for (const s of subs ?? []) {
-        subsById.set(s.user_id, {
-          plan: s.plan,
-          status: s.status,
-          current_period_end: s.current_period_end,
-        });
-      }
-      for (const u of usage ?? []) {
-        usageById.set(u.user_id, u.crop_count);
-      }
-    }
-
-    const rows: AdminUserRow[] = users.map((u) => {
-      const sub = subsById.get(u.id);
-      const bannedUntil = (u as unknown as { banned_until?: string | null })
-        .banned_until;
-      return {
-        id: u.id,
-        email: u.email,
-        role: roleOf(u.app_metadata),
-        created_at: u.created_at,
-        suspended: isSuspendedNow(bannedUntil),
-        plan: sub?.plan ?? "free",
-        status: sub?.status ?? null,
-        current_period_end: sub?.current_period_end ?? null,
-        cropsUsedToday: usageById.get(u.id) ?? 0,
-      };
+    const result = await listAdminUsers({
+      page,
+      perPage,
+      query,
+      plan: planRaw ? parsePlan(planRaw) : null,
+      status: statusRaw ? parseSubStatus(statusRaw) : null,
+      suspended: suspendedFilter,
+      role: roleFilter,
     });
-
-    res.json({ users: rows, page, perPage, hasMore: data.users.length === perPage });
+    res.json({
+      users: result.users,
+      page: result.page,
+      perPage: result.perPage,
+      hasMore: result.hasMore,
+    });
   } catch (err) {
     console.error("admin list users failed:", err);
     res.status(500).json({ error: "Failed to load users." });
@@ -143,11 +147,15 @@ router.get("/admin/users/:id", requireAdmin, async (req: Request, res: Response)
       { count: totalKeys },
       activity,
       override,
+      recentPurchases,
+      recentUsage,
     ] = await Promise.all([
       sb.auth.admin.getUserById(id),
       sb
         .from("subscriptions")
-        .select("plan, status, current_period_end, max_api_keys, stripe_customer_id")
+        .select(
+          "plan, status, current_period_end, max_api_keys, stripe_customer_id, grade_credits"
+        )
         .eq("user_id", id)
         .maybeSingle(),
       sb
@@ -164,6 +172,8 @@ router.get("/admin/users/:id", requireAdmin, async (req: Request, res: Response)
       sb.from("api_keys").select("id", { count: "exact", head: true }).eq("user_id", id),
       recentActivity(id, DEFAULT_RECENT),
       getKeyLimitOverride(id),
+      listUserPurchases(id, 10),
+      listUserUsageEvents(id, 20),
     ]);
 
     if (authErr || !authData?.user) {
@@ -187,12 +197,19 @@ router.get("/admin/users/:id", requireAdmin, async (req: Request, res: Response)
         status: sub?.status ?? null,
         current_period_end: sub?.current_period_end ?? null,
         has_stripe: Boolean(sub?.stripe_customer_id),
+        stripe_customer_id: sub?.stripe_customer_id ?? null,
+        stripe_customer_url: sub?.stripe_customer_id
+          ? `https://dashboard.stripe.com/customers/${sub.stripe_customer_id}`
+          : null,
+        grade_credits: typeof sub?.grade_credits === "number" ? sub.grade_credits : 0,
         max_api_keys: override,
         key_limit: override ?? DEFAULT_MAX_ACTIVE_KEYS,
         cropsUsedToday: usage?.crop_count ?? 0,
         activeKeys: activeKeys ?? 0,
         totalKeys: totalKeys ?? 0,
         activity,
+        recentPurchases,
+        recentUsage,
       },
     });
   } catch (err) {
@@ -209,16 +226,7 @@ router.get(
     const id = req.params.id;
     try {
       if (String(req.query.download) === "csv") {
-        const rows = await allActivity(id);
-        // Sanitise the id before putting it in a response header to avoid any
-        // header-injection via a crafted path param (the DB query is already
-        // parameterised and safe).
-        const safeId = id.replace(/[^a-zA-Z0-9-]/g, "");
-        res.set({
-          "Content-Type": "text/csv; charset=utf-8",
-          "Content-Disposition": `attachment; filename="activity-${safeId}.csv"`,
-        });
-        res.send(activityToCsv(rows));
+        res.status(400).json({ error: "Use GET /api/admin/users/:id/activity/export for CSV download." });
         return;
       }
       const limit = parseInt(String(req.query.limit ?? DEFAULT_RECENT), 10) || DEFAULT_RECENT;
@@ -231,8 +239,29 @@ router.get(
   }
 );
 
+router.get(
+  "/admin/users/:id/activity/export",
+  requireAdminMutating,
+  async (req: Request, res: Response) => {
+    const id = req.params.id;
+    try {
+      const rows = await allActivity(id);
+      const safeId = id.replace(/[^a-zA-Z0-9-]/g, "");
+      audit(req, "activity.exported", id, { rows: rows.length });
+      res.set({
+        "Content-Type": "text/csv; charset=utf-8",
+        "Content-Disposition": `attachment; filename="activity-${safeId}.csv"`,
+      });
+      res.send(activityToCsv(rows));
+    } catch (err) {
+      console.error("admin activity export failed:", err);
+      res.status(500).json({ error: "Failed to export activity." });
+    }
+  }
+);
+
 // POST /admin/users/:id/role — promote/demote (stored in app_metadata).
-router.post("/admin/users/:id/role", requireAdmin, async (req: Request, res: Response) => {
+router.post("/admin/users/:id/role", requireAdminMutating, async (req: Request, res: Response) => {
   const role = req.body?.role;
   if (role !== "user" && role !== "admin") {
     res.status(400).json({ error: "Invalid role." });
@@ -257,6 +286,7 @@ router.post("/admin/users/:id/role", requireAdmin, async (req: Request, res: Res
       actorEmail: req.user!.email ?? null,
       detail: { role, target_email: existing.user?.email ?? null },
     });
+    audit(req, "role.changed", req.params.id, { role });
     res.json({ ok: true });
   } catch (err) {
     console.error("admin set role failed:", err);
@@ -266,7 +296,7 @@ router.post("/admin/users/:id/role", requireAdmin, async (req: Request, res: Res
 
 // POST /admin/users/:id/plan — manual plan override (comped accounts etc.). An
 // optional status lets an admin set the subscription state explicitly.
-router.post("/admin/users/:id/plan", requireAdmin, async (req: Request, res: Response) => {
+router.post("/admin/users/:id/plan", requireAdminMutating, async (req: Request, res: Response) => {
   const plan = req.body?.plan;
   if (plan !== "free" && plan !== "unlimited" && plan !== "pro" && plan !== "api") {
     res.status(400).json({ error: "Invalid plan." });
@@ -300,6 +330,7 @@ router.post("/admin/users/:id/plan", requireAdmin, async (req: Request, res: Res
       actorEmail: req.user!.email ?? null,
       detail: { plan, status, source: "admin" },
     });
+    audit(req, "plan.changed", req.params.id, { plan, status });
     res.json({ ok: true });
   } catch (err) {
     console.error("admin set plan failed:", err);
@@ -311,7 +342,7 @@ router.post("/admin/users/:id/plan", requireAdmin, async (req: Request, res: Res
 // to the global default).
 router.post(
   "/admin/users/:id/key-limit",
-  requireAdmin,
+  requireAdminMutating,
   async (req: Request, res: Response) => {
     const raw = req.body?.limit;
     let limit: number | null;
@@ -343,6 +374,7 @@ router.post(
         actorEmail: req.user!.email ?? null,
         detail: { max_api_keys: limit },
       });
+      audit(req, "key_limit.changed", req.params.id, { max_api_keys: limit });
       res.json({ ok: true });
     } catch (err) {
       console.error("admin set key limit failed:", err);
@@ -352,7 +384,7 @@ router.post(
 );
 
 // POST /admin/users/:id/suspend — ban/unban the account.
-router.post("/admin/users/:id/suspend", requireAdmin, async (req: Request, res: Response) => {
+router.post("/admin/users/:id/suspend", requireAdminMutating, async (req: Request, res: Response) => {
   const suspended = Boolean(req.body?.suspended);
   if (req.params.id === req.user!.id) {
     res.status(400).json({ error: "You can't suspend your own account." });
@@ -380,6 +412,7 @@ router.post("/admin/users/:id/suspend", requireAdmin, async (req: Request, res: 
       actorId: req.user!.id,
       actorEmail: req.user!.email ?? null,
     });
+    audit(req, suspended ? "account.suspended" : "account.reinstated", req.params.id);
     res.json({ ok: true });
   } catch (err) {
     console.error("admin suspend failed:", err);
@@ -405,9 +438,29 @@ router.get("/admin/users/:id/api-keys", requireAdmin, async (req: Request, res: 
 });
 
 // Issue a new API key. The full key is shown ONCE; only its hash + prefix persist.
-router.post("/admin/users/:id/api-keys", requireAdmin, async (req: Request, res: Response) => {
+router.post("/admin/users/:id/api-keys", requireAdminMutating, async (req: Request, res: Response) => {
   const label = typeof req.body?.label === "string" ? req.body.label.slice(0, 80) : null;
+  const force = req.body?.force === true;
   try {
+    const sb = getServiceClient();
+    if (!force) {
+      const [{ count, error: countErr }, limit] = await Promise.all([
+        sb
+          .from("api_keys")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", req.params.id)
+          .is("revoked_at", null),
+        effectiveKeyLimit(req.params.id),
+      ]);
+      if (countErr) throw countErr;
+      if ((count ?? 0) >= limit) {
+        res.status(409).json({
+          error: `User already has ${limit} active API keys. Pass force: true to override.`,
+        });
+        return;
+      }
+    }
+
     const { fullKey, keyPrefix, keyHash } = generateApiKey();
 
     const { data, error } = await getServiceClient()
@@ -429,6 +482,7 @@ router.post("/admin/users/:id/api-keys", requireAdmin, async (req: Request, res:
       actorEmail: req.user!.email ?? null,
       detail: { key_id: data.id, label, key_prefix: keyPrefix, source: "admin" },
     });
+    audit(req, "key.created", req.params.id, { key_id: data.id, label, key_prefix: keyPrefix, force });
     res.json({ key: data, secret: fullKey });
   } catch (err) {
     console.error("admin issue api key failed:", err);
@@ -436,7 +490,7 @@ router.post("/admin/users/:id/api-keys", requireAdmin, async (req: Request, res:
   }
 });
 
-router.delete("/admin/api-keys/:keyId", requireAdmin, async (req: Request, res: Response) => {
+router.delete("/admin/api-keys/:keyId", requireAdminMutating, async (req: Request, res: Response) => {
   try {
     // Fetch the owning user so the revocation lands on the right timeline.
     const { data, error } = await getServiceClient()
@@ -455,6 +509,10 @@ router.delete("/admin/api-keys/:keyId", requireAdmin, async (req: Request, res: 
         actorEmail: req.user!.email ?? null,
         detail: { key_id: data.id, key_prefix: data.key_prefix, source: "admin" },
       });
+      audit(req, "key.revoked", data.user_id, {
+        key_id: data.id,
+        key_prefix: data.key_prefix,
+      });
     }
     res.json({ ok: true });
   } catch (err) {
@@ -470,7 +528,7 @@ router.delete("/admin/api-keys/:keyId", requireAdmin, async (req: Request, res: 
 // GET /admin/ai-spend?days=30 — token-exact OpenAI spend, by feature and day.
 router.get("/admin/ai-spend", requireAdmin, async (req: Request, res: Response) => {
   try {
-    const days = Math.min(Math.max(parseInt(String(req.query.days ?? "30"), 10) || 30, 1), 180);
+    const days = parseDays(req.query.days, 30);
     const { data, error } = await getServiceClient().rpc("ai_spend_summary", {
       p_days: days,
     });
@@ -515,6 +573,230 @@ router.get("/admin/catalog/items", requireAdmin, async (req: Request, res: Respo
   } catch (err) {
     console.error("admin catalog items failed:", err);
     res.status(500).json({ error: "Failed to load catalog items." });
+  }
+});
+
+// ---- Revenue (Stripe + grade_purchases) ----
+
+router.get("/admin/revenue/overview", requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const days = parseDays(req.query.days, 30);
+    const overview = await getRevenueOverview(days);
+    res.json({ overview });
+  } catch (err) {
+    console.error("admin revenue overview failed:", err);
+    res.status(500).json({ error: "Failed to load revenue overview." });
+  }
+});
+
+router.get("/admin/revenue/purchases", requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const page = parseInt(String(req.query.page ?? "1"), 10) || 1;
+    const statusRaw = typeof req.query.status === "string" ? req.query.status : undefined;
+    const status = statusRaw ? parsePurchaseStatus(statusRaw) : undefined;
+    if (statusRaw && !status) {
+      invalid(res, "Invalid purchase status.");
+      return;
+    }
+    const result = await listPurchases({ page, status: status ?? undefined });
+    res.json(result);
+  } catch (err) {
+    console.error("admin revenue purchases failed:", err);
+    res.status(500).json({ error: "Failed to load purchases." });
+  }
+});
+
+router.get("/admin/revenue/subscriptions", requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const page = parseInt(String(req.query.page ?? "1"), 10) || 1;
+    const planRaw = typeof req.query.plan === "string" ? req.query.plan : undefined;
+    const statusRaw = typeof req.query.status === "string" ? req.query.status : undefined;
+    const plan = planRaw ? parsePlan(planRaw) : undefined;
+    const status = statusRaw ? parseSubStatus(statusRaw) : undefined;
+    if (planRaw && !plan) {
+      invalid(res, "Invalid plan filter.");
+      return;
+    }
+    if (statusRaw && !status) {
+      invalid(res, "Invalid status filter.");
+      return;
+    }
+    const result = await listSubscriptions({ page, plan: plan ?? undefined, status: status ?? undefined });
+    res.json(result);
+  } catch (err) {
+    console.error("admin revenue subscriptions failed:", err);
+    res.status(500).json({ error: "Failed to load subscriptions." });
+  }
+});
+
+router.get("/admin/revenue/invoices", requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const page = parseInt(String(req.query.page ?? "1"), 10) || 1;
+    const statusRaw = typeof req.query.status === "string" ? req.query.status : undefined;
+    const status = statusRaw ? parseInvoiceStatus(statusRaw) : undefined;
+    if (statusRaw && !status) {
+      invalid(res, "Invalid invoice status.");
+      return;
+    }
+    const result = await listInvoices({ page, status });
+    res.json(result);
+  } catch (err) {
+    console.error("admin revenue invoices failed:", err);
+    res.status(500).json({ error: "Failed to load invoices." });
+  }
+});
+
+router.get("/admin/revenue/failures", requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const days = parseDays(req.query.days, 30);
+    const result = await listFailures(days);
+    res.json(result);
+  } catch (err) {
+    console.error("admin revenue failures failed:", err);
+    res.status(500).json({ error: "Failed to load payment failures." });
+  }
+});
+
+// ---- Usage explorer ----
+
+router.get("/admin/usage/events", requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const page = parseInt(String(req.query.page ?? "1"), 10) || 1;
+    const kindRaw = typeof req.query.kind === "string" ? req.query.kind : undefined;
+    const billingRaw = typeof req.query.billing === "string" ? req.query.billing : undefined;
+    const sourceRaw = typeof req.query.source === "string" ? req.query.source : undefined;
+    const fromRaw = typeof req.query.from === "string" ? req.query.from : undefined;
+    const toRaw = typeof req.query.to === "string" ? req.query.to : undefined;
+
+    if (kindRaw && !parseUsageKind(kindRaw)) {
+      invalid(res, "Invalid kind filter.");
+      return;
+    }
+    if (billingRaw && !parseUsageBilling(billingRaw)) {
+      invalid(res, "Invalid billing filter.");
+      return;
+    }
+    if (sourceRaw && !parseUsageSource(sourceRaw)) {
+      invalid(res, "Invalid source filter.");
+      return;
+    }
+    const from = fromRaw ? parseIsoDate(fromRaw) : undefined;
+    const to = toRaw ? parseIsoDate(toRaw) : undefined;
+    if (fromRaw && !from) {
+      invalid(res, "Invalid from date.");
+      return;
+    }
+    if (toRaw && !to) {
+      invalid(res, "Invalid to date.");
+      return;
+    }
+
+    const userIdRaw = typeof req.query.userId === "string" ? req.query.userId : undefined;
+    const userId = userIdRaw ? parseUuid(userIdRaw) : undefined;
+    if (userIdRaw && !userId) {
+      invalid(res, "Invalid userId filter.");
+      return;
+    }
+
+    const result = await listUsageEvents({
+      page,
+      kind: kindRaw ? parseUsageKind(kindRaw) : undefined,
+      billing: billingRaw ? parseUsageBilling(billingRaw) : undefined,
+      source: sourceRaw ? parseUsageSource(sourceRaw) : undefined,
+      from,
+      to,
+      userId,
+    });
+    res.json(result);
+  } catch (err) {
+    console.error("admin usage events failed:", err);
+    res.status(500).json({ error: "Failed to load usage events." });
+  }
+});
+
+router.get("/admin/usage/events.csv", requireAdminMutating, async (req: Request, res: Response) => {
+  try {
+    const kindRaw = typeof req.query.kind === "string" ? req.query.kind : undefined;
+    const billingRaw = typeof req.query.billing === "string" ? req.query.billing : undefined;
+    const sourceRaw = typeof req.query.source === "string" ? req.query.source : undefined;
+    const fromRaw = typeof req.query.from === "string" ? req.query.from : undefined;
+    const toRaw = typeof req.query.to === "string" ? req.query.to : undefined;
+
+    if (kindRaw && !parseUsageKind(kindRaw)) {
+      invalid(res, "Invalid kind filter.");
+      return;
+    }
+    if (billingRaw && !parseUsageBilling(billingRaw)) {
+      invalid(res, "Invalid billing filter.");
+      return;
+    }
+    if (sourceRaw && !parseUsageSource(sourceRaw)) {
+      invalid(res, "Invalid source filter.");
+      return;
+    }
+    const from = fromRaw ? parseIsoDate(fromRaw) : undefined;
+    const to = toRaw ? parseIsoDate(toRaw) : undefined;
+    if (fromRaw && !from) {
+      invalid(res, "Invalid from date.");
+      return;
+    }
+    if (toRaw && !to) {
+      invalid(res, "Invalid to date.");
+      return;
+    }
+
+    const csv = await exportUsageEventsCsv({
+      kind: kindRaw ? parseUsageKind(kindRaw) : undefined,
+      billing: billingRaw ? parseUsageBilling(billingRaw) : undefined,
+      source: sourceRaw ? parseUsageSource(sourceRaw) : undefined,
+      from,
+      to,
+    });
+    audit(req, "usage.exported", undefined, {
+      kind: kindRaw ?? null,
+      billing: billingRaw ?? null,
+      source: sourceRaw ?? null,
+      from: from ?? null,
+      to: to ?? null,
+    });
+    res.set({
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": 'attachment; filename="usage-events.csv"',
+    });
+    res.send(csv);
+  } catch (err) {
+    console.error("admin usage export failed:", err);
+    res.status(500).json({ error: "Failed to export usage events." });
+  }
+});
+
+// ---- Operations (forms, webhooks) ----
+
+router.get("/admin/forms/submissions", requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const page = parseInt(String(req.query.page ?? "1"), 10) || 1;
+    const kindRaw = typeof req.query.kind === "string" ? req.query.kind : undefined;
+    const kind = kindRaw ? parseFormKind(kindRaw) : undefined;
+    if (kindRaw && !kind) {
+      invalid(res, "Invalid form kind.");
+      return;
+    }
+    const result = await listFormSubmissions({ page, kind });
+    res.json(result);
+  } catch (err) {
+    console.error("admin form submissions failed:", err);
+    res.status(500).json({ error: "Failed to load form submissions." });
+  }
+});
+
+router.get("/admin/stripe/events", requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const page = parseInt(String(req.query.page ?? "1"), 10) || 1;
+    const result = await listStripeEvents({ page });
+    res.json(result);
+  } catch (err) {
+    console.error("admin stripe events failed:", err);
+    res.status(500).json({ error: "Failed to load Stripe events." });
   }
 });
 

@@ -67,7 +67,7 @@ function oauthHeader(
     .update(baseString)
     .digest("base64");
 
-  const headerParams = { ...oauthParams, oauth_signature: signature };
+  const headerParams: Record<string, string> = { ...oauthParams, oauth_signature: signature };
   const authParts = Object.keys(headerParams)
     .sort()
     .map((k) => `${percentEncode(k)}="${percentEncode(headerParams[k])}"`)

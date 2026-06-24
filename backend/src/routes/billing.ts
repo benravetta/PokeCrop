@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
 import type Stripe from "stripe";
-import { requireAuth } from "../middleware/auth.js";
+import { requireActiveAuth } from "../middleware/auth.js";
 import { getServiceClient } from "../lib/supabase.js";
 import { logActivity } from "../lib/activity.js";
 import {
@@ -15,7 +15,9 @@ import {
   creditGradePurchase,
   refundGradePurchase,
   markGradePurchaseDisputed,
+  resolveGradePurchaseDispute,
   isPurchaseCredited,
+  userIdForPaymentIntent,
 } from "../lib/billingPurchases.js";
 import { rejectAdminBilling } from "../lib/adminAccess.js";
 
@@ -26,6 +28,29 @@ function publicOrigin(req: Request): string {
     process.env.PUBLIC_ORIGIN ||
     `${req.protocol}://${req.get("host") ?? "localhost:8080"}`
   );
+}
+
+async function checkoutSessionBelongsToUser(
+  session: Stripe.Checkout.Session,
+  userId: string
+): Promise<boolean> {
+  const metaUserId = session.metadata?.user_id as string | undefined;
+  if (metaUserId && metaUserId !== userId) return false;
+  if (session.client_reference_id && session.client_reference_id !== userId) return false;
+
+  const customerId =
+    typeof session.customer === "string" ? session.customer : session.customer?.id;
+  if (customerId) {
+    const { data } = await getServiceClient()
+      .from("subscriptions")
+      .select("user_id")
+      .eq("stripe_customer_id", customerId)
+      .maybeSingle();
+    if (data?.user_id && data.user_id !== userId) return false;
+    if (data?.user_id === userId) return true;
+  }
+
+  return metaUserId === userId || session.client_reference_id === userId;
 }
 
 async function getOrCreateCustomer(
@@ -61,7 +86,7 @@ async function getOrCreateCustomer(
   return customer.id;
 }
 
-router.post("/billing/checkout", requireAuth, async (req: Request, res: Response) => {
+router.post("/billing/checkout", requireActiveAuth, async (req: Request, res: Response) => {
   if (rejectAdminBilling(req.user!.role, res)) return;
   if (!isStripeConfigured()) {
     res.status(503).json({ error: "Billing is not configured." });
@@ -103,7 +128,7 @@ router.post("/billing/checkout", requireAuth, async (req: Request, res: Response
 
 router.post(
   "/billing/checkout-grade",
-  requireAuth,
+  requireActiveAuth,
   async (req: Request, res: Response) => {
     if (rejectAdminBilling(req.user!.role, res)) return;
     if (!isStripeConfigured() || !isGradeSinglePriceConfigured()) {
@@ -140,7 +165,7 @@ router.post(
 // Poll after Checkout return — confirms webhook credit landed (or triggers recovery).
 router.get(
   "/billing/purchase-status",
-  requireAuth,
+  requireActiveAuth,
   async (req: Request, res: Response) => {
     if (rejectAdminBilling(req.user!.role, res)) return;
     const sessionId = typeof req.query.session_id === "string" ? req.query.session_id : "";
@@ -162,7 +187,7 @@ router.get(
 
     try {
       const session = await getStripe().checkout.sessions.retrieve(sessionId);
-      if (session.client_reference_id && session.client_reference_id !== userId) {
+      if (!(await checkoutSessionBelongsToUser(session, userId))) {
         res.status(403).json({ error: "Session does not belong to this account." });
         return;
       }
@@ -189,7 +214,7 @@ router.get(
   }
 );
 
-router.post("/billing/portal", requireAuth, async (req: Request, res: Response) => {
+router.post("/billing/portal", requireActiveAuth, async (req: Request, res: Response) => {
   if (rejectAdminBilling(req.user!.role, res)) return;
   if (!isStripeConfigured()) {
     res.status(503).json({ error: "Billing is not configured." });
@@ -231,7 +256,7 @@ async function syncSubscription(sub: Stripe.Subscription): Promise<void> {
     .eq("stripe_customer_id", customerId)
     .maybeSingle();
 
-  const userId = row?.user_id ?? (sub.metadata?.user_id as string | undefined);
+  const userId = row?.user_id;
   if (!userId) {
     console.warn("Stripe subscription with no resolvable user:", sub.id);
     return;
@@ -266,11 +291,21 @@ async function syncSubscription(sub: Stripe.Subscription): Promise<void> {
 }
 
 async function syncSubscriptionFromInvoice(invoice: Stripe.Invoice): Promise<void> {
-  const subRef = invoice.subscription;
+  const subRef = (invoice as Stripe.Invoice & {
+    subscription?: string | Stripe.Subscription | null;
+  }).subscription;
   if (!subRef) return;
   const subId = typeof subRef === "string" ? subRef : subRef.id;
   const sub = await getStripe().subscriptions.retrieve(subId);
   await syncSubscription(sub);
+}
+
+function userIdFromCheckoutSession(session: Stripe.Checkout.Session): string | undefined {
+  return (
+    (session.metadata?.user_id as string | undefined) ||
+    session.client_reference_id ||
+    undefined
+  );
 }
 
 function paymentIntentIdFromCharge(charge: Stripe.Charge): string | null {
@@ -289,11 +324,14 @@ async function handleCheckoutSession(session: Stripe.Checkout.Session): Promise<
   }
 
   if (session.payment_status === "unpaid") {
-    logActivity({
-      userId: session.client_reference_id ?? undefined,
-      action: "grade.purchase.async_failed",
-      detail: { session: session.id, payment_status: session.payment_status },
-    });
+    const userId = userIdFromCheckoutSession(session);
+    if (userId) {
+      logActivity({
+        userId,
+        action: "grade.purchase.async_failed",
+        detail: { session: session.id, payment_status: session.payment_status },
+      });
+    }
   }
 }
 
@@ -302,13 +340,18 @@ async function handleChargeRefunded(charge: Stripe.Charge): Promise<void> {
   if (!pi) return;
 
   const revoked = await refundGradePurchase({ paymentIntentId: pi });
+  const userId = await userIdForPaymentIntent(pi);
   if (revoked > 0) {
+    if (userId) {
+      logActivity({
+        userId,
+        action: "grade.credit.refunded",
+        detail: { payment_intent: pi, revoked, charge: charge.id },
+      });
+    }
+  } else if (userId) {
     logActivity({
-      action: "grade.credit.refunded",
-      detail: { payment_intent: pi, revoked, charge: charge.id },
-    });
-  } else {
-    logActivity({
+      userId,
       action: "grade.credit.refund_no_balance",
       detail: {
         payment_intent: pi,
@@ -390,22 +433,60 @@ export async function stripeWebhookHandler(req: Request, res: Response): Promise
       case "checkout.session.async_payment_failed":
         await handleCheckoutSession(event.data.object as Stripe.Checkout.Session);
         break;
-      case "checkout.session.expired":
-        logActivity({
-          action: "grade.checkout.expired",
-          detail: { session: (event.data.object as Stripe.Checkout.Session).id },
-        });
+      case "checkout.session.expired": {
+        const session = event.data.object as Stripe.Checkout.Session;
+        const userId = userIdFromCheckoutSession(session);
+        if (userId) {
+          logActivity({
+            userId,
+            action: "grade.checkout.expired",
+            detail: { session: session.id },
+          });
+        }
         break;
+      }
       case "charge.refunded":
         await handleChargeRefunded(event.data.object as Stripe.Charge);
         break;
       case "charge.dispute.created": {
-        const charge = event.data.object as Stripe.Charge;
+        const dispute = event.data.object as Stripe.Dispute;
+        const chargeRef = dispute.charge;
+        if (!chargeRef) break;
+        const charge =
+          typeof chargeRef === "string"
+            ? await getStripe().charges.retrieve(chargeRef)
+            : chargeRef;
         const pi = paymentIntentIdFromCharge(charge);
         if (pi) {
           await markGradePurchaseDisputed(pi);
+          const userId = await userIdForPaymentIntent(pi);
+          if (userId) {
+            logActivity({
+              userId,
+              action: "grade.purchase.disputed",
+              detail: { payment_intent: pi, charge: charge.id },
+            });
+          }
+        }
+        break;
+      }
+      case "charge.dispute.closed": {
+        const dispute = event.data.object as Stripe.Dispute;
+        if (dispute.status !== "won") break;
+        const chargeRef = dispute.charge;
+        if (!chargeRef) break;
+        const charge =
+          typeof chargeRef === "string"
+            ? await getStripe().charges.retrieve(chargeRef)
+            : chargeRef;
+        const pi = paymentIntentIdFromCharge(charge);
+        if (!pi) break;
+        await resolveGradePurchaseDispute(pi);
+        const userId = await userIdForPaymentIntent(pi);
+        if (userId) {
           logActivity({
-            action: "grade.purchase.disputed",
+            userId,
+            action: "grade.purchase.dispute_won",
             detail: { payment_intent: pi, charge: charge.id },
           });
         }

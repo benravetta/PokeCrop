@@ -329,7 +329,7 @@ router.post(
 
 // GET /v1/crop/limits
 router.get("/crop/limits", requireApiKey, async (req: Request, res: Response) => {
-  const limit = rateLimit(req.apiUser!.userId, { peek: true });
+  const limit = peekRateLimit(req.apiUser!.userId);
   res.set(rateLimitHeaders(limit));
   let usedToday = 0;
   try {

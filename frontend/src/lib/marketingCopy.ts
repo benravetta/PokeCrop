@@ -161,6 +161,8 @@ export const PAYMENT = {
   checkoutCancelled: "Checkout cancelled. You have not been charged.",
 } as const;
 
+export const SAMPLE_REPORT_PATH = "/sample-report" as const;
+
 export const NAV = {
   sampleReport: "Sample report",
   signIn: "Sign in",
@@ -259,5 +261,10 @@ export const SEO = {
   contact: {
     title: "Contact GemCheck | Support and Trade Enquiries",
     description: "Contact GemCheck for account help, card checks, trade pricing or general questions.",
+  },
+  sampleReport: {
+    title: "Sample GemCheck Report | Pre-Grade Estimate Example",
+    description:
+      "See a full example pre-grade report with grader estimates, condition breakdown, centring and preparation notes.",
   },
 } as const;

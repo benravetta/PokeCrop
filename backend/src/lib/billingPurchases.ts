@@ -63,6 +63,20 @@ export async function markGradePurchaseDisputed(paymentIntentId: string): Promis
   return data === true;
 }
 
+export async function resolveGradePurchaseDispute(
+  paymentIntentId: string
+): Promise<boolean> {
+  const { data, error } = await getServiceClient()
+    .from("grade_purchases")
+    .update({ status: "completed" })
+    .eq("stripe_payment_intent_id", paymentIntentId)
+    .eq("status", "disputed")
+    .select("id")
+    .maybeSingle();
+  if (error) throw error;
+  return Boolean(data);
+}
+
 export async function isPurchaseCredited(
   userId: string,
   sessionId: string
@@ -74,4 +88,15 @@ export async function isPurchaseCredited(
     .eq("stripe_session_id", sessionId)
     .maybeSingle();
   return Boolean(data);
+}
+
+export async function userIdForPaymentIntent(
+  paymentIntentId: string
+): Promise<string | null> {
+  const { data } = await getServiceClient()
+    .from("grade_purchases")
+    .select("user_id")
+    .eq("stripe_payment_intent_id", paymentIntentId)
+    .maybeSingle();
+  return (data?.user_id as string | undefined) ?? null;
 }

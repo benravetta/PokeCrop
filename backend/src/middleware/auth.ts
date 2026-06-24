@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { getServiceClient, isSupabaseConfigured } from "../lib/supabase.js";
+import { checkAdminRateLimit } from "./adminRateLimit.js";
 
 const SUPABASE_URL = process.env.SUPABASE_URL || "";
 const ISSUER = SUPABASE_URL ? `${SUPABASE_URL}/auth/v1` : "";
@@ -47,6 +48,10 @@ function roleFromAppMetadata(appMetadata: unknown): "user" | "admin" {
   return "user";
 }
 
+function isBanned(bannedUntil: string | null | undefined): boolean {
+  return Boolean(bannedUntil && new Date(bannedUntil) > new Date());
+}
+
 async function resolveUser(token: string): Promise<AuthUser | null> {
   // Primary path: local JWKS verification.
   if (jwks) {
@@ -86,6 +91,34 @@ async function resolveUser(token: string): Promise<AuthUser | null> {
   return null;
 }
 
+/** Re-fetch role and ban state from Auth — JWT app_metadata can be stale. */
+async function refreshLiveUser(req: Request, res: Response): Promise<boolean> {
+  if (!req.user) return false;
+  if (!isSupabaseConfigured()) {
+    res.status(503).json({ error: "Authentication is not configured." });
+    return false;
+  }
+  try {
+    const { data, error } = await getServiceClient().auth.admin.getUserById(req.user.id);
+    if (error || !data.user) {
+      res.status(401).json({ error: "Invalid or expired session." });
+      return false;
+    }
+    const bannedUntil = (data.user as unknown as { banned_until?: string | null })
+      .banned_until;
+    if (isBanned(bannedUntil)) {
+      res.status(403).json({ error: "This account is suspended." });
+      return false;
+    }
+    req.user.role = roleFromAppMetadata(data.user.app_metadata);
+    if (data.user.email) req.user.email = data.user.email;
+    return true;
+  } catch {
+    res.status(503).json({ error: "Could not verify account." });
+    return false;
+  }
+}
+
 export async function requireAuth(
   req: Request,
   res: Response,
@@ -109,16 +142,46 @@ export async function requireAuth(
   next();
 }
 
+/** Authenticated web/API session with live role + suspension checks. */
+export async function requireActiveAuth(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  await requireAuth(req, res, async () => {
+    if (!(await refreshLiveUser(req, res))) return;
+    next();
+  });
+}
+
 export async function requireAdmin(
   req: Request,
   res: Response,
   next: NextFunction
 ): Promise<void> {
-  await requireAuth(req, res, () => {
+  await requireAuth(req, res, async () => {
+    if (!(await refreshLiveUser(req, res))) return;
     if (req.user?.role !== "admin") {
       res.status(403).json({ error: "Admin access required." });
       return;
     }
+    if (!checkAdminRateLimit(req.user.id, res)) return;
+    next();
+  });
+}
+
+export async function requireAdminMutating(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  await requireAuth(req, res, async () => {
+    if (!(await refreshLiveUser(req, res))) return;
+    if (req.user?.role !== "admin") {
+      res.status(403).json({ error: "Admin access required." });
+      return;
+    }
+    if (!checkAdminRateLimit(req.user.id, res, { mutating: true })) return;
     next();
   });
 }

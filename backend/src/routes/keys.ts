@@ -1,5 +1,5 @@
 import { Router, Request, Response, NextFunction } from "express";
-import { requireAuth } from "../middleware/auth.js";
+import { requireActiveAuth } from "../middleware/auth.js";
 import { getServiceClient } from "../lib/supabase.js";
 import { getPlan } from "../lib/usage.js";
 import { generateApiKey } from "../lib/apiKeys.js";
@@ -33,7 +33,7 @@ async function requireApiPlan(
 
 router.get(
   "/keys",
-  requireAuth,
+  requireActiveAuth,
   requireApiPlan,
   async (req: Request, res: Response) => {
     try {
@@ -53,7 +53,7 @@ router.get(
 
 router.post(
   "/keys",
-  requireAuth,
+  requireActiveAuth,
   requireApiPlan,
   async (req: Request, res: Response) => {
     const label =
@@ -107,7 +107,7 @@ router.post(
 
 router.delete(
   "/keys/:id",
-  requireAuth,
+  requireActiveAuth,
   requireApiPlan,
   async (req: Request, res: Response) => {
     try {

@@ -68,7 +68,7 @@ export async function estimateMarketPrices(
 
   let rawLow: number | null = null;
   let rawHigh: number | null = null;
-  let rawSource: string | null = null;
+  let rawSource: "cardmarket" | "pricecharting" | null = null;
   const notes: string[] = [];
   const sources = new Set<string>();
 

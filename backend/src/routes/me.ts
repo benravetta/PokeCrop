@@ -1,5 +1,5 @@
 import { Router, Request, Response } from "express";
-import { requireAuth } from "../middleware/auth.js";
+import { requireActiveAuth } from "../middleware/auth.js";
 import { FREE_DAILY_LIMIT, getPlan, getUsageToday } from "../lib/usage.js";
 import { getGradeCredits } from "../lib/gradeQuota.js";
 import { getHistory, type UsageKind } from "../lib/usageEvents.js";
@@ -8,7 +8,7 @@ import { ADMIN_EFFECTIVE_PLAN, isAdminRole } from "../lib/adminAccess.js";
 
 const router = Router();
 
-router.get("/me", requireAuth, async (req: Request, res: Response) => {
+router.get("/me", requireActiveAuth, async (req: Request, res: Response) => {
   const userId = req.user!.id;
   const admin = isAdminRole(req.user!.role);
   try {
@@ -47,7 +47,7 @@ router.get("/me", requireAuth, async (req: Request, res: Response) => {
   }
 });
 
-router.get("/me/history", requireAuth, async (req: Request, res: Response) => {
+router.get("/me/history", requireActiveAuth, async (req: Request, res: Response) => {
   const userId = req.user!.id;
   try {
     const kindRaw = typeof req.query.kind === "string" ? req.query.kind : "";
@@ -72,7 +72,7 @@ router.get("/me/history", requireAuth, async (req: Request, res: Response) => {
   }
 });
 
-router.patch("/me/history/:id/centring", requireAuth, async (req: Request, res: Response) => {
+router.patch("/me/history/:id/centring", requireActiveAuth, async (req: Request, res: Response) => {
   const userId = req.user!.id;
   const eventId = parseInt(req.params.id, 10);
   if (!Number.isFinite(eventId)) {

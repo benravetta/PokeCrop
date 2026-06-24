@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { PRODUCT_PROOF } from "../../lib/marketingCopy";
 import { SectionHeading } from "./shared";
 
@@ -17,12 +18,12 @@ export function ReviewsSection() {
             breakdown, confidence notes and a clear best-fit explanation. You decide whether to
             submit, sell raw or retake your photos.
           </p>
-          <a
-            href="#report"
+          <Link
+            to="/sample-report"
             className="mt-6 inline-flex items-center justify-center rounded-xl border border-border-strong bg-surface-overlay/40 px-5 py-2.5 text-sm font-semibold text-text-primary hover:bg-surface-overlay transition-colors"
           >
             View a sample report
-          </a>
+          </Link>
         </div>
       </div>
     </section>

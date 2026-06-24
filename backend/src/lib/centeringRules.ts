@@ -166,16 +166,20 @@ export function centeringCapLabel(
 }
 
 function worstRatioLabel(ratios: CenteringRatios): string | null {
-  let worst: { pct: number; label: string } | null = null;
+  let worstPct = -1;
+  let worstLabel: string | null = null;
   const consider = (r: string | undefined, label: string) => {
     if (!r) return;
     const p = largerPct(r);
     if (p == null) return;
-    if (!worst || p > worst.pct) worst = { pct: p, label: `${label} ${r}` };
+    if (p > worstPct) {
+      worstPct = p;
+      worstLabel = `${label} ${r}`;
+    }
   };
   consider(ratios.frontLR, "Front L/R");
   consider(ratios.frontTB, "Front T/B");
   consider(ratios.backLR, "Back L/R");
   consider(ratios.backTB, "Back T/B");
-  return worst?.label ?? null;
+  return worstLabel;
 }

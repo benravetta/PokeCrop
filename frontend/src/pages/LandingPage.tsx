@@ -8,7 +8,6 @@ import { TopNav } from "../components/landing/TopNav";
 import { HeroSection } from "../components/landing/HeroSection";
 import { HowItWorksSection } from "../components/landing/CompareAndHow";
 import { FeaturesSection, WhySection } from "../components/landing/FeaturesSection";
-import { ReportPreview } from "../components/landing/ReportPreview";
 import { CropDemoSection } from "../components/landing/CropDemoSection";
 import { ReviewsSection } from "../components/landing/SocialProof";
 import { PricingSection, PlanCta } from "../components/landing/PricingSection";
@@ -64,7 +63,6 @@ export function LandingPage() {
     <div className="min-h-[100dvh] bg-surface text-text-primary">
       <TopNav loggedIn={loggedIn} plan={plan} isAdmin={isAdmin} onUpgrade={goCheckout} />
       <HeroSection loggedIn={loggedIn} plan={plan} isAdmin={isAdmin} />
-      <ReportPreview />
       <HowItWorksSection />
       <WhatWeCheckSection />
       <GraderCompareSection />

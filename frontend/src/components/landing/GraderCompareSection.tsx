@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { ArrowRight, Gauge, Layers, Scale, Target } from "lucide-react";
 import { GRADER_COMPARE } from "../../lib/marketingCopy";
 import { GraderPerspectiveChart } from "./GraderPerspectiveChart";
@@ -47,13 +48,13 @@ export function GraderCompareSection() {
               );
             })}
 
-            <a
-              href="#report"
+            <Link
+              to="/sample-report"
               className="inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-5 py-3 text-sm font-semibold text-white hover:bg-accent-hover transition-colors shadow-lg shadow-accent/20 w-full sm:w-auto mt-2"
             >
               {GRADER_COMPARE.cta}
               <ArrowRight className="w-4 h-4" />
-            </a>
+            </Link>
           </div>
         </div>
       </div>

@@ -6,7 +6,7 @@ import os from "os";
 import { v4 as uuid } from "uuid";
 import crypto from "crypto";
 import { sendToPython } from "../services/pythonBridge.js";
-import { requireAuth } from "../middleware/auth.js";
+import { requireActiveAuth } from "../middleware/auth.js";
 import { validateParams } from "../lib/cropParams.js";
 import {
   FREE_DAILY_LIMIT,
@@ -184,7 +184,7 @@ function getOwnedSession(req: Request, sessionId: string): Session | null {
 
 router.post(
   "/upload",
-  requireAuth,
+  requireActiveAuth,
   upload.single("file"),
   async (req: Request, res: Response) => {
     if (!req.file) {
@@ -224,7 +224,7 @@ router.post(
   }
 );
 
-router.post("/process", requireAuth, async (req: Request, res: Response) => {
+router.post("/process", requireActiveAuth, async (req: Request, res: Response) => {
   const { sessionId, params } = req.body;
 
   if (!sessionId || typeof sessionId !== "string") {
@@ -384,7 +384,7 @@ router.post("/process", requireAuth, async (req: Request, res: Response) => {
   }
 });
 
-router.get("/export/:sessionId", requireAuth, async (req: Request, res: Response) => {
+router.get("/export/:sessionId", requireActiveAuth, async (req: Request, res: Response) => {
   const session = getOwnedSession(req, req.params.sessionId);
 
   if (!session?.result) {
@@ -442,7 +442,7 @@ router.get("/export/:sessionId", requireAuth, async (req: Request, res: Response
   res.send(buffer);
 });
 
-router.delete("/session/:sessionId", requireAuth, (req: Request, res: Response) => {
+router.delete("/session/:sessionId", requireActiveAuth, (req: Request, res: Response) => {
   const session = getOwnedSession(req, req.params.sessionId);
   if (session) {
     fs.unlink(session.filePath, () => {});

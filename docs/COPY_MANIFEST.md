@@ -65,7 +65,7 @@ Revolutionary, game-changing, seamless, unlock, maximise, guaranteed, expert gra
 
 1. Primary guest: **Check a card free** → `/register`
 2. Primary logged-in: **Check a card** → `/grade`
-3. Secondary: **View a sample report** → `/#report`
+3. Secondary: **View a sample report** → `/sample-report`
 4. Nav: clear labels (How it works, Sample report, Pricing, FAQs, Sign in)
 
 ## Trust and transparency rules
@@ -119,7 +119,7 @@ Final strings live in code SSOT files. Summary:
 |---------|---------|----------|
 | Homepage hero | `HeroSection.tsx`, `HERO` | Know before you grade; Check a card free |
 | Trust strip | `TRUST_STRIP` | Four bullets + qualification |
-| Sample report | `ReportPreview.tsx`, `#report` | Likely best fit; grader comparison mock |
+| Sample report | `SampleReportPage.tsx`, `ReportPreview.tsx` | Full example PDF-style mock |
 | How it works | `CompareAndHow.tsx`, `HOW_IT_WORKS` | Four steps |
 | What we check | `MarketingSections.tsx`, `WHAT_WE_CHECK` | Four condition areas |
 | Grader compare | `MarketingSections.tsx`, `GRADER_COMPARE` | Multi-grader section |
@@ -140,14 +140,15 @@ Final strings live in code SSOT files. Summary:
 ## Homepage section order (implemented)
 
 1. Hero  
-2. Report preview (`#report`)  
-3. How it works  
-4. What we check  
-5. Grader comparison  
-6. Transparency  
-7. Product proof  
-8. Pricing  
-9. FAQ strip  
-10. Final CTA  
-11. (Secondary) Features, crop demo, trade, API  
-12. Footer  
+2. How it works  
+3. What we check  
+4. Grader comparison  
+5. Transparency  
+6. Product proof  
+7. Pricing  
+8. FAQ strip  
+9. Final CTA  
+10. (Secondary) Features, crop demo, trade, API  
+11. Footer  
+
+Sample report lives at `/sample-report` (linked from hero, nav and product proof).

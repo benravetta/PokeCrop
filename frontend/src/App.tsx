@@ -5,12 +5,17 @@ import { useAuth } from "./hooks/useAuth";
 import { Layout } from "./components/Layout";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AdminRoute } from "./components/AdminRoute";
+import { AdminLayout } from "./components/admin/AdminLayout";
 import { LandingPage } from "./pages/LandingPage";
 import { ToolPage } from "./pages/ToolPage";
 import { AccountPage } from "./pages/AccountPage";
 import { HistoryPage } from "./pages/HistoryPage";
 import { PricingPage } from "./pages/PricingPage";
-import { AdminPage } from "./pages/AdminPage";
+import { AdminOverviewPage } from "./pages/admin/AdminOverviewPage";
+import { AdminUsersPage } from "./pages/admin/AdminUsersPage";
+import { RevenuePage } from "./pages/admin/RevenuePage";
+import { UsagePage } from "./pages/admin/UsagePage";
+import { OperationsPage } from "./pages/admin/OperationsPage";
 import { CatalogPage } from "./pages/CatalogPage";
 import { GradePage } from "./pages/GradePage";
 import { LoginPage } from "./pages/LoginPage";
@@ -19,6 +24,7 @@ import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import { DocsPage } from "./pages/DocsPage";
 import { HowItWorksPage } from "./pages/HowItWorksPage";
+import { SampleReportPage } from "./pages/SampleReportPage";
 import { FaqPage } from "./pages/FaqPage";
 import { AboutPage } from "./pages/AboutPage";
 import { ContactPage } from "./pages/ContactPage";
@@ -81,6 +87,7 @@ export default function App() {
       {/* Public marketing homepage. */}
       <Route path="/" element={<LandingPage />} />
       <Route path="/how-it-works" element={<HowItWorksPage />} />
+      <Route path="/sample-report" element={<SampleReportPage />} />
       <Route path="/faq" element={<FaqPage />} />
       <Route path="/about" element={<AboutPage />} />
       <Route path="/contact" element={<ContactPage />} />
@@ -109,18 +116,17 @@ export default function App() {
           path="/admin"
           element={
             <AdminRoute>
-              <AdminPage />
+              <AdminLayout />
             </AdminRoute>
           }
-        />
-        <Route
-          path="/admin/catalog"
-          element={
-            <AdminRoute>
-              <CatalogPage />
-            </AdminRoute>
-          }
-        />
+        >
+          <Route index element={<AdminOverviewPage />} />
+          <Route path="users" element={<AdminUsersPage />} />
+          <Route path="revenue" element={<RevenuePage />} />
+          <Route path="usage" element={<UsagePage />} />
+          <Route path="operations" element={<OperationsPage />} />
+          <Route path="catalog" element={<CatalogPage />} />
+        </Route>
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

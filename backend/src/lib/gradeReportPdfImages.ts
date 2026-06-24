@@ -2,10 +2,12 @@ import { Jimp } from "jimp";
 import { resolveRect, type Rect } from "./cardRegions.js";
 import { transcodeViaPython } from "../services/pythonBridge.js";
 
+type JimpImage = Awaited<ReturnType<typeof Jimp.read>>;
+
 export async function loadReportImage(
   buffer: Buffer,
   originalname?: string
-): Promise<InstanceType<typeof Jimp> | null> {
+): Promise<JimpImage | null> {
   try {
     return await Jimp.read(buffer);
   } catch {
@@ -19,7 +21,7 @@ export async function loadReportImage(
 }
 
 export async function toPngDataUrl(
-  img: InstanceType<typeof Jimp>,
+  img: JimpImage,
   max = 900
 ): Promise<{ url: string; w: number; h: number } | null> {
   if (!img.width || !img.height) return null;
@@ -36,7 +38,7 @@ export async function toPngDataUrl(
 }
 
 export async function cropSnapshot(
-  img: InstanceType<typeof Jimp>,
+  img: JimpImage,
   rect: Rect,
   outMax = 300
 ): Promise<string | null> {
