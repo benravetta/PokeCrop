@@ -35,7 +35,7 @@ export function RegisterBenefitsPanel() {
       </ul>
 
       <p className="mt-6 pt-5 border-t border-border-subtle text-[12px] text-text-muted leading-relaxed">
-        No card required. Upgrade anytime for unlimited crops & centring, more pre-grades, or API access —{" "}
+        No card required. Upgrade anytime for unlimited crops and centring, more pre-grade reports or API access.{" "}
         <Link to="/pricing" className="text-accent hover:text-accent-hover font-medium">
           see pricing
         </Link>

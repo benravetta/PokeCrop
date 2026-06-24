@@ -29,6 +29,8 @@ export interface CaptureQualityResult {
 const MIN_LONG_EDGE_HARD = 720;
 const MIN_LONG_EDGE_WARN = 1200;
 const MIN_BYTES_WARN = 80_000;
+const GRADE_FORMATS = "JPG, PNG, WEBP, HEIC, HEIF or DNG";
+const MAX_FILE_SIZE = "50 MB";
 
 /** Read PNG/JPEG dimensions from buffer headers (no decode library). */
 export function imageDimensions(buf: Buffer): { width: number; height: number } | null {
@@ -150,14 +152,14 @@ export async function assessCaptureQuality(
     issues.push({
       code: "resolution_too_low",
       severity: "block",
-      message: `Front image is too small for reliable grading (${longEdge || "unknown"}px long edge). Use your camera's full resolution — at least ~1200px on the long side.`,
+      message: `The card is too small in the frame. Move closer while keeping every edge visible, or upload a ${GRADE_FORMATS} image under ${MAX_FILE_SIZE}.`,
     });
     score -= 50;
   } else if (longEdge < MIN_LONG_EDGE_WARN) {
     issues.push({
       code: "resolution_low",
       severity: "warn",
-      message: `Front resolution is usable but low (${longEdge}px). Full camera quality (~1500px+) improves surface and corner reads.`,
+      message: `Front resolution is usable but low (${longEdge}px). Full camera quality improves surface and corner reads.`,
     });
     score -= 15;
   }
@@ -166,8 +168,7 @@ export async function assessCaptureQuality(
     issues.push({
       code: "heavy_compression",
       severity: "warn",
-      message:
-        "The front file looks heavily compressed. Upload the original photo, not a screenshot or re-shared image.",
+      message: `We could not read this photo reliably. Upload a ${GRADE_FORMATS} image under ${MAX_FILE_SIZE}.`,
     });
     score -= 10;
   }
@@ -177,7 +178,7 @@ export async function assessCaptureQuality(
       code: "missing_back",
       severity: "warn",
       message:
-        "No back photo — gem-grade calls won't be reliable. Add a sharp back shot (flat, out of sleeve).",
+        "No back photo yet. Add a clear back shot for stronger estimates.",
     });
     score -= 20;
   }
@@ -187,7 +188,7 @@ export async function assessCaptureQuality(
       code: "centering_not_measured",
       severity: "warn",
       message:
-        "Centering wasn't measured on the straightened card. Use the centering tool (or confirm borders) for accurate subgrades.",
+        "Centering was not measured on the straightened card. Confirm borders for accurate subgrades.",
     });
     score -= 8;
   }
@@ -199,7 +200,8 @@ export async function assessCaptureQuality(
       issues.push({
         code: "blurry",
         severity: "block",
-        message: "The front photo looks out of focus. Hold steady, tap to focus, and retake before grading.",
+        message:
+          "This photo is too blurry to assess. Retake it in brighter, even light and keep the camera steady.",
       });
       score -= 40;
     }
@@ -208,7 +210,7 @@ export async function assessCaptureQuality(
         code: "glare",
         severity: "warn",
         message:
-          "Strong glare detected. Tilt away from direct light — holos need even lighting to grade surface accurately.",
+          "Glare is hiding part of the surface. Move away from direct light or tilt the card slightly.",
       });
       score -= 15;
     }
@@ -225,7 +227,7 @@ export async function assessCaptureQuality(
       issues.push({
         code: "cropped",
         severity: "warn",
-        message: "Part of the card is cut off. Include the full card with a little border around it.",
+        message: "Part of the card is missing. Retake the photo with all four corners visible.",
       });
       score -= 10;
     }

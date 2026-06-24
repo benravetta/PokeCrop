@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { ArrowRight, KeyRound, ShieldCheck, Terminal, Zap } from "lucide-react";
 import { API_SNIPPET } from "./data";
 import { SectionHeading } from "./shared";
-import { ESTIMATE_DISCLAIMER } from "../../lib/marketingCopy";
+import { ESTIMATE_DISCLAIMER, FOOTER, GRADER_INDEPENDENCE } from "../../lib/marketingCopy";
 import { FOOTER_EXTERNAL_LINKS, FOOTER_NAV_LINKS } from "../../lib/siteNav";
 import { SiteNavLinks } from "../marketing/SiteNavLinks";
 import type { Plan } from "../../lib/plans";
@@ -34,7 +34,7 @@ export function ApiSection({
       action: () => (window.location.href = "/account"),
     };
   } else if (loggedIn) {
-    cta = { label: "Upgrade to Enterprise — from £29.99/mo", action: onUpgrade };
+    cta = { label: "Upgrade to Enterprise (from £29.99/mo)", action: onUpgrade };
   } else {
     cta = { label: "Request trade pricing", action: () => (window.location.href = "/trade") };
   }
@@ -113,25 +113,7 @@ export function ApiSection({
 }
 
 export function HonestSection() {
-  return (
-    <section className="mx-auto max-w-3xl px-4 sm:px-6 pb-16 sm:pb-24">
-      <div className="rounded-2xl border border-border-subtle bg-surface-raised p-6 sm:p-8">
-        <div className="flex items-center gap-3">
-          <span className="inline-flex w-11 h-11 rounded-xl bg-accent/15 items-center justify-center shrink-0">
-            <ShieldCheck className="w-5 h-5 text-accent" />
-          </span>
-          <h2 className="text-xl sm:text-2xl font-semibold tracking-tight">
-            Estimate only — final grades are set by the grading company.
-          </h2>
-        </div>
-        <p className="mt-4 text-sm text-text-secondary leading-relaxed">
-          {ESTIMATE_DISCLAIMER} Estimates are based on what your photos can show — fine scratches
-          or dents hidden by glare may not be visible. For high-value cards, always inspect by hand
-          too.
-        </p>
-      </div>
-    </section>
-  );
+  return null;
 }
 
 export function SiteFooter() {
@@ -139,16 +121,15 @@ export function SiteFooter() {
     <footer className="border-t border-border-subtle bg-surface-raised/30">
       <div className="mx-auto max-w-6xl px-4 sm:px-6 py-10">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
-          <div className="text-center sm:text-left">
+          <div className="text-center sm:text-left max-w-sm">
             <img
               src="/gemcheck-logo.png"
               alt="GemCheck"
               className="h-9 w-auto mx-auto sm:mx-0"
               draggable={false}
             />
-            <p className="mt-2 text-xs text-text-muted">
-              Built with care in the English Lake District
-            </p>
+            <p className="mt-2 text-xs text-text-muted leading-relaxed">{FOOTER.tagline}</p>
+            <p className="mt-1 text-xs text-text-muted">{FOOTER.location}</p>
           </div>
           <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm">
             <SiteNavLinks
@@ -161,8 +142,11 @@ export function SiteFooter() {
             />
           </div>
         </div>
-        <p className="mt-6 text-center text-xs text-text-muted max-w-2xl mx-auto">
+        <p className="mt-6 text-center text-xs text-text-muted max-w-2xl mx-auto leading-relaxed">
           {ESTIMATE_DISCLAIMER}
+        </p>
+        <p className="mt-2 text-center text-xs text-text-muted max-w-2xl mx-auto leading-relaxed">
+          {GRADER_INDEPENDENCE}
         </p>
       </div>
     </footer>

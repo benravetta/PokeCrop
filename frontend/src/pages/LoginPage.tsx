@@ -9,6 +9,7 @@ import {
   FormError,
   SubmitButton,
 } from "../components/auth/AuthLayout";
+import { AUTH } from "../lib/marketingCopy";
 
 export function LoginPage() {
   const { signIn } = useAuth();
@@ -44,10 +45,10 @@ export function LoginPage() {
   return (
     <AuthLayout
       title="Welcome back"
-      subtitle="Sign in to check cards and review your reports."
+      subtitle={AUTH.loginSubtitle}
       footer={
         <>
-          New to GemCheck?{" "}
+          {AUTH.noAccount}{" "}
           <Link to="/register" className="text-accent hover:text-accent-hover font-medium">
             Create an account
           </Link>

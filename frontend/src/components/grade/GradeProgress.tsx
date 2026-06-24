@@ -1,21 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, Loader2, ShieldCheck } from "lucide-react";
+import { GRADE_PROGRESS, PROCESSING_STAGES } from "../../lib/gradeUploadCopy";
 
-// The real work the grader does, split into two GPT passes (vision inspection +
-// adjudication) plus pricing. The durations only pace the indicator — the result
-// usually lands mid-sequence, at which point the component unmounts and the
-// report renders. They keep the messaging honest and moving in the meantime.
-const STAGES: { label: string; ms: number }[] = [
-  { label: "Preparing your photos", ms: 1500 },
-  { label: "Reading the card & checking image quality", ms: 3000 },
-  { label: "Measuring centering, front and back", ms: 3000 },
-  { label: "Inspecting corners and edges", ms: 4500 },
-  { label: "Scanning the surface for scratches & print lines", ms: 5500 },
-  { label: "Cross-checking against grading standards", ms: 5500 },
-  { label: "Calculating subgrades & per-company grades", ms: 4500 },
-  { label: "Estimating value and compiling your report", ms: 2500 },
-];
-const TOTAL_MS = STAGES.reduce((a, s) => a + s.ms, 0);
+const STAGE_MS = 6000;
+const TOTAL_MS = PROCESSING_STAGES.length * STAGE_MS;
 
 export function GradeProgress() {
   const [elapsed, setElapsed] = useState(0);
@@ -30,25 +18,14 @@ export function GradeProgress() {
     return () => window.clearInterval(id);
   }, []);
 
-  let acc = 0;
-  let currentIndex = STAGES.length - 1;
-  for (let i = 0; i < STAGES.length; i++) {
-    acc += STAGES[i].ms;
-    if (elapsed < acc) {
-      currentIndex = i;
-      break;
-    }
-  }
+  const currentIndex = Math.min(
+    PROCESSING_STAGES.length - 1,
+    Math.floor(elapsed / STAGE_MS)
+  );
 
-  // Ease to ~92% across the schedule, then creep so it never sits at 100% before
-  // the real result lands.
   const baseFrac = Math.min(elapsed / TOTAL_MS, 1);
   const overrun = Math.max(0, elapsed - TOTAL_MS);
   const pct = baseFrac < 1 ? baseFrac * 92 : 92 + Math.min(overrun / 12000, 1) * 7;
-
-  const remainingMs = Math.max(0, TOTAL_MS - elapsed);
-  const countdown =
-    remainingMs > 0 ? `about ${Math.ceil(remainingMs / 1000)}s left` : "Almost ready…";
 
   return (
     <div className="rounded-2xl border border-border-subtle bg-surface-raised p-8 sm:p-10 flex flex-col items-center text-center animate-[fade-in_0.25s_ease-out]">
@@ -59,10 +36,8 @@ export function GradeProgress() {
         <span className="absolute -inset-1 rounded-2xl border-2 border-accent/30 animate-ping" />
       </div>
 
-      <h2 className="text-lg font-semibold text-text-primary">Checking your card</h2>
-      <p className="mt-1 text-sm text-text-secondary max-w-sm">
-        Checking centring, corners, edges and surface — this usually takes around half a minute.
-      </p>
+      <h2 className="text-lg font-semibold text-text-primary">{GRADE_PROGRESS.heading}</h2>
+      <p className="mt-1 text-sm text-text-secondary max-w-sm">{GRADE_PROGRESS.sub}</p>
 
       <div className="mt-7 w-full max-w-md flex flex-col gap-4">
         <div className="flex flex-col gap-1.5">
@@ -74,17 +49,17 @@ export function GradeProgress() {
           </div>
           <div className="flex items-center justify-between text-[11px] text-text-muted">
             <span>{Math.round(pct)}%</span>
-            <span>{countdown}</span>
+            <span>{elapsed < TOTAL_MS ? "Working…" : "Almost ready…"}</span>
           </div>
         </div>
 
         <ul className="flex flex-col gap-2 text-left">
-          {STAGES.map((s, i) => {
+          {PROCESSING_STAGES.map((label, i) => {
             const done = i < currentIndex;
             const active = i === currentIndex;
             return (
               <li
-                key={s.label}
+                key={label}
                 className={`flex items-center gap-2.5 text-[13px] leading-snug transition-colors ${
                   active
                     ? "text-text-primary"
@@ -102,7 +77,7 @@ export function GradeProgress() {
                     <span className="w-1.5 h-1.5 rounded-full bg-text-muted/40" />
                   )}
                 </span>
-                <span>{s.label}</span>
+                <span>{label}</span>
               </li>
             );
           })}

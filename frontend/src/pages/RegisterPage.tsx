@@ -10,6 +10,7 @@ import {
   FormError,
   SubmitButton,
 } from "../components/auth/AuthLayout";
+import { AUTH } from "../lib/marketingCopy";
 import { RegisterBenefitsPanel } from "../components/auth/RegisterBenefitsPanel";
 
 export function RegisterPage() {
@@ -88,11 +89,11 @@ export function RegisterPage() {
   return (
     <AuthLayout
       title="Create your account"
-      subtitle="Check a card before you pay to submit."
+      subtitle={AUTH.registerSubtitle}
       aside={<RegisterBenefitsPanel />}
       footer={
         <>
-          Already have an account?{" "}
+          {AUTH.alreadyHaveAccount}{" "}
           <Link to="/login" className="text-accent hover:text-accent-hover font-medium">
             Sign in
           </Link>

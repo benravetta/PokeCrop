@@ -1,6 +1,12 @@
 import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
-import { ESTIMATE_DISCLAIMER, SITE_FAQ, WHAT_WE_CHECK } from "../../lib/marketingCopy";
+import {
+  ESTIMATE_DISCLAIMER,
+  GRADER_COMPARE,
+  SITE_FAQ,
+  TRANSPARENCY,
+  WHAT_WE_CHECK,
+} from "../../lib/marketingCopy";
 import { SectionHeading } from "../landing/shared";
 
 export function WhatWeCheckSection() {
@@ -8,12 +14,12 @@ export function WhatWeCheckSection() {
     <section className="py-14 sm:py-16 border-b border-border-subtle bg-surface-raised/20">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <SectionHeading
-          kicker="What we check"
-          title="The four things collectors watch"
-          copy="Every estimate looks at the same condition factors grading companies use — so you know what is driving the result."
+          kicker={WHAT_WE_CHECK.kicker}
+          title={WHAT_WE_CHECK.heading}
+          copy={WHAT_WE_CHECK.intro}
         />
         <div className="mt-10 grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {WHAT_WE_CHECK.map((item) => (
+          {WHAT_WE_CHECK.items.map((item) => (
             <div
               key={item.label}
               className="rounded-2xl border border-border-subtle bg-surface-raised p-5"
@@ -23,6 +29,57 @@ export function WhatWeCheckSection() {
             </div>
           ))}
         </div>
+        <p className="mt-6 text-center text-xs text-text-muted max-w-2xl mx-auto">
+          {WHAT_WE_CHECK.qualification}
+        </p>
+      </div>
+    </section>
+  );
+}
+
+export function GraderCompareSection() {
+  return (
+    <section className="py-14 sm:py-16 border-b border-border-subtle">
+      <div className="mx-auto max-w-6xl px-4 sm:px-6">
+        <SectionHeading
+          kicker={GRADER_COMPARE.kicker}
+          title={GRADER_COMPARE.heading}
+          copy={GRADER_COMPARE.body}
+        />
+        <ul className="mt-8 grid sm:grid-cols-2 gap-3 max-w-2xl">
+          {GRADER_COMPARE.points.map((point) => (
+            <li
+              key={point}
+              className="rounded-xl border border-border-subtle bg-surface-raised px-4 py-3 text-sm text-text-secondary"
+            >
+              {point}
+            </li>
+          ))}
+        </ul>
+        <p className="mt-8 text-center">
+          <a
+            href="#report"
+            className="inline-flex items-center gap-2 text-sm font-semibold text-accent hover:text-accent-hover"
+          >
+            {GRADER_COMPARE.cta}
+            <ArrowRight className="w-4 h-4" />
+          </a>
+        </p>
+      </div>
+    </section>
+  );
+}
+
+export function TransparencySection() {
+  return (
+    <section className="py-14 sm:py-16 border-b border-border-subtle bg-surface-raised/30">
+      <div className="mx-auto max-w-3xl px-4 sm:px-6 text-center">
+        <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight text-balance">
+          {TRANSPARENCY.heading}
+        </h2>
+        <p className="mt-4 text-sm text-text-secondary leading-relaxed">{TRANSPARENCY.body}</p>
+        <p className="mt-3 text-sm text-text-secondary leading-relaxed">{TRANSPARENCY.body2}</p>
+        <p className="mt-6 text-xs text-text-muted">{ESTIMATE_DISCLAIMER}</p>
       </div>
     </section>
   );

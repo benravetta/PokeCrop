@@ -3,6 +3,7 @@ import { ArrowRight, Check, FileText, Tag } from "lucide-react";
 import { PRICING_TIERS, SINGLE_GRADE } from "./data";
 import { isProLaunchPromoActive, PRO_LAUNCH_PROMO } from "../pricing/pricingCompare";
 import type { Plan, SubscriptionPlan } from "../../lib/plans";
+import { PRICING, NAV } from "../../lib/marketingCopy";
 import { SectionHeading } from "./shared";
 import { AdminAccessNotice } from "../../lib/adminAccess";
 
@@ -91,8 +92,8 @@ export function PricingSection({
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <SectionHeading
           kicker="Pricing"
-          title="Simple pricing for smarter submissions"
-          copy="Choose the plan that fits your stack, from one-off checks to regular grading triage. No hidden upcharges."
+          title={PRICING.heading}
+          copy={PRICING.body}
         />
 
         {proPromoLive && (
@@ -237,7 +238,7 @@ export function PlanCta({
   } else if (!loggedIn) {
     title = "Check a card before you ever pay to grade.";
     copy = `Free to start — or buy a single report for ${SINGLE_GRADE.price} with no subscription.`;
-    primary = { label: "Check a card", to: "/register" };
+    primary = { label: NAV.checkCardFree, to: "/register" };
     secondary = { label: "See pricing", to: "/pricing" };
   } else if (plan === "free") {
     title = "Need more than one grade a month?";

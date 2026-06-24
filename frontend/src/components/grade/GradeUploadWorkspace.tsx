@@ -16,6 +16,7 @@ import {
 import { CenteringTool } from "./CenteringTool";
 import type { CaptureIssue } from "../../lib/api";
 import type { Box } from "../../lib/centering";
+import { GRADE_UPLOAD } from "../../lib/gradeUploadCopy";
 
 type CardSlot = "front" | "back";
 type Slot = CardSlot | "angled_front" | "angled_back";
@@ -484,11 +485,10 @@ export function GradeUploadWorkspace({
                 Pre-grade check
               </div>
               <h1 className="text-2xl sm:text-3xl font-semibold text-text-primary tracking-tight">
-                Let&apos;s check your card
+                {GRADE_UPLOAD.pageHeading}
               </h1>
               <p className="mt-2 text-sm text-text-secondary leading-relaxed max-w-lg">
-                Add clear front and back images for the strongest estimate. Use a plain background
-                and avoid glare — the better the photos, the better the guidance.
+                {GRADE_UPLOAD.intro}
               </p>
             </div>
             {quotaLabel}
@@ -510,18 +510,18 @@ export function GradeUploadWorkspace({
           <Panel
             step={1}
             title="Upload your photos"
-            description="Use a plain background and avoid glare. The front image is required."
+            description={`${GRADE_UPLOAD.frontHelp} The front photo is required.`}
           >
             <div className="grid sm:grid-cols-2 gap-4 max-w-2xl">
               <ImageSlot
-                label="Front image"
+                label={GRADE_UPLOAD.frontLabel}
                 required
                 preview={previews.front}
                 onPick={(f) => setSlot("front", f)}
                 onClear={() => setSlot("front", null)}
               />
               <ImageSlot
-                label="Back image"
+                label={GRADE_UPLOAD.backLabel}
                 preview={previews.back}
                 onPick={(f) => setSlot("back", f)}
                 onClear={() => setSlot("back", null)}
@@ -647,7 +647,7 @@ export function GradeUploadWorkspace({
             ) : hasFront ? (
               centeringMeasured ? (
                 <span className="text-success inline-flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> Ready to grade
+                  <CheckCircle2 className="w-3.5 h-3.5" /> {GRADE_UPLOAD.readyState}
                 </span>
               ) : (
                 "Confirm centering borders for best accuracy"
@@ -664,7 +664,7 @@ export function GradeUploadWorkspace({
                 className="inline-flex items-center gap-2 rounded-xl border border-accent/40 bg-accent/10 px-4 py-2.5 text-sm font-medium text-accent hover:bg-accent/20 disabled:opacity-50 transition-colors"
               >
                 {buyBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <CreditCard className="w-4 h-4" />}
-                Buy 1 grade — £2.99
+                {GRADE_UPLOAD.buyOne}
               </button>
             )}
             <button
@@ -673,7 +673,7 @@ export function GradeUploadWorkspace({
               className="inline-flex items-center gap-2 rounded-xl bg-accent px-6 py-2.5 text-sm font-semibold text-white shadow-[0_4px_24px_-6px_var(--color-accent)] hover:bg-accent-hover disabled:opacity-50 disabled:shadow-none disabled:cursor-not-allowed transition-all"
             >
               {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <ScanSearch className="w-4 h-4" />}
-              {running ? "Checking…" : outOfQuota ? "No grades left" : "Run check"}
+              {running ? GRADE_UPLOAD.checking : outOfQuota ? GRADE_UPLOAD.noCredits : GRADE_UPLOAD.runCheck}
             </button>
           </div>
         </div>

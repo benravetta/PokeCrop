@@ -38,6 +38,8 @@ import { GradeUploadWorkspace } from "../components/grade/GradeUploadWorkspace";
 import { borderRatios, type Box } from "../lib/centering";
 import { loadImage, cropFromImage, resolveRect } from "../lib/cardRegions";
 import { useAppStore } from "../hooks/useProcessing";
+import { PAYMENT } from "../lib/marketingCopy";
+import { REPORT, UPLOAD_ERRORS } from "../lib/gradeUploadCopy";
 
 // ---- helpers to read the loosely-typed model result ----
 const asObj = (v: unknown): Record<string, unknown> =>
@@ -347,8 +349,10 @@ export function GradePage() {
         if (body?.capture_quality) {
           setCaptureBlockers(body.capture_quality.issues.filter((i) => i.severity === "block"));
         }
+        setError(`${err.message} ${UPLOAD_ERRORS.creditNotUsed}`);
+        return;
       }
-      setError(err instanceof Error ? err.message : "Grading failed.");
+      setError(err instanceof Error ? err.message : UPLOAD_ERRORS.processingFail);
     } finally {
       setRunning(false);
     }
@@ -418,11 +422,11 @@ export function GradePage() {
   const purchaseBanner =
     purchaseStatus === "success" ? (
       <div className="mt-4 rounded-lg bg-success/10 border border-success/20 px-3 py-2 text-[13px] text-success">
-        Payment received — a single grade has been added to your account.
+        {PAYMENT.checkoutSuccess}
       </div>
     ) : purchaseStatus === "cancel" ? (
       <div className="mt-4 rounded-lg bg-surface-overlay border border-border-subtle px-3 py-2 text-[13px] text-text-secondary">
-        Checkout cancelled — no charge was made.
+        {PAYMENT.checkoutCancelled}
       </div>
     ) : null;
 
@@ -492,7 +496,7 @@ export function GradePage() {
           <div className="mb-6 rounded-2xl border border-border-subtle bg-surface-raised p-4 sm:p-5 flex flex-wrap items-center justify-between gap-4 anim-rise">
             <div>
               <div className="text-[11px] uppercase tracking-wide text-text-muted">Pre-grade estimate</div>
-              <h1 className="text-xl font-semibold text-text-primary mt-0.5">Your pre-grade estimate</h1>
+              <h1 className="text-xl font-semibold text-text-primary mt-0.5">{REPORT.mainHeading}</h1>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <button

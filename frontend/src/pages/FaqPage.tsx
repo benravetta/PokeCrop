@@ -2,11 +2,13 @@ import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import { MarketingPageShell } from "../components/marketing/MarketingPageShell";
-import { SITE_FAQ, SEO } from "../lib/marketingCopy";
+import { HERO, SITE_FAQ, SEO } from "../lib/marketingCopy";
 
 export function FaqPage() {
   useEffect(() => {
     document.title = SEO.faq.title;
+    const meta = document.querySelector('meta[name="description"]');
+    if (meta) meta.setAttribute("content", SEO.faq.description);
   }, []);
 
   return (
@@ -38,7 +40,7 @@ export function FaqPage() {
         to="/register"
         className="mt-6 inline-flex items-center gap-2 rounded-xl bg-accent px-6 py-3 text-sm font-semibold text-white hover:bg-accent-hover transition-colors"
       >
-        Check a card
+        {HERO.primaryCtaGuest}
         <ArrowRight className="w-4 h-4" />
       </Link>
     </MarketingPageShell>

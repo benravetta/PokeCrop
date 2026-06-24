@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { Menu, X } from "lucide-react";
 import { Wordmark } from "../landing/shared";
@@ -9,8 +9,10 @@ type Props = {
   highlightActive?: boolean;
   sticky?: boolean;
   logoClassName?: string;
+  /** Always visible from md breakpoint up (CTAs, account actions). */
   actions?: ReactNode;
-  menuActions?: ReactNode;
+  /** Extra rows at the bottom of the mobile menu sheet only. */
+  mobileMenuActions?: ReactNode;
 };
 
 export function MarketingSiteHeader({
@@ -19,10 +21,11 @@ export function MarketingSiteHeader({
   sticky = false,
   logoClassName = "h-8",
   actions,
-  menuActions,
+  mobileMenuActions,
 }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!sticky) return;
@@ -41,6 +44,17 @@ export function MarketingSiteHeader({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [menuOpen]);
 
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onPointerDown = (e: MouseEvent) => {
+      if (!menuRef.current?.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    window.addEventListener("mousedown", onPointerDown);
+    return () => window.removeEventListener("mousedown", onPointerDown);
+  }, [menuOpen]);
+
   const closeMenu = () => setMenuOpen(false);
   const homeIsAnchor = homeHref.startsWith("#");
 
@@ -56,7 +70,7 @@ export function MarketingSiteHeader({
             : "bg-surface/90 backdrop-blur-xl border-b border-border-subtle"
       }`}
     >
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 h-14 sm:h-16 flex items-center justify-between gap-4">
+      <div className="mx-auto max-w-6xl px-4 sm:px-6 h-14 sm:h-16 flex items-center justify-between gap-3">
         {homeIsAnchor ? (
           <a href={homeHref} className="shrink-0" onClick={closeMenu}>
             <Wordmark className={logoClassName} />
@@ -67,26 +81,45 @@ export function MarketingSiteHeader({
           </Link>
         )}
 
-        <div className="flex items-center gap-2">
-          {actions}
+        <div ref={menuRef} className="relative flex items-center gap-1.5 sm:gap-2">
+          {actions ? (
+            <div className="hidden md:flex items-center gap-2 shrink-0">{actions}</div>
+          ) : null}
+
           <button
             type="button"
             onClick={() => setMenuOpen((v) => !v)}
-            className="inline-flex items-center justify-center w-10 h-10 rounded-lg text-text-secondary hover:bg-surface-overlay transition-colors"
+            className={`inline-flex items-center justify-center w-10 h-10 rounded-lg transition-colors ${
+              menuOpen
+                ? "bg-surface-overlay text-text-primary"
+                : "text-text-secondary hover:bg-surface-overlay"
+            }`}
             aria-expanded={menuOpen}
             aria-label={menuOpen ? "Close menu" : "Open menu"}
           >
             {menuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
+
+          {menuOpen ? (
+            <>
+              {/* Mobile: full-width sheet */}
+              <div className="md:hidden fixed inset-x-0 top-14 sm:top-16 z-40 border-t border-border-subtle bg-surface/98 backdrop-blur-xl px-4 py-3 shadow-lg shadow-black/20 anim-fade max-h-[calc(100dvh-3.5rem)] overflow-y-auto">
+                <SiteNavMenu highlightActive={highlightActive} onNavigate={closeMenu} variant="sheet" />
+                {mobileMenuActions}
+              </div>
+
+              {/* Desktop / iPad: compact popover */}
+              <div className="hidden md:block absolute right-0 top-[calc(100%+0.5rem)] z-50 w-[17.5rem] rounded-xl border border-border-subtle bg-surface/98 backdrop-blur-xl shadow-xl shadow-black/25 anim-fade">
+                <SiteNavMenu
+                  highlightActive={highlightActive}
+                  onNavigate={closeMenu}
+                  variant="dropdown"
+                />
+              </div>
+            </>
+          ) : null}
         </div>
       </div>
-
-      {menuOpen && (
-        <div className="border-t border-border-subtle bg-surface/95 backdrop-blur-xl px-4 py-3 anim-fade">
-          <SiteNavMenu highlightActive={highlightActive} onNavigate={closeMenu} />
-          {menuActions}
-        </div>
-      )}
     </header>
   );
 }

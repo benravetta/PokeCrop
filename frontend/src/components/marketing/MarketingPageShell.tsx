@@ -3,7 +3,9 @@ import { Link } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { SiteFooter } from "../landing/FooterSections";
 import { MarketingSiteHeader } from "./MarketingSiteHeader";
-import { SiteNavMenuActions } from "./SiteNavMenu";
+import { GuestHeaderActions, SiteNavMenuActions } from "./SiteNavMenu";
+import { NAV } from "../../lib/marketingCopy";
+import { headerPrimaryBtn } from "./headerCtaStyles";
 
 export function MarketingPageShell({
   children,
@@ -20,20 +22,18 @@ export function MarketingPageShell({
     <div className="min-h-[100dvh] bg-surface text-text-primary flex flex-col">
       <MarketingSiteHeader
         highlightActive
-        menuActions={
-          <SiteNavMenuActions>
+        actions={<GuestHeaderActions />}
+        mobileMenuActions={
+          <SiteNavMenuActions className="mt-3 pt-3 border-t border-border-subtle md:hidden">
             <div className="grid grid-cols-2 gap-2">
               <Link
                 to="/login"
                 className="rounded-xl border border-border-strong px-4 py-2.5 text-sm font-medium text-center text-text-primary"
               >
-                Sign in
+                {NAV.signIn}
               </Link>
-              <Link
-                to="/register"
-                className="rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-white text-center"
-              >
-                Check a card
+              <Link to="/register" className={`${headerPrimaryBtn} w-full justify-center`}>
+                {NAV.checkCardFree}
               </Link>
             </div>
           </SiteNavMenuActions>

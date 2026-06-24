@@ -289,24 +289,36 @@ export const COMPARE_SECTIONS: CompareSection[] = [
 
 export const PRICING_FAQ = [
   {
-    q: "What's included in a single £2.99 grade?",
-    a: "The same full pre-grade report you get on a subscription — all five companies, condition scores, centring, prep checklist, and a downloadable PDF. The credit stays on your account until you use it.",
+    q: "What's included in a single £2.99 report?",
+    a: "The same full pre-grade report you get on a subscription: all five companies, condition scores, centring, prep checklist and a downloadable PDF. The credit stays on your account until you use it.",
   },
   {
-    q: "Do pay-as-you-go grades expire?",
-    a: "No. Purchased credits remain on your account until you run a report. They stack on top of your free monthly grade or subscription allowance.",
+    q: "Do pay-as-you-go credits expire?",
+    a: "No. Purchased credits remain on your account until you run a report. They stack on top of your free monthly allowance or subscription.",
   },
   {
-    q: "How does the Pro launch offer work?",
-    a: "New customers can enter promotion code GEM50 at checkout for 50% off Pro for the first three months. The offer ends 1 August 2026. Configure the coupon in Stripe with new-customer and duration restrictions.",
+    q: "Do I need a subscription?",
+    a: "No. Your free account includes 1 card check per month. Extra reports start at £2.99. Subscriptions are optional for heavier use.",
   },
   {
-    q: "What's the difference between Pro and Enterprise?",
-    a: "Pro includes 100 web pre-grades per month and priority processing. Enterprise adds everything in Pro plus REST API access, self-serve API keys, and programmatic crop & grade endpoints.",
+    q: "What happens if a photo is rejected?",
+    a: "If photo quality blocks the check, or the image is not a trading card, your report credit is not used. Retake the photo and try again.",
   },
   {
     q: "What counts toward my crop limit?",
-    a: "Each successful straighten/crop on the web app counts toward your daily free limit (centring measurement on the same session is included). Failed detections don't. Premium, Pro, and Enterprise include unlimited web crops.",
+    a: "Each successful straighten/crop on the web app counts toward your daily free limit. Failed detections do not. Premium, Pro and Enterprise include unlimited web crops.",
+  },
+  {
+    q: "How does the Pro launch offer work?",
+    a: "New customers can enter promotion code GEM50 at checkout for 50% off Pro for the first three months. The offer ends 1 August 2026.",
+  },
+  {
+    q: "What's the difference between Pro and Enterprise?",
+    a: "Pro includes 100 web pre-grade reports per month and priority processing. Enterprise adds REST API access, self-serve API keys and programmatic crop and grade endpoints.",
+  },
+  {
+    q: "Can I request a refund?",
+    a: "TODO: Link to refund policy once published. Unused purchased credits can be refunded via Stripe when eligible.",
   },
 ] as const;
 

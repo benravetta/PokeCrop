@@ -1,8 +1,8 @@
 import { Link } from "react-router-dom";
 import { ArrowRight, CheckCircle2, Upload } from "lucide-react";
-import { HERO_CARD_IMG, HERO_REVIEW, SINGLE_GRADE } from "./data";
-import { AppWindow, StarRating } from "./shared";
-import { TRUST_STRIP } from "../../lib/marketingCopy";
+import { HERO_CARD_IMG, SINGLE_GRADE } from "./data";
+import { AppWindow } from "./shared";
+import { ESTIMATE_DISCLAIMER_SHORT, HERO, TRUST_STRIP } from "../../lib/marketingCopy";
 import { PLAN_LABELS, type Plan } from "../../lib/plans";
 
 export function HeroSection({
@@ -15,8 +15,16 @@ export function HeroSection({
   isAdmin?: boolean;
 }) {
   const primary = loggedIn
-    ? { to: "/grade", label: "Check a card" }
-    : { to: "/register", label: "Check a card" };
+    ? { to: "/grade", label: HERO.primaryCtaLoggedIn }
+    : { to: "/register", label: HERO.primaryCtaGuest };
+
+  const supportLine = isAdmin
+    ? "Admin account: unlimited crops, reports and API access."
+    : plan === "free"
+      ? HERO.supportFreePlan(SINGLE_GRADE.price)
+      : plan
+        ? `${PLAN_LABELS[plan]} plan active.`
+        : HERO.supportGuest;
 
   return (
     <section id="top" className="relative overflow-hidden landing-mesh">
@@ -24,15 +32,14 @@ export function HeroSection({
         <div className="grid lg:grid-cols-2 gap-12 lg:gap-14 items-center">
           <div className="text-center lg:text-left anim-rise">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-accent mb-3">
-              For Pokémon, sports and TCG collectors
+              {HERO.eyebrow}
             </p>
             <h1 className="text-4xl sm:text-5xl lg:text-[3.1rem] font-semibold tracking-tight leading-[1.08] text-balance">
-              Know before you grade
+              {HERO.h1}
             </h1>
 
             <p className="mt-5 text-base sm:text-lg text-text-secondary max-w-lg mx-auto lg:mx-0 leading-relaxed">
-              Upload front and back photos to get a clear pre-grade estimate before you spend money
-              on submission fees.
+              {HERO.body}
             </p>
 
             <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center lg:justify-start">
@@ -47,20 +54,12 @@ export function HeroSection({
                 href="#report"
                 className="inline-flex items-center justify-center gap-2 rounded-xl border border-border-strong bg-surface-raised/60 px-6 py-3.5 text-sm font-semibold text-text-primary hover:bg-surface-overlay transition-colors"
               >
-                See a sample report
+                {HERO.secondaryCta}
                 <ArrowRight className="w-4 h-4 text-text-muted" />
               </a>
             </div>
 
-            <p className="mt-4 text-sm text-text-muted">
-              {isAdmin
-                ? "Admin account — unlimited crops, grades, and API access."
-                : plan === "free"
-                  ? `Free plan — 1 grade a month, 3 crops and centring sessions a day. Need another? ${SINGLE_GRADE.price} per report.`
-                  : plan
-                    ? `${PLAN_LABELS[plan]} plan active.`
-                    : `Free account includes one grade a month. Single reports from ${SINGLE_GRADE.price} — no subscription required.`}
-            </p>
+            <p className="mt-4 text-sm text-text-muted">{supportLine}</p>
 
             <div className="mt-8 flex flex-wrap justify-center lg:justify-start gap-x-4 gap-y-2">
               {TRUST_STRIP.map((item) => (
@@ -74,15 +73,9 @@ export function HeroSection({
               ))}
             </div>
 
-            <figure className="mt-8 rounded-2xl border border-border-subtle bg-surface-raised/80 p-4 text-left max-w-lg mx-auto lg:mx-0">
-              <StarRating count={HERO_REVIEW.rating} />
-              <blockquote className="mt-2 text-sm text-text-secondary leading-relaxed">
-                &ldquo;{HERO_REVIEW.text}&rdquo;
-              </blockquote>
-              <figcaption className="mt-3 text-xs text-text-muted">
-                {HERO_REVIEW.name} · {HERO_REVIEW.role}
-              </figcaption>
-            </figure>
+            <p className="mt-6 text-xs text-text-muted max-w-lg mx-auto lg:mx-0 leading-relaxed">
+              {HERO.qualification}
+            </p>
           </div>
 
           <ProductPreview />
@@ -106,7 +99,6 @@ function ProductPreview() {
 
   return (
     <div className="anim-scale relative w-full max-w-[420px] lg:max-w-[460px] mx-auto py-4 sm:py-6">
-      {/* Card — larger, sits behind the report window */}
       <div
         aria-hidden
         className="pointer-events-none absolute left-0 sm:-left-2 top-1/2 -translate-y-[48%] z-0 w-[58%] sm:w-[54%] max-w-[260px]"
@@ -123,9 +115,8 @@ function ProductPreview() {
         />
       </div>
 
-      {/* Report — overlaps the card on the right */}
       <div className="relative z-10 ml-[26%] sm:ml-[30%]">
-        <AppWindow title="GemCheck — Pre-grade report">
+        <AppWindow title="GemCheck pre-grade report">
           <div className="p-4 sm:p-5 bg-surface-raised">
             <div>
               <div className="text-[10px] uppercase tracking-wider text-text-muted font-medium">
@@ -139,7 +130,7 @@ function ProductPreview() {
 
             <div className="mt-4">
               <div className="text-[10px] uppercase tracking-wider text-text-muted font-medium mb-2">
-                Estimated grade
+                Grader estimates
               </div>
               <div className="space-y-1">
                 {grades.map(({ co, g, recommended: isRec }) =>
@@ -177,8 +168,8 @@ function ProductPreview() {
                 <span className="font-medium text-text-primary">
                   {recommended.co} looks like the strongest match for this card.
                 </span>{" "}
-                Estimate only — every company weighs centring, corners, edges and surface
-                differently.
+                {ESTIMATE_DISCLAIMER_SHORT} Each company weights centering, corners, edges and
+                surface differently.
               </p>
             </div>
           </div>

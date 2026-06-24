@@ -72,8 +72,8 @@ export function ReportPreview() {
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <SectionHeading
           kicker="Sample report"
-          title="This is what you download."
-          copy="One full PDF per grade — card ID, all five grading companies, condition breakdown, centring, value estimates, and a prep plan. Shown here with a real example."
+          title="This is what you download"
+          copy="One full PDF per check: card ID, all five grading companies, condition breakdown, centring, value estimates and a prep plan. Shown here with a real example."
         />
 
         <div className="mt-12 mx-auto max-w-3xl">
@@ -138,9 +138,9 @@ export function ReportPreview() {
                 </div>
               </div>
 
-              <PaperSec title="Recommendation">
+              <PaperSec title="Likely best fit">
                 <div className="flex items-center justify-between gap-3">
-                  <div className="text-[14px] font-bold">Possible — inspect first</div>
+                  <div className="text-[14px] font-bold">Possible. Inspect first</div>
                   <span
                     className="rounded-full text-[10px] font-semibold px-2 py-0.5"
                     style={{ backgroundColor: "#eef2ff", color: RPT_ACCENT }}
@@ -158,7 +158,7 @@ export function ReportPreview() {
                 </p>
               </PaperSec>
 
-              <PaperSec title="Estimated grade by company">
+              <PaperSec title="Grader estimates">
                 <div className="grid grid-cols-[1.5fr_0.7fr_1fr_1.6fr] gap-x-2 text-[11px]">
                   {["Company", "Likely", "Range", "Subgrades (C / Co / E / S)"].map((h) => (
                     <div key={h} className="font-bold pb-1.5" style={{ color: RPT_MUTE }}>
@@ -316,7 +316,7 @@ export function ReportPreview() {
           </div>
 
           <p className="mt-4 text-center text-xs text-text-muted">
-            Every grade includes this as a downloadable PDF, with close-up snapshots of any flaws.
+            Every card check includes this as a downloadable PDF, with close-up snapshots of any flaws.
           </p>
         </div>
       </div>

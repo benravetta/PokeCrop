@@ -12,10 +12,12 @@ import { ReportPreview } from "../components/landing/ReportPreview";
 import { CropDemoSection } from "../components/landing/CropDemoSection";
 import { ReviewsSection } from "../components/landing/SocialProof";
 import { PricingSection, PlanCta } from "../components/landing/PricingSection";
-import { ApiSection, HonestSection, SiteFooter } from "../components/landing/FooterSections";
+import { ApiSection, SiteFooter } from "../components/landing/FooterSections";
 import {
   FaqStripSection,
+  GraderCompareSection,
   TradeTeaserSection,
+  TransparencySection,
   WhatWeCheckSection,
 } from "../components/marketing/MarketingSections";
 
@@ -62,12 +64,11 @@ export function LandingPage() {
     <div className="min-h-[100dvh] bg-surface text-text-primary">
       <TopNav loggedIn={loggedIn} plan={plan} isAdmin={isAdmin} onUpgrade={goCheckout} />
       <HeroSection loggedIn={loggedIn} plan={plan} isAdmin={isAdmin} />
+      <ReportPreview />
       <HowItWorksSection />
       <WhatWeCheckSection />
-      <WhySection />
-      <FeaturesSection />
-      <ReportPreview />
-      <CropDemoSection />
+      <GraderCompareSection />
+      <TransparencySection />
       <ReviewsSection />
       <PricingSection
         loggedIn={loggedIn}
@@ -77,10 +78,12 @@ export function LandingPage() {
         onBuyGrade={goBuyGrade}
       />
       <FaqStripSection />
+      <PlanCta loggedIn={loggedIn} plan={plan} isAdmin={isAdmin} onUpgrade={goCheckout} onBuyGrade={goBuyGrade} />
+      <WhySection />
+      <FeaturesSection />
+      <CropDemoSection />
       <TradeTeaserSection />
       <ApiSection plan={plan} loggedIn={loggedIn} isAdmin={isAdmin} onUpgrade={() => goCheckout("api")} />
-      <PlanCta loggedIn={loggedIn} plan={plan} isAdmin={isAdmin} onUpgrade={goCheckout} onBuyGrade={goBuyGrade} />
-      <HonestSection />
       <SiteFooter />
     </div>
   );
