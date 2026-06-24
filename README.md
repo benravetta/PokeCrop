@@ -263,8 +263,12 @@ For **local dev**, `frontend/.env` holds the public `VITE_SUPABASE_*` values
    **Redirect URLs** for each environment:
    - `http://localhost:5173` and `http://localhost:5173/reset-password` (dev)
    - `https://gemcheck.co.uk` and `https://gemcheck.co.uk/reset-password` (prod)
-3. **Email** — email confirmation is on by default. For production volume,
-   configure custom SMTP under **Authentication → Emails**.
+3. **Email** — email confirmation is on by default. Branded GemCheck templates
+   live in [`supabase/email-templates/`](supabase/email-templates/). Rebuild with
+   `node supabase/email-templates/build-templates.mjs`, then apply with
+   `./scripts/apply-email-templates.sh` (requires `SUPABASE_ACCESS_TOKEN` from
+   [account tokens](https://supabase.com/dashboard/account/tokens)). For production
+   volume, configure custom SMTP under **Authentication → Emails**.
 
 ### Stripe setup
 

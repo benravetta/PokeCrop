@@ -1,0 +1,15 @@
+{
+  "mailer_subjects_confirmation": "Confirm your GemCheck account",
+  "mailer_subjects_invite": "You're invited to GemCheck",
+  "mailer_subjects_magic_link": "Your GemCheck sign-in link",
+  "mailer_subjects_email_change": "Confirm your new GemCheck email address",
+  "mailer_subjects_recovery": "Reset your GemCheck password",
+  "mailer_subjects_reauthentication": "Your GemCheck verification code",
+  "mailer_subjects_password_changed_notification": "Your GemCheck password was changed",
+  "mailer_subjects_email_changed_notification": "Your GemCheck email address was changed",
+  "mailer_subjects_phone_changed_notification": "Your GemCheck phone number was changed",
+  "mailer_subjects_identity_linked_notification": "A sign-in method was linked to GemCheck",
+  "mailer_subjects_identity_unlinked_notification": "A sign-in method was removed from GemCheck",
+  "mailer_subjects_mfa_factor_enrolled_notification": "Verification method added to GemCheck",
+  "mailer_subjects_mfa_factor_unenrolled_notification": "Verification method removed from GemCheck"
+}

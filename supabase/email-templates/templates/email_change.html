@@ -1,0 +1,19 @@
+<h1 style="margin:0 0 12px;font-size:22px;font-weight:700;line-height:1.3;color:#13151e;">Confirm your new email address</h1>
+<p style="margin:0 0 16px;color:#5e6379;">You requested to change the email address on your GemCheck account to <strong style="color:#13151e;">{{ .NewEmail }}</strong>. Confirm this change using the button below.</p>
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:24px 0;">
+  <tr>
+    <td align="center" style="border-radius:10px;background-color:#7c6cf6;">
+      <a href="{{ .ConfirmationURL }}" target="_blank" style="display:inline-block;padding:14px 28px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:10px;background-color:#7c6cf6;">Confirm new email</a>
+    </td>
+  </tr>
+</table>
+<p style="margin:0 0 8px;font-size:13px;color:#5e6379;">This link expires shortly and can only be used once.</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:20px 0 0;background-color:#f4f5f8;border-radius:10px;border:1px solid #e8eaf0;">
+  <tr>
+    <td style="padding:16px 20px;text-align:center;">
+      <p style="margin:0 0 8px;font-size:12px;color:#5e6379;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;">Or use this code</p>
+      <p style="margin:0;font-size:28px;font-weight:700;letter-spacing:0.2em;color:#13151e;font-family:ui-monospace,'SF Mono',Monaco,Consolas,monospace;">{{ .Token }}</p>
+    </td>
+  </tr>
+</table>
+<p style="margin:16px 0 0;font-size:13px;color:#5e6379;">If you didn't request this change, you can safely ignore this email.</p>
