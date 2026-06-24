@@ -62,7 +62,7 @@ export function HelpDrawer({
           <div>
             <h2 className="text-sm font-semibold text-text-primary">How GemCheck works</h2>
             <p className="text-[11px] text-text-muted">
-              A quick guide to getting a clean cut every time.
+              Straighten, measure centring and export — no Photoshop required.
             </p>
           </div>
           <button

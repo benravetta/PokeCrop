@@ -9,7 +9,6 @@ import {
   Layers,
   Loader2,
   ScanSearch,
-  Sparkles,
   Square,
   Upload,
   X,
@@ -482,15 +481,14 @@ export function GradeUploadWorkspace({
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="max-w-xl">
               <div className="inline-flex items-center gap-2 rounded-full border border-accent/25 bg-accent/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-accent mb-3">
-                <Sparkles className="w-3.5 h-3.5" />
-                AI Pre-Grader
+                Pre-grade check
               </div>
               <h1 className="text-2xl sm:text-3xl font-semibold text-text-primary tracking-tight">
-                Know the grade before you submit
+                Let&apos;s check your card
               </h1>
               <p className="mt-2 text-sm text-text-secondary leading-relaxed max-w-lg">
-                Upload sharp front and back photos. We straighten the card, measure centering, and
-                estimate grades across PSA, Beckett, CGC, TAG and ACE.
+                Add clear front and back images for the strongest estimate. Use a plain background
+                and avoid glare — the better the photos, the better the guidance.
               </p>
             </div>
             {quotaLabel}
@@ -512,18 +510,18 @@ export function GradeUploadWorkspace({
           <Panel
             step={1}
             title="Upload your photos"
-            description="Full camera resolution, square-on, glare-free. The front is required."
+            description="Use a plain background and avoid glare. The front image is required."
           >
             <div className="grid sm:grid-cols-2 gap-4 max-w-2xl">
               <ImageSlot
-                label="Front"
+                label="Front image"
                 required
                 preview={previews.front}
                 onPick={(f) => setSlot("front", f)}
                 onClear={() => setSlot("front", null)}
               />
               <ImageSlot
-                label="Back"
+                label="Back image"
                 preview={previews.back}
                 onPick={(f) => setSlot("back", f)}
                 onClear={() => setSlot("back", null)}
@@ -655,7 +653,7 @@ export function GradeUploadWorkspace({
                 "Confirm centering borders for best accuracy"
               )
             ) : (
-              "Add a front photo to continue"
+              "Upload a front image to continue."
             )}
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -674,8 +672,8 @@ export function GradeUploadWorkspace({
               disabled={!hasFront || running || outOfQuota}
               className="inline-flex items-center gap-2 rounded-xl bg-accent px-6 py-2.5 text-sm font-semibold text-white shadow-[0_4px_24px_-6px_var(--color-accent)] hover:bg-accent-hover disabled:opacity-50 disabled:shadow-none disabled:cursor-not-allowed transition-all"
             >
-              {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-              {running ? "Inspecting…" : outOfQuota ? "No grades left" : "Run pre-grade"}
+              {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <ScanSearch className="w-4 h-4" />}
+              {running ? "Checking…" : outOfQuota ? "No grades left" : "Run check"}
             </button>
           </div>
         </div>

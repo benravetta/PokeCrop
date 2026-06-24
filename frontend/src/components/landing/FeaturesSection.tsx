@@ -15,7 +15,7 @@ const FEATURES = [
       `Single reports from ${SINGLE_GRADE.price} — no subscription`,
     ],
     to: "/grade",
-    cta: "Try Grade",
+    cta: "Check a card",
   },
   {
     icon: Crop,
@@ -24,7 +24,7 @@ const FEATURES = [
     copy: "Drop a desk photo, binder snap or PDF. GemCheck straightens the card, exports a transparent PNG, and measures border centring on the same canvas — no Photoshop required.",
     bullets: ["Auto-detect & de-skew", "Border centring measurement", "Original & web-size exports"],
     to: "/crop",
-    cta: "Try crop & centring",
+    cta: "Try crop tool",
   },
 ] as const;
 

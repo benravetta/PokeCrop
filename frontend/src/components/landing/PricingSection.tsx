@@ -90,9 +90,9 @@ export function PricingSection({
     <section id="pricing" className="scroll-mt-20 py-16 sm:py-24">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <SectionHeading
-          kicker="Simple pricing"
-          title="Start free. Pay per card if you prefer."
-          copy="Every account gets one free grade a month. Premium from £9.99/mo — or buy a single report whenever you need one."
+          kicker="Pricing"
+          title="Simple pricing for smarter submissions"
+          copy="Choose the plan that fits your stack, from one-off checks to regular grading triage. No hidden upcharges."
         />
 
         {proPromoLive && (
@@ -237,8 +237,8 @@ export function PlanCta({
   } else if (!loggedIn) {
     title = "Check a card before you ever pay to grade.";
     copy = `Free to start — or buy a single report for ${SINGLE_GRADE.price} with no subscription.`;
-    primary = { label: "Create a free account", to: "/register" };
-    secondary = { label: `Buy one grade — ${SINGLE_GRADE.price}`, to: "/register" };
+    primary = { label: "Check a card", to: "/register" };
+    secondary = { label: "See pricing", to: "/pricing" };
   } else if (plan === "free") {
     title = "Need more than one grade a month?";
     copy = `Premium is £9.99/mo for 30 reports, or buy a single report for ${SINGLE_GRADE.price}.`;

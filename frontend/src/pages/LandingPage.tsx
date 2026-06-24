@@ -3,6 +3,7 @@ import { useAuth } from "../hooks/useAuth";
 import { useMe } from "../hooks/useMe";
 import { startCheckout, startGradeCheckout } from "../lib/api";
 import type { Plan, SubscriptionPlan } from "../lib/plans";
+import { SEO } from "../lib/marketingCopy";
 import { TopNav } from "../components/landing/TopNav";
 import { HeroSection } from "../components/landing/HeroSection";
 import { HowItWorksSection } from "../components/landing/CompareAndHow";
@@ -12,6 +13,11 @@ import { CropDemoSection } from "../components/landing/CropDemoSection";
 import { ReviewsSection } from "../components/landing/SocialProof";
 import { PricingSection, PlanCta } from "../components/landing/PricingSection";
 import { ApiSection, HonestSection, SiteFooter } from "../components/landing/FooterSections";
+import {
+  FaqStripSection,
+  TradeTeaserSection,
+  WhatWeCheckSection,
+} from "../components/marketing/MarketingSections";
 
 function useViewer() {
   const session = useAuth((s) => s.session);
@@ -46,11 +52,18 @@ async function goCheckout(plan: SubscriptionPlan) {
 export function LandingPage() {
   const { loggedIn, plan, isAdmin } = useViewer();
 
+  useEffect(() => {
+    document.title = SEO.home.title;
+    const meta = document.querySelector('meta[name="description"]');
+    if (meta) meta.setAttribute("content", SEO.home.description);
+  }, []);
+
   return (
     <div className="min-h-[100dvh] bg-surface text-text-primary">
       <TopNav loggedIn={loggedIn} plan={plan} isAdmin={isAdmin} onUpgrade={goCheckout} />
       <HeroSection loggedIn={loggedIn} plan={plan} isAdmin={isAdmin} />
       <HowItWorksSection />
+      <WhatWeCheckSection />
       <WhySection />
       <FeaturesSection />
       <ReportPreview />
@@ -63,6 +76,8 @@ export function LandingPage() {
         onUpgrade={goCheckout}
         onBuyGrade={goBuyGrade}
       />
+      <FaqStripSection />
+      <TradeTeaserSection />
       <ApiSection plan={plan} loggedIn={loggedIn} isAdmin={isAdmin} onUpgrade={() => goCheckout("api")} />
       <PlanCta loggedIn={loggedIn} plan={plan} isAdmin={isAdmin} onUpgrade={goCheckout} onBuyGrade={goBuyGrade} />
       <HonestSection />

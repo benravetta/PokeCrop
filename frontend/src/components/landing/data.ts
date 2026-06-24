@@ -6,10 +6,10 @@ export const HERO_CARD_BEFORE = "/demo-charizard.png";
 export const HERO_CARD_IMG = "/demo-charizard-crop.png";
 
 export const NAV_LINKS = [
-  { label: "How it works", href: "#how" },
-  { label: "Features", href: "#features" },
-  { label: "Sample report", href: "#report" },
-  { label: "Pricing", href: "#pricing" },
+  { label: "How it works", href: "/how-it-works" },
+  { label: "Pricing", href: "/pricing" },
+  { label: "FAQ", href: "/faq" },
+  { label: "Trade", href: "/trade" },
 ] as const;
 
 export const HERO_REVIEW = {
@@ -83,7 +83,7 @@ export const PRICING_TIERS = [
     period: "forever",
     highlight: false,
     features: ["3 crops per day", "1 grade report per month", "Full PDF reports", "All 5 grading companies"],
-    cta: "Start free",
+    cta: "Check a card",
     ctaTo: "/register",
   },
   {

@@ -96,6 +96,9 @@ export function Layout() {
           </a>{" "}
           Tool
         </p>
+        <p className="text-[11px] text-text-muted">
+          GemCheck provides pre-grade estimates only. Final grades are set by the grading company.
+        </p>
         <div className="flex items-center gap-3">
           <Link
             to="/docs"

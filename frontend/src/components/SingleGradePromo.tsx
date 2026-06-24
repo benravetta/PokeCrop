@@ -45,7 +45,7 @@ export function SingleGradePromo({
             className="inline-flex items-center gap-1.5 rounded-lg border border-border-subtle bg-surface-overlay px-3 py-2 text-xs font-medium text-text-primary hover:bg-border-subtle transition-colors"
           >
             <ScanSearch className="w-3.5 h-3.5" />
-            Try Grade
+            Check a card
           </Link>
           <button
             onClick={() => buyGrade(setBusy)}
@@ -89,7 +89,7 @@ export function SingleGradePromo({
             className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-white hover:bg-accent-hover transition-colors"
           >
             <ScanSearch className="w-4 h-4" />
-            Try Grade free
+            Check a card
             <ArrowRight className="w-4 h-4" />
           </Link>
           <button

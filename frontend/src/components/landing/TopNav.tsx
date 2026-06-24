@@ -49,15 +49,25 @@ export function TopNav({
         </a>
 
         <nav className="hidden lg:flex items-center gap-0.5">
-          {NAV_LINKS.map((l) => (
-            <a
-              key={l.href}
-              href={l.href}
-              className="px-3 py-2 rounded-lg text-sm text-text-secondary hover:text-text-primary hover:bg-surface-overlay/60 transition-colors"
-            >
-              {l.label}
-            </a>
-          ))}
+          {NAV_LINKS.map((l) =>
+            l.href.startsWith("/") ? (
+              <Link
+                key={l.href}
+                to={l.href}
+                className="px-3 py-2 rounded-lg text-sm text-text-secondary hover:text-text-primary hover:bg-surface-overlay/60 transition-colors"
+              >
+                {l.label}
+              </Link>
+            ) : (
+              <a
+                key={l.href}
+                href={l.href}
+                className="px-3 py-2 rounded-lg text-sm text-text-secondary hover:text-text-primary hover:bg-surface-overlay/60 transition-colors"
+              >
+                {l.label}
+              </a>
+            )
+          )}
           <Link
             to="/docs"
             className="px-3 py-2 rounded-lg text-sm text-text-secondary hover:text-text-primary hover:bg-surface-overlay/60 transition-colors"
@@ -118,7 +128,7 @@ export function TopNav({
                 to="/register"
                 className="inline-flex items-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-white hover:bg-accent-hover transition-colors shadow-lg shadow-accent/20"
               >
-                Try it free
+                Check a card
               </Link>
             </>
           )}
@@ -136,16 +146,27 @@ export function TopNav({
       {menuOpen && (
         <div className="lg:hidden border-t border-border-subtle bg-surface/95 backdrop-blur-xl px-4 py-3 anim-fade">
           <div className="flex flex-col gap-1">
-            {NAV_LINKS.map((l) => (
-              <a
-                key={l.href}
-                href={l.href}
-                onClick={() => setMenuOpen(false)}
-                className="px-3 py-2.5 rounded-lg text-sm text-text-secondary hover:text-text-primary hover:bg-surface-overlay transition-colors"
-              >
-                {l.label}
-              </a>
-            ))}
+            {NAV_LINKS.map((l) =>
+              l.href.startsWith("/") ? (
+                <Link
+                  key={l.href}
+                  to={l.href}
+                  onClick={() => setMenuOpen(false)}
+                  className="px-3 py-2.5 rounded-lg text-sm text-text-secondary hover:text-text-primary hover:bg-surface-overlay transition-colors"
+                >
+                  {l.label}
+                </Link>
+              ) : (
+                <a
+                  key={l.href}
+                  href={l.href}
+                  onClick={() => setMenuOpen(false)}
+                  className="px-3 py-2.5 rounded-lg text-sm text-text-secondary hover:text-text-primary hover:bg-surface-overlay transition-colors"
+                >
+                  {l.label}
+                </a>
+              )
+            )}
             <Link
               to="/docs"
               onClick={() => setMenuOpen(false)}
@@ -185,7 +206,7 @@ export function TopNav({
                     onClick={() => setMenuOpen(false)}
                     className="rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-white text-center"
                   >
-                    Try it free
+                    Check a card
                   </Link>
                 </>
               )}

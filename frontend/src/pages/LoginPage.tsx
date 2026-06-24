@@ -36,7 +36,7 @@ export function LoginPage() {
   return (
     <AuthLayout
       title="Welcome back"
-      subtitle="Sign in to prep and pre-grade your cards."
+      subtitle="Sign in to check cards and review your reports."
       footer={
         <>
           New to GemCheck?{" "}

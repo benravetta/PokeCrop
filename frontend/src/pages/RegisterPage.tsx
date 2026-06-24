@@ -75,7 +75,7 @@ export function RegisterPage() {
   return (
     <AuthLayout
       title="Create your account"
-      subtitle="Start free — upgrade when you need more."
+      subtitle="Check a card before you pay to submit."
       aside={<RegisterBenefitsPanel />}
       footer={
         <>

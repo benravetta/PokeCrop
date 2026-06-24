@@ -1,7 +1,8 @@
 import { Link } from "react-router-dom";
 import { ArrowRight, CheckCircle2, Upload } from "lucide-react";
-import { HERO_CARD_IMG, HERO_REVIEW, SINGLE_GRADE, STATS } from "./data";
+import { HERO_CARD_IMG, HERO_REVIEW, SINGLE_GRADE } from "./data";
 import { AppWindow, StarRating } from "./shared";
+import { TRUST_STRIP } from "../../lib/marketingCopy";
 import { PLAN_LABELS, type Plan } from "../../lib/plans";
 
 export function HeroSection({
@@ -14,22 +15,24 @@ export function HeroSection({
   isAdmin?: boolean;
 }) {
   const primary = loggedIn
-    ? { to: "/crop", label: "Open the app" }
-    : { to: "/register", label: "Check a card free" };
+    ? { to: "/grade", label: "Check a card" }
+    : { to: "/register", label: "Check a card" };
 
   return (
     <section id="top" className="relative overflow-hidden landing-mesh">
       <div className="relative mx-auto max-w-6xl px-4 sm:px-6 pt-14 pb-16 sm:pt-20 sm:pb-20">
         <div className="grid lg:grid-cols-2 gap-12 lg:gap-14 items-center">
           <div className="text-center lg:text-left anim-rise">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-accent mb-3">
+              For Pokémon, sports and TCG collectors
+            </p>
             <h1 className="text-4xl sm:text-5xl lg:text-[3.1rem] font-semibold tracking-tight leading-[1.08] text-balance">
-              Stop paying to find out
-              <span className="block text-accent">what grade you got.</span>
+              Know before you grade
             </h1>
 
             <p className="mt-5 text-base sm:text-lg text-text-secondary max-w-lg mx-auto lg:mx-0 leading-relaxed">
-              GemCheck gives you a pre-grade across PSA, Beckett, CGC and more — plus a prep
-              checklist — before you post a card off.
+              Upload front and back photos to get a clear pre-grade estimate before you spend money
+              on submission fees.
             </p>
 
             <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center lg:justify-start">
@@ -44,7 +47,7 @@ export function HeroSection({
                 href="#report"
                 className="inline-flex items-center justify-center gap-2 rounded-xl border border-border-strong bg-surface-raised/60 px-6 py-3.5 text-sm font-semibold text-text-primary hover:bg-surface-overlay transition-colors"
               >
-                See sample report
+                See a sample report
                 <ArrowRight className="w-4 h-4 text-text-muted" />
               </a>
             </div>
@@ -53,18 +56,21 @@ export function HeroSection({
               {isAdmin
                 ? "Admin account — unlimited crops, grades, and API access."
                 : plan === "free"
-                  ? `Free plan — 1 grade a month, 3 crops & centring sessions a day. Need another? ${SINGLE_GRADE.price} per report.`
+                  ? `Free plan — 1 grade a month, 3 crops and centring sessions a day. Need another? ${SINGLE_GRADE.price} per report.`
                   : plan
                     ? `${PLAN_LABELS[plan]} plan active.`
-                    : `Free to start. Or buy a single report for ${SINGLE_GRADE.price} — no subscription.`}
+                    : `Free account includes one grade a month. Single reports from ${SINGLE_GRADE.price} — no subscription required.`}
             </p>
 
-            <div className="mt-8 flex flex-wrap justify-center lg:justify-start gap-x-8 gap-y-3">
-              {STATS.slice(0, 3).map((s) => (
-                <div key={s.label}>
-                  <div className="text-lg font-semibold text-text-primary">{s.value}</div>
-                  <div className="text-xs text-text-muted">{s.label}</div>
-                </div>
+            <div className="mt-8 flex flex-wrap justify-center lg:justify-start gap-x-4 gap-y-2">
+              {TRUST_STRIP.map((item) => (
+                <span
+                  key={item}
+                  className="inline-flex items-center gap-1.5 text-xs text-text-secondary"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5 text-accent shrink-0" />
+                  {item}
+                </span>
               ))}
             </div>
 
@@ -171,8 +177,8 @@ function ProductPreview() {
                 <span className="font-medium text-text-primary">
                   {recommended.co} looks like the strongest match for this card.
                 </span>{" "}
-                Every company weighs centring, corners and surface differently — compare estimates
-                before you choose where to submit.
+                Estimate only — every company weighs centring, corners, edges and surface
+                differently.
               </p>
             </div>
           </div>

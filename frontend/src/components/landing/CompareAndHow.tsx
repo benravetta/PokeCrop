@@ -5,22 +5,22 @@ export function HowItWorksSection() {
   const steps = [
     {
       icon: Camera,
-      title: "Photograph",
-      copy: "Front and back, flat and in focus. A phone photo on a desk is fine.",
+      title: "Upload photos",
+      copy: "Add clear front and back images. A phone photo on a desk is fine — use natural light, no flash.",
     },
     {
       icon: ScanSearch,
-      title: "Get your report",
-      copy: "Per-company grade estimates, centring, condition scores, and what limits the grade.",
+      title: "We check quality",
+      copy: "Blurry, cropped or glare-heavy photos weaken the estimate. We tell you when to retake.",
     },
     {
       icon: Wrench,
-      title: "Prep if it helps",
-      copy: "A checklist of light fixes worth trying — with notes on what's permanent.",
+      title: "Get your estimate",
+      copy: "Per-company pre-grade estimates, confidence, centring, condition scores and what limits the grade.",
     },
     {
       icon: Scale,
-      title: "Submit or sell raw",
+      title: "Decide whether to submit",
       copy: "Send to the grader where your card scores best — or skip grading entirely.",
     },
   ];
@@ -31,7 +31,7 @@ export function HowItWorksSection() {
       className="border-b border-border-subtle bg-surface-raised/30 py-14 sm:py-16 scroll-mt-20"
     >
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
-        <SectionHeading kicker="How it works" title="Four steps. One clear answer." />
+        <SectionHeading kicker="How it works" title="How GemCheck works" />
         <div className="mt-10 grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {steps.map((s, i) => (
             <div

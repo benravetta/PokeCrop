@@ -491,8 +491,8 @@ export function GradePage() {
         <>
           <div className="mb-6 rounded-2xl border border-border-subtle bg-surface-raised p-4 sm:p-5 flex flex-wrap items-center justify-between gap-4 anim-rise">
             <div>
-              <div className="text-[11px] uppercase tracking-wide text-text-muted">Pre-grade complete</div>
-              <h1 className="text-xl font-semibold text-text-primary mt-0.5">Your report</h1>
+              <div className="text-[11px] uppercase tracking-wide text-text-muted">Pre-grade estimate</div>
+              <h1 className="text-xl font-semibold text-text-primary mt-0.5">Your pre-grade estimate</h1>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <button
@@ -500,7 +500,7 @@ export function GradePage() {
                 className="inline-flex items-center gap-2 rounded-xl border border-border-strong px-4 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-surface-overlay transition-colors"
               >
                 <RotateCcw className="w-4 h-4" />
-                Grade another
+                Check another card
               </button>
               <button
                 onClick={async () => {
@@ -539,13 +539,13 @@ export function GradePage() {
 }
 
 const REC_LABELS: Record<string, string> = {
-  strong_candidate: "Strong candidate",
+  strong_candidate: "Strong submission candidate",
   // legacy value kept so older responses still render
-  strong_psa_candidate: "Strong candidate",
-  possible_candidate_inspect_first: "Possible — inspect first",
-  only_if_value_justifies: "Only if value justifies it",
-  sell_raw: "Sell raw instead",
-  do_not_grade: "Do not grade",
+  strong_psa_candidate: "Strong submission candidate",
+  possible_candidate_inspect_first: "Borderline — review carefully",
+  only_if_value_justifies: "Borderline — review carefully",
+  sell_raw: "Probably not worth grading yet",
+  do_not_grade: "Probably not worth grading yet",
   needs_better_photos: "Needs better photos",
 };
 const REC_TONE: Record<string, string> = {

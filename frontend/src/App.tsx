@@ -18,6 +18,12 @@ import { RegisterPage } from "./pages/RegisterPage";
 import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import { DocsPage } from "./pages/DocsPage";
+import { HowItWorksPage } from "./pages/HowItWorksPage";
+import { FaqPage } from "./pages/FaqPage";
+import { AboutPage } from "./pages/AboutPage";
+import { ContactPage } from "./pages/ContactPage";
+import { TradePage } from "./pages/TradePage";
+import { MarketingPageShell } from "./components/marketing/MarketingPageShell";
 
 function FullScreenLoader() {
   return (
@@ -74,6 +80,19 @@ export default function App() {
 
       {/* Public marketing homepage. */}
       <Route path="/" element={<LandingPage />} />
+      <Route path="/how-it-works" element={<HowItWorksPage />} />
+      <Route path="/faq" element={<FaqPage />} />
+      <Route path="/about" element={<AboutPage />} />
+      <Route path="/contact" element={<ContactPage />} />
+      <Route path="/trade" element={<TradePage />} />
+      <Route
+        path="/pricing"
+        element={
+          <MarketingPageShell wide>
+            <PricingPage />
+          </MarketingPageShell>
+        }
+      />
 
       <Route
         element={
@@ -86,7 +105,6 @@ export default function App() {
         <Route path="/grade" element={<GradePage />} />
         <Route path="/account" element={<AccountPage />} />
         <Route path="/history" element={<HistoryPage />} />
-        <Route path="/pricing" element={<PricingPage />} />
         <Route
           path="/admin"
           element={

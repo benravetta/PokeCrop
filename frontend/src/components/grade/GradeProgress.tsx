@@ -59,10 +59,9 @@ export function GradeProgress() {
         <span className="absolute -inset-1 rounded-2xl border-2 border-accent/30 animate-ping" />
       </div>
 
-      <h2 className="text-lg font-semibold text-text-primary">Adjudicating your card</h2>
+      <h2 className="text-lg font-semibold text-text-primary">Checking your card</h2>
       <p className="mt-1 text-sm text-text-secondary max-w-sm">
-        Our pre-grader is inspecting every aspect the way a professional grading
-        company would. This usually takes around half a minute.
+        Checking centring, corners, edges and surface — this usually takes around half a minute.
       </p>
 
       <div className="mt-7 w-full max-w-md flex flex-col gap-4">

@@ -16,6 +16,7 @@ import {
   type PlanColumn,
   type SubscriptionPlanId,
 } from "../components/pricing/pricingCompare";
+import { SEO } from "../lib/marketingCopy";
 
 export function PricingPage() {
   const session = useAuth((s) => s.session);
@@ -28,6 +29,7 @@ export function PricingPage() {
 
   useEffect(() => {
     refresh();
+    document.title = SEO.pricing.title;
   }, [refresh]);
 
   const currentPlan: Plan = me?.plan ?? "free";
@@ -68,16 +70,15 @@ export function PricingPage() {
   };
 
   return (
-    <div className="flex-1 min-h-0 overflow-y-auto">
+    <div className="min-h-0 overflow-y-auto">
       <div className="max-w-6xl mx-auto px-5 py-10 sm:py-12">
         <div className="text-center mb-10">
           <h1 className="text-2xl sm:text-3xl font-semibold text-text-primary tracking-tight">
-            Simple, fair pricing
+            Simple pricing for smarter submissions
           </h1>
           <p className="mt-3 text-sm sm:text-base text-text-secondary max-w-xl mx-auto leading-relaxed">
-            Crop cards cleanly, pre-grade before you submit, and compare every major grading
-            company — start free, buy single reports as you need them, or subscribe for regular
-            use.
+            Choose the plan that fits your stack, from one-off checks to regular grading triage.
+            Cancel any time — no hostage situations.
           </p>
           {proPromoLive && (
             <p className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-[12.5px] text-accent">
@@ -261,7 +262,7 @@ export function PricingPage() {
             <>
               {" "}
               <Link to="/register" className="text-accent hover:text-accent-hover">
-                Create a free account
+                Check a card free
               </Link>{" "}
               to get started.
             </>

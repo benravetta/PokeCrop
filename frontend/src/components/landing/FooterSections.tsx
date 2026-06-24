@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { ArrowRight, KeyRound, ShieldCheck, Terminal, Zap } from "lucide-react";
 import { API_SNIPPET } from "./data";
 import { SectionHeading } from "./shared";
+import { ESTIMATE_DISCLAIMER } from "../../lib/marketingCopy";
 import type { Plan } from "../../lib/plans";
 
 export function ApiSection({
@@ -33,16 +34,16 @@ export function ApiSection({
   } else if (loggedIn) {
     cta = { label: "Upgrade to Enterprise — from £29.99/mo", action: onUpgrade };
   } else {
-    cta = { label: "Create an account", action: () => (window.location.href = "/register") };
+    cta = { label: "Request trade pricing", action: () => (window.location.href = "/trade") };
   }
 
   return (
     <section id="api" className="relative scroll-mt-20 border-y border-border-subtle bg-surface-raised/40">
       <div className="mx-auto max-w-6xl px-4 sm:px-6 py-16 sm:py-24">
         <SectionHeading
-          kicker="For developers & shops"
-          title="Automate prep with the API."
-          copy="Bulk-process listings, run pre-grades at scale, or wire GemCheck into your shop. Same engine as the web app."
+          kicker="For developers and trade"
+          title="Bulk checks for shops and automation"
+          copy="Bulk-process listings, run pre-grades at scale, or wire GemCheck into your shop workflow. Same engine as the web app."
         />
         <div className="mt-12 grid lg:grid-cols-2 gap-8 items-start">
           <div className="rounded-2xl border border-border-subtle bg-[#0e1018] overflow-hidden">
@@ -118,14 +119,13 @@ export function HonestSection() {
             <ShieldCheck className="w-5 h-5 text-accent" />
           </span>
           <h2 className="text-xl sm:text-2xl font-semibold tracking-tight">
-            Honest guidance before you submit.
+            Estimate only — final grades are set by the grading company.
           </h2>
         </div>
         <p className="mt-4 text-sm text-text-secondary leading-relaxed">
-          GemCheck is a pre-check, not an official grade. Official grades are decided by the
-          grading company after inspecting the physical card. Estimates are based on what your
-          photos can show — fine scratches or dents hidden by glare may not be visible. For
-          high-value cards, always inspect by hand too.
+          {ESTIMATE_DISCLAIMER} Estimates are based on what your photos can show — fine scratches
+          or dents hidden by glare may not be visible. For high-value cards, always inspect by hand
+          too.
         </p>
       </div>
     </section>
@@ -149,8 +149,23 @@ export function SiteFooter() {
             </p>
           </div>
           <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm">
+            <Link to="/how-it-works" className="text-text-secondary hover:text-text-primary transition-colors">
+              How it works
+            </Link>
             <Link to="/pricing" className="text-text-secondary hover:text-text-primary transition-colors">
               Pricing
+            </Link>
+            <Link to="/faq" className="text-text-secondary hover:text-text-primary transition-colors">
+              FAQ
+            </Link>
+            <Link to="/trade" className="text-text-secondary hover:text-text-primary transition-colors">
+              Trade
+            </Link>
+            <Link to="/about" className="text-text-secondary hover:text-text-primary transition-colors">
+              About
+            </Link>
+            <Link to="/contact" className="text-text-secondary hover:text-text-primary transition-colors">
+              Contact
             </Link>
             <Link to="/docs" className="text-text-secondary hover:text-text-primary transition-colors">
               API docs
@@ -168,6 +183,9 @@ export function SiteFooter() {
             </a>
           </div>
         </div>
+        <p className="mt-6 text-center text-xs text-text-muted max-w-2xl mx-auto">
+          {ESTIMATE_DISCLAIMER}
+        </p>
       </div>
     </footer>
   );
