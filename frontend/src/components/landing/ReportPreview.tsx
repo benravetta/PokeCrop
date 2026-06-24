@@ -4,6 +4,7 @@ import {
   EXAMPLE_COMPANIES,
   EX_IDENT,
   EX_SCORES,
+  formatExampleSubgrades,
 } from "./data";
 import { SectionHeading } from "./shared";
 
@@ -183,7 +184,7 @@ export function ReportPreview() {
                         className="py-1.5 border-t tabular-nums"
                         style={{ borderColor: RPT_LINE, color: RPT_MUTE }}
                       >
-                        {c.subs.join("  /  ")}
+                        {formatExampleSubgrades(c)}
                       </div>
                     </div>
                   ))}

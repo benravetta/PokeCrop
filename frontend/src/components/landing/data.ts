@@ -7,13 +7,51 @@ export const HERO_CARD_BEFORE = "/demo-charizard.png";
 /** Cropped output from GemCheck (detect → straighten → transparent PNG). */
 export const HERO_CARD_IMG = "/demo-charizard-crop.png";
 
+/** Illustrative grader estimates for the Oddish sample report (one shared condition read). */
 export const EXAMPLE_COMPANIES = [
-  { name: "PSA", likely: "8", low: "7", high: "9", subs: ["8", "7.5", "8.5", "8.5"] },
-  { name: "Beckett", likely: "8.5", low: "8", high: "9", subs: ["8.5", "8", "9", "8.5"] },
-  { name: "CGC", likely: "8.5", low: "8", high: "9", subs: ["9", "8", "8.5", "8.5"] },
-  { name: "ACE", likely: "8.0", low: "7.5", high: "8.5", subs: ["8.5", "7.5", "8", "8.5"] },
-  { name: "TAG", likely: "8.2", low: "7.6", high: "8.8", subs: ["8.4", "7.8", "8.3", "8.5"] },
+  {
+    name: "PSA",
+    likely: "8",
+    low: "7",
+    high: "9",
+    subgrades: null,
+    note: "Holistic grade. Corner wear likely caps above 8.",
+  },
+  {
+    name: "Beckett",
+    likely: "8.5",
+    low: "8",
+    high: "9",
+    subgrades: { corners: "8.5", centering: "8", edges: "9", surface: "8.5" },
+    bestFit: true,
+  },
+  {
+    name: "CGC",
+    likely: "8.5",
+    low: "8",
+    high: "9",
+    subgrades: { corners: "9", centering: "8", edges: "8.5", surface: "8.5" },
+    bestFit: true,
+  },
+  {
+    name: "ACE",
+    likely: "8.0",
+    low: "7.5",
+    high: "8.5",
+    subgrades: { corners: "8.5", centering: "7.5", edges: "8", surface: "8.5" },
+  },
+  {
+    name: "TAG",
+    likely: "8.2",
+    low: "7.6",
+    high: "8.8",
+    subgrades: { corners: "8.4", centering: "7.8", edges: "8.3", surface: "8.5" },
+  },
 ] as const;
+
+export type ExampleCompany = (typeof EXAMPLE_COMPANIES)[number];
+
+export const SUBGRADE_KEYS = ["corners", "centering", "edges", "surface"] as const;
 
 /** Demo data for the Compare estimates section (Oddish report, distinct from hero Charizard). */
 export const GRADER_COMPARE_DEMO = {
@@ -21,7 +59,21 @@ export const GRADER_COMPARE_DEMO = {
   set: "Gym Heroes · 1st Edition · 52/132",
   thumb: AFTER_IMG,
   subgradeLabels: ["Corners", "Centering", "Edges", "Surface"] as const,
+  bestFit: "CGC or Beckett",
+  bestFitReason:
+    "Strong edges and surface, but rear corner whitening limits a gem mint. Both score borderline centering more generously than PSA.",
+  confidence: "Moderate confidence",
 } as const;
+
+export function formatExampleSubgrades(c: ExampleCompany): string {
+  if (!c.subgrades) return "Holistic (no subgrades)";
+  const s = c.subgrades;
+  return `${s.corners}  /  ${s.centering}  /  ${s.edges}  /  ${s.surface}`;
+}
+
+export function getExampleSubgrade(c: ExampleCompany, key: (typeof SUBGRADE_KEYS)[number]): string | null {
+  return c.subgrades?.[key] ?? null;
+}
 
 export const EX_IDENT: [string, string][] = [
   ["Set", "Gym Heroes"],
