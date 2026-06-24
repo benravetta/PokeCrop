@@ -1,6 +1,8 @@
 import { useState, type FormEvent } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
+import { useTurnstileToken } from "../hooks/useTurnstile";
+import { TurnstileField } from "../components/TurnstileWidget";
 import {
   AuthLayout,
   Field,
@@ -13,6 +15,7 @@ export function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const from = (location.state as { from?: string } | null)?.from ?? "/crop";
+  const turnstile = useTurnstileToken();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -22,11 +25,16 @@ export function LoginPage() {
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
+    if (!turnstile.ready) {
+      setError("Complete the security check.");
+      return;
+    }
     setLoading(true);
     try {
-      await signIn(email, password);
+      await signIn(email, password, turnstile.token ?? undefined);
       navigate(from, { replace: true });
     } catch (err) {
+      turnstile.reset();
       setError(err instanceof Error ? err.message : "Could not sign in.");
     } finally {
       setLoading(false);
@@ -75,7 +83,10 @@ export function LoginPage() {
             </Link>
           </div>
         </div>
-        <SubmitButton loading={loading}>Sign in</SubmitButton>
+        <TurnstileField {...turnstile} />
+        <SubmitButton loading={loading} disabled={!turnstile.ready}>
+          Sign in
+        </SubmitButton>
       </form>
     </AuthLayout>
   );

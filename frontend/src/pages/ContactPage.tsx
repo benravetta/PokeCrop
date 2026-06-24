@@ -1,18 +1,47 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
+import { Loader2 } from "lucide-react";
 import { MarketingPageShell } from "../components/marketing/MarketingPageShell";
+import { TurnstileField } from "../components/TurnstileWidget";
+import { useTurnstileToken } from "../hooks/useTurnstile";
+import { submitContactForm } from "../lib/api";
 import { SEO } from "../lib/marketingCopy";
 
 export function ContactPage() {
+  const turnstile = useTurnstileToken();
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [message, setMessage] = useState("");
   const [sent, setSent] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     document.title = SEO.contact.title;
   }, []);
 
-  const onSubmit = (e: FormEvent) => {
+  const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setSent(true);
+    setError(null);
+    if (!turnstile.ready) {
+      setError("Complete the security check.");
+      return;
+    }
+    setLoading(true);
+    try {
+      await submitContactForm({
+        name,
+        email,
+        message,
+        turnstileToken: turnstile.token ?? undefined,
+      });
+      setSent(true);
+    } catch (err) {
+      turnstile.reset();
+      setError(err instanceof Error ? err.message : "Could not send message.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -34,10 +63,17 @@ export function ContactPage() {
         </div>
       ) : (
         <form onSubmit={onSubmit} className="mt-10 space-y-4">
+          {error && (
+            <div className="rounded-lg bg-error/10 border border-error/20 px-3 py-2 text-sm text-error">
+              {error}
+            </div>
+          )}
           <label className="block">
             <span className="block text-sm font-medium text-text-primary mb-1.5">Your name</span>
             <input
               required
+              value={name}
+              onChange={(e) => setName(e.target.value)}
               className="w-full rounded-lg bg-surface-overlay border border-border-subtle px-3 py-2.5 text-sm"
             />
           </label>
@@ -46,6 +82,8 @@ export function ContactPage() {
             <input
               type="email"
               required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               className="w-full rounded-lg bg-surface-overlay border border-border-subtle px-3 py-2.5 text-sm"
             />
           </label>
@@ -56,6 +94,8 @@ export function ContactPage() {
             <textarea
               required
               rows={5}
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
               placeholder="Account help, product question, trade enquiry…"
               className="w-full rounded-lg bg-surface-overlay border border-border-subtle px-3 py-2.5 text-sm resize-y"
             />
@@ -63,10 +103,13 @@ export function ContactPage() {
               If it is a trade enquiry, include rough monthly card volume.
             </span>
           </label>
+          <TurnstileField {...turnstile} />
           <button
             type="submit"
-            className="inline-flex items-center justify-center rounded-xl bg-accent px-6 py-3 text-sm font-semibold text-white hover:bg-accent-hover transition-colors"
+            disabled={loading || !turnstile.ready}
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-6 py-3 text-sm font-semibold text-white hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
+            {loading && <Loader2 className="w-4 h-4 animate-spin" />}
             Send message
           </button>
         </form>

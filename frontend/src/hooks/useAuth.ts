@@ -10,14 +10,15 @@ interface AuthState {
   recovering: boolean;
 
   init: () => () => void;
-  signIn: (email: string, password: string) => Promise<void>;
+  signIn: (email: string, password: string, captchaToken?: string) => Promise<void>;
   signUp: (
     email: string,
     password: string,
-    displayName?: string
+    displayName?: string,
+    captchaToken?: string
   ) => Promise<{ needsConfirmation: boolean }>;
   signOut: () => Promise<void>;
-  sendPasswordReset: (email: string) => Promise<void>;
+  sendPasswordReset: (email: string, captchaToken?: string) => Promise<void>;
   updatePassword: (password: string) => Promise<void>;
   clearRecovering: () => void;
 }
@@ -51,18 +52,23 @@ export const useAuth = create<AuthState>((set) => ({
     return () => subscription.unsubscribe();
   },
 
-  signIn: async (email, password) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+  signIn: async (email, password, captchaToken) => {
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+      options: captchaToken ? { captchaToken } : undefined,
+    });
     if (error) throw error;
   },
 
-  signUp: async (email, password, displayName) => {
+  signUp: async (email, password, displayName, captchaToken) => {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         emailRedirectTo: window.location.origin,
         data: displayName ? { display_name: displayName } : undefined,
+        ...(captchaToken ? { captchaToken } : {}),
       },
     });
     if (error) throw error;
@@ -76,9 +82,10 @@ export const useAuth = create<AuthState>((set) => ({
     set({ session: null, user: null, recovering: false });
   },
 
-  sendPasswordReset: async (email) => {
+  sendPasswordReset: async (email, captchaToken) => {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/reset-password`,
+      ...(captchaToken ? { captchaToken } : {}),
     });
     if (error) throw error;
   },

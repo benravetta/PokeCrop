@@ -2,6 +2,8 @@ import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { MailCheck } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
+import { useTurnstileToken } from "../hooks/useTurnstile";
+import { TurnstileField } from "../components/TurnstileWidget";
 import {
   AuthLayout,
   Field,
@@ -13,6 +15,7 @@ import { RegisterBenefitsPanel } from "../components/auth/RegisterBenefitsPanel"
 export function RegisterPage() {
   const { signUp } = useAuth();
   const navigate = useNavigate();
+  const turnstile = useTurnstileToken();
 
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
@@ -25,6 +28,10 @@ export function RegisterPage() {
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
+    if (!turnstile.ready) {
+      setError("Complete the security check.");
+      return;
+    }
     if (password.length < 8) {
       setError("Password must be at least 8 characters.");
       return;
@@ -35,13 +42,19 @@ export function RegisterPage() {
     }
     setLoading(true);
     try {
-      const { needsConfirmation } = await signUp(email, password, displayName.trim() || undefined);
+      const { needsConfirmation } = await signUp(
+        email,
+        password,
+        displayName.trim() || undefined,
+        turnstile.token ?? undefined
+      );
       if (needsConfirmation) {
         setSentTo(email);
       } else {
         navigate("/crop", { replace: true });
       }
     } catch (err) {
+      turnstile.reset();
       setError(err instanceof Error ? err.message : "Could not create account.");
     } finally {
       setLoading(false);
@@ -120,7 +133,10 @@ export function RegisterPage() {
           autoComplete="new-password"
           required
         />
-        <SubmitButton loading={loading}>Create account</SubmitButton>
+        <TurnstileField {...turnstile} />
+        <SubmitButton loading={loading} disabled={!turnstile.ready}>
+          Create account
+        </SubmitButton>
       </form>
     </AuthLayout>
   );

@@ -2,6 +2,8 @@ import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { MailCheck } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
+import { useTurnstileToken } from "../hooks/useTurnstile";
+import { TurnstileField } from "../components/TurnstileWidget";
 import {
   AuthLayout,
   Field,
@@ -11,6 +13,7 @@ import {
 
 export function ForgotPasswordPage() {
   const { sendPasswordReset } = useAuth();
+  const turnstile = useTurnstileToken();
   const [email, setEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -19,11 +22,16 @@ export function ForgotPasswordPage() {
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
+    if (!turnstile.ready) {
+      setError("Complete the security check.");
+      return;
+    }
     setLoading(true);
     try {
-      await sendPasswordReset(email);
+      await sendPasswordReset(email, turnstile.token ?? undefined);
       setSent(true);
     } catch (err) {
+      turnstile.reset();
       setError(err instanceof Error ? err.message : "Could not send reset email.");
     } finally {
       setLoading(false);
@@ -63,7 +71,10 @@ export function ForgotPasswordPage() {
             required
             autoFocus
           />
-          <SubmitButton loading={loading}>Send reset link</SubmitButton>
+          <TurnstileField {...turnstile} />
+          <SubmitButton loading={loading} disabled={!turnstile.ready}>
+            Send reset link
+          </SubmitButton>
         </form>
       )}
     </AuthLayout>

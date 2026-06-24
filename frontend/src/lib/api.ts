@@ -734,3 +734,32 @@ export async function saveHistoryCentring(
   if (!res.ok) await fail(res, "Failed to save centring");
   return res.json();
 }
+
+export async function submitContactForm(body: {
+  name: string;
+  email: string;
+  message: string;
+  turnstileToken?: string;
+}): Promise<void> {
+  const res = await fetch(`${BASE}/forms/contact`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) await fail(res, "Could not send message");
+}
+
+export async function submitTradeForm(body: {
+  name: string;
+  email: string;
+  businessType: string;
+  monthlyVolume: string;
+  turnstileToken?: string;
+}): Promise<void> {
+  const res = await fetch(`${BASE}/forms/trade`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) await fail(res, "Could not send enquiry");
+}
