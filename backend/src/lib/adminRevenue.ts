@@ -2,6 +2,7 @@ import type Stripe from "stripe";
 import { getServiceClient } from "./supabase.js";
 import { getStripe, isStripeConfigured } from "./stripe.js";
 import type { Plan } from "./plans.js";
+import { getAdminUserIds } from "./adminAccess.js";
 import { emailByUserIds } from "./adminEmails.js";
 
 const PLAN_MRR_GBP: Record<Exclude<Plan, "free">, number> = {
@@ -27,6 +28,11 @@ function cached<T>(key: string, fn: () => Promise<T>): Promise<T> {
 
 function stripeDashUrl(path: string): string {
   return `https://dashboard.stripe.com${path}`;
+}
+
+function adminUserExclusion(adminIds: Set<string>): string | null {
+  if (!adminIds.size) return null;
+  return `(${[...adminIds].join(",")})`;
 }
 
 async function emailByCustomerIds(
@@ -69,6 +75,29 @@ export async function getRevenueOverview(days = 30): Promise<RevenueOverview> {
   const windowDays = Math.min(Math.max(days, 1), 180);
   const since = new Date(Date.now() - windowDays * 86400_000).toISOString();
   const sb = getServiceClient();
+  const adminIds = await getAdminUserIds();
+  const adminExclude = adminUserExclusion(adminIds);
+
+  let completedQ = sb
+    .from("grade_purchases")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "completed")
+    .gte("credited_at", since);
+  if (adminExclude) completedQ = completedQ.not("user_id", "in", adminExclude);
+
+  let refundedQ = sb
+    .from("grade_purchases")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "refunded")
+    .gte("refunded_at", since);
+  if (adminExclude) refundedQ = refundedQ.not("user_id", "in", adminExclude);
+
+  let disputedQ = sb
+    .from("grade_purchases")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "disputed")
+    .gte("credited_at", since);
+  if (adminExclude) disputedQ = disputedQ.not("user_id", "in", adminExclude);
 
   const [
     { data: subs },
@@ -77,23 +106,11 @@ export async function getRevenueOverview(days = 30): Promise<RevenueOverview> {
     { count: disputedCount },
     { data: creditsRow },
   ] = await Promise.all([
-    sb.from("subscriptions").select("plan, status"),
-    sb
-      .from("grade_purchases")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "completed")
-      .gte("credited_at", since),
-    sb
-      .from("grade_purchases")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "refunded")
-      .gte("refunded_at", since),
-    sb
-      .from("grade_purchases")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "disputed")
-      .gte("credited_at", since),
-    sb.from("subscriptions").select("grade_credits"),
+    sb.from("subscriptions").select("user_id, plan, status"),
+    completedQ,
+    refundedQ,
+    disputedQ,
+    sb.from("subscriptions").select("user_id, grade_credits"),
   ]);
 
   const subscriptionsByPlan: Record<string, number> = {};
@@ -102,6 +119,8 @@ export async function getRevenueOverview(days = 30): Promise<RevenueOverview> {
   let pastDueSubscriptions = 0;
 
   for (const s of subs ?? []) {
+    const userId = String(s.user_id ?? "");
+    if (adminIds.has(userId)) continue;
     const plan = String(s.plan ?? "free");
     const status = String(s.status ?? "");
     if (status === "past_due") pastDueSubscriptions++;
@@ -116,10 +135,9 @@ export async function getRevenueOverview(days = 30): Promise<RevenueOverview> {
 
   const oneOffPurchases = completedCount ?? 0;
   const oneOffRevenueGbp = oneOffPurchases * GRADE_UNIT_GBP;
-  const gradeCreditsOutstanding = (creditsRow ?? []).reduce(
-    (sum, r) => sum + (typeof r.grade_credits === "number" ? r.grade_credits : 0),
-    0
-  );
+  const gradeCreditsOutstanding = (creditsRow ?? [])
+    .filter((r) => !adminIds.has(String(r.user_id ?? "")))
+    .reduce((sum, r) => sum + (typeof r.grade_credits === "number" ? r.grade_credits : 0), 0);
 
   let failedInvoices = 0;
   if (isStripeConfigured()) {
@@ -146,7 +164,7 @@ export async function getRevenueOverview(days = 30): Promise<RevenueOverview> {
     failedInvoices,
     pastDueSubscriptions,
     gradeCreditsOutstanding,
-    note: "MRR and one-off totals are estimates from plan prices, not accounting records.",
+    note: "MRR and one-off totals exclude admin accounts and use plan prices, not accounting records.",
   };
 }
 
@@ -173,6 +191,8 @@ export async function listPurchases(opts: {
   const pageSize = Math.min(100, Math.max(1, opts.pageSize ?? 25));
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
+  const adminIds = await getAdminUserIds();
+  const adminExclude = adminUserExclusion(adminIds);
 
   let q = getServiceClient()
     .from("grade_purchases")
@@ -181,6 +201,7 @@ export async function listPurchases(opts: {
       { count: "exact" }
     )
     .order("credited_at", { ascending: false, nullsFirst: false });
+  if (adminExclude) q = q.not("user_id", "in", adminExclude);
 
   if (opts.status) q = q.eq("status", opts.status);
 
@@ -232,6 +253,8 @@ export async function listSubscriptions(opts: {
   const pageSize = Math.min(100, Math.max(1, opts.pageSize ?? 25));
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
+  const adminIds = await getAdminUserIds();
+  const adminExclude = adminUserExclusion(adminIds);
 
   let q = getServiceClient()
     .from("subscriptions")
@@ -240,6 +263,7 @@ export async function listSubscriptions(opts: {
       { count: "exact" }
     )
     .order("updated_at", { ascending: false });
+  if (adminExclude) q = q.not("user_id", "in", adminExclude);
 
   if (opts.plan) q = q.eq("plan", opts.plan);
   if (opts.status) q = q.eq("status", opts.status);
@@ -410,11 +434,15 @@ export async function listFailures(days = 30): Promise<{ failures: AdminFailureR
     }
   }
 
-  const { data: disputedPurchases } = await getServiceClient()
+  const adminIds = await getAdminUserIds();
+  const adminExclude = adminUserExclusion(adminIds);
+  let disputedQ = getServiceClient()
     .from("grade_purchases")
     .select("id, user_id, qty, stripe_payment_intent_id, credited_at")
     .eq("status", "disputed")
     .gte("credited_at", since);
+  if (adminExclude) disputedQ = disputedQ.not("user_id", "in", adminExclude);
+  const { data: disputedPurchases } = await disputedQ;
 
   const emails = await emailByUserIds((disputedPurchases ?? []).map((r) => r.user_id as string));
   for (const p of disputedPurchases ?? []) {

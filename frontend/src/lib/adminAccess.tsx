@@ -5,8 +5,9 @@ export function isAdminMe(me: MeResponse | null | undefined): boolean {
   return me?.isAdmin === true;
 }
 
-export function planDisplayLabel(plan: Plan, isAdmin?: boolean): string {
-  return isAdmin ? "Admin" : PLAN_LABELS[plan];
+export function planDisplayLabel(plan: Plan | null, isAdmin?: boolean): string {
+  if (isAdmin) return "Admin";
+  return plan ? PLAN_LABELS[plan] : "Free";
 }
 
 export function AdminBadge({ className = "" }: { className?: string }) {

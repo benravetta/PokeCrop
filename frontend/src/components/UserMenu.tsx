@@ -63,7 +63,7 @@ export function UserMenu() {
             className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-text-secondary hover:bg-border-subtle hover:text-text-primary transition-colors"
           >
             <Settings className="w-4 h-4" />
-            {isAdmin ? "Account (Admin)" : "Account & billing"}
+            {isAdmin ? "Account" : "Account & billing"}
           </Link>
           <Link
             to="/history"

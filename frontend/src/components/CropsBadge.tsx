@@ -21,7 +21,7 @@ export function CropsBadge() {
     return (
       <Link
         to="/account"
-        className="hidden sm:inline-flex items-center"
+        className="inline-flex items-center"
         title="Admin account — full access"
       >
         <AdminBadge />

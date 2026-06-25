@@ -5,7 +5,7 @@ import { FREE_DAILY_LIMIT, getPlan, getUsageToday } from "../lib/usage.js";
 import { getGradeCredits } from "../lib/gradeQuota.js";
 import { getHistory, type UsageKind } from "../lib/usageEvents.js";
 import { enrichHistoryEvents, updateHistoryEventCentring } from "../lib/historyEnrich.js";
-import { ADMIN_EFFECTIVE_PLAN, isAdminRole } from "../lib/adminAccess.js";
+import { isAdminRole } from "../lib/adminAccess.js";
 
 const router = Router();
 
@@ -21,7 +21,7 @@ router.get("/me", requireActiveAuth, async (req: Request, res: Response) => {
 
     if (admin) {
       res.json({
-        plan: ADMIN_EFFECTIVE_PLAN,
+        plan: null,
         cropsUsedToday: used,
         cropsRemaining: null,
         dailyLimit: null,

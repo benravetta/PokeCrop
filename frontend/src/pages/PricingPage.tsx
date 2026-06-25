@@ -36,9 +36,9 @@ export function PricingPage() {
     refresh();
   }, [refresh]);
 
-  const currentPlan: Plan = me?.plan ?? "free";
   const admin = isAdminMe(me);
-  const isPaying = !admin && currentPlan !== "free";
+  const currentPlan: Plan | null = admin ? null : (me?.plan ?? "free");
+  const isPaying = !admin && currentPlan !== null && currentPlan !== "free";
   const highlightPlan: PlanColumn | undefined =
     currentPlan === "free" ||
     currentPlan === "unlimited" ||

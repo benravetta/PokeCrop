@@ -132,9 +132,10 @@ export async function fetchExport(
 }
 
 export interface MeResponse {
-  plan: Plan;
+  plan: Plan | null;
   cropsUsedToday: number;
   cropsRemaining: number | null;
+  dailyLimit?: number | null;
   gradeCredits?: number;
   isAdmin: boolean;
 }

@@ -5,7 +5,7 @@ import { useAuth } from "../hooks/useAuth";
 import { useMe } from "../hooks/useMe";
 import { openBillingPortal, startGradeCheckout, getGradeQuota, getProfile, updateProfile, type GradeQuota } from "../lib/api";
 import { PLAN_LABELS } from "../lib/plans";
-import { AdminAccessNotice, AdminBadge, isAdminMe, planDisplayLabel } from "../lib/adminAccess";
+import { AdminAccessNotice, AdminBadge, isAdminMe } from "../lib/adminAccess";
 import { Field } from "../components/auth/AuthLayout";
 import { ApiKeysPanel } from "../components/ApiKeysPanel";
 import { HumanPregradeAccountSection } from "../humanPregrade/components/HumanPregradePromo";
@@ -185,15 +185,14 @@ export function AccountPage() {
           {admin ? (
             <>
               <AdminAccessNotice />
-              <div className="mt-4 flex flex-wrap items-center gap-2">
+              <div className="mt-4">
                 <AdminBadge />
-                <span className="text-sm text-text-primary font-medium">
-                  {planDisplayLabel(plan, true)} — unlimited crops &amp; grades
-                </span>
               </div>
-              <p className="mt-3 text-[12px] text-text-muted">
-                API keys are available below. Plan purchases and billing portal access are disabled
-                for admin accounts.
+              <p className="mt-3 text-sm text-text-secondary">
+                Full access to crops, grades, and API keys — no subscription required.
+              </p>
+              <p className="mt-2 text-[12px] text-text-muted">
+                Plan purchases and billing portal access are disabled for admin accounts.
               </p>
             </>
           ) : (

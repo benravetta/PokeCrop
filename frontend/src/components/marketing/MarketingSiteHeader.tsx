@@ -9,6 +9,8 @@ type Props = {
   highlightActive?: boolean;
   sticky?: boolean;
   logoClassName?: string;
+  /** Optional centre column (e.g. app tool nav) — visible from md up. */
+  centerNav?: ReactNode;
   /** Always visible from md breakpoint up (CTAs, account actions). */
   actions?: ReactNode;
   /** Extra rows at the bottom of the mobile menu sheet only. */
@@ -20,6 +22,7 @@ export function MarketingSiteHeader({
   highlightActive = false,
   sticky = false,
   logoClassName = LOGO_CLASS,
+  centerNav,
   actions,
   mobileMenuActions,
 }: Props) {
@@ -81,7 +84,11 @@ export function MarketingSiteHeader({
           </Link>
         )}
 
-        <div ref={menuRef} className="relative flex items-center gap-1.5 sm:gap-2">
+        {centerNav ? (
+          <div className="hidden md:flex flex-1 justify-center items-center min-w-0 px-2">{centerNav}</div>
+        ) : null}
+
+        <div ref={menuRef} className="relative flex items-center gap-1.5 sm:gap-2 shrink-0">
           {actions ? (
             <div className="hidden md:flex items-center gap-2 shrink-0">{actions}</div>
           ) : null}

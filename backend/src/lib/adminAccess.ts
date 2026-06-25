@@ -5,6 +5,9 @@ import type { GradeQuota } from "./gradeQuota.js";
 
 export type UserRole = "user" | "admin";
 
+const ADMIN_IDS_CACHE_MS = 60_000;
+let adminUserIdsCache: { at: number; ids: Set<string> } | null = null;
+
 export function roleFromAppMetadata(appMetadata: unknown): UserRole {
   if (appMetadata && typeof appMetadata === "object") {
     const role = (appMetadata as Record<string, unknown>).role;
@@ -57,4 +60,26 @@ export function rejectAdminBilling(
     error: "Admin accounts have full access and cannot purchase or change plans.",
   });
   return true;
+}
+
+/** Cached set of auth user ids with app_metadata.role = admin (for revenue/analytics exclusion). */
+export async function getAdminUserIds(): Promise<Set<string>> {
+  const hit = adminUserIdsCache;
+  if (hit && Date.now() - hit.at < ADMIN_IDS_CACHE_MS) return hit.ids;
+
+  const ids = new Set<string>();
+  let page = 1;
+  const perPage = 200;
+  for (;;) {
+    const { data, error } = await getServiceClient().auth.admin.listUsers({ page, perPage });
+    if (error) throw error;
+    for (const user of data.users) {
+      if (isAdminRole(roleFromAppMetadata(user.app_metadata))) ids.add(user.id);
+    }
+    if (data.users.length < perPage) break;
+    page++;
+  }
+
+  adminUserIdsCache = { at: Date.now(), ids };
+  return ids;
 }

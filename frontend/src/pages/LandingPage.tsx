@@ -34,7 +34,8 @@ function useViewer() {
   useEffect(() => {
     if (session) void refresh();
   }, [session, refresh]);
-  const plan: Plan | null = session ? (me?.plan ?? "free") : null;
+  const plan: Plan | null =
+    session && !me?.isAdmin ? (me?.plan ?? "free") : null;
   const isAdmin = me?.isAdmin === true;
   return { loggedIn: !!session, plan, isAdmin };
 }

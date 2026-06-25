@@ -1,4 +1,5 @@
 import type { Request, Response, NextFunction } from "express";
+import { isAdminRole } from "../../lib/adminAccess.js";
 import { isHumanPregradeEnvEnabled } from "../domain/featureFlag.js";
 import { HumanPregradeError } from "../domain/types.js";
 import { isHumanPregradeFeatureEnabled } from "../infrastructure/settingsRepo.js";
