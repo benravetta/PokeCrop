@@ -1,4 +1,5 @@
 import type { Request } from "express";
+import { timingSafeEqual } from "node:crypto";
 import { isAdminRole } from "../../lib/adminAccess.js";
 import { getServiceClient } from "../../lib/supabase.js";
 import { HumanPregradeError } from "../domain/types.js";
@@ -75,6 +76,26 @@ export function sanitizeCustomerReport(report: Record<string, unknown>) {
     hasPdf: Boolean(report.pdf_storage_object_id),
     isShareable: Boolean(report.is_shareable),
   };
+}
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+
+/** Normalize and validate a share token (UUID v4). */
+export function normalizeShareToken(raw: string): string | null {
+  const token = raw.trim().toLowerCase();
+  return UUID_RE.test(token) ? token : null;
+}
+
+export function shareTokensEqual(provided: string, stored: string): boolean {
+  const a = Buffer.from(provided);
+  const b = Buffer.from(stored.trim().toLowerCase());
+  if (a.length !== b.length) return false;
+  try {
+    return timingSafeEqual(a, b);
+  } catch {
+    return false;
+  }
 }
 
 const VALID_IMAGE_TYPES = new Set([

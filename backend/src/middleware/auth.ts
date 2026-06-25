@@ -38,10 +38,6 @@ function extractToken(req: Request): string | null {
   if (typeof fromCookie === "string" && fromCookie.trim()) {
     return fromCookie.trim();
   }
-  const header = req.headers.authorization;
-  if (header && header.startsWith("Bearer ")) {
-    return header.slice("Bearer ".length).trim();
-  }
   return null;
 }
 

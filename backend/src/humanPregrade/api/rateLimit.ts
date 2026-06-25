@@ -8,6 +8,7 @@ const LIMITS: Record<string, number> = {
   upload: 30,
   checkout: 10,
   message: 20,
+  share: 60,
 };
 
 export function humanPregradeRateLimit(action: keyof typeof LIMITS) {
@@ -26,6 +27,34 @@ export function humanPregradeRateLimit(action: keyof typeof LIMITS) {
         limit
       );
       if (!allowed) {
+        console.warn(
+          `[humanPregrade] rate limit exceeded user=${userId} action=${action}`
+        );
+        res.status(429).json({ error: "Too many requests. Please try again shortly." });
+        return;
+      }
+      next();
+    } catch (err) {
+      console.error("[humanPregrade] rate limit error:", err);
+      next();
+    }
+  };
+}
+
+/** Per-IP rate limit for unauthenticated public routes (e.g. share links). */
+export function humanPregradeIpRateLimit(action: keyof typeof LIMITS) {
+  const limit = LIMITS[action] ?? 30;
+  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    const ip = req.ip || "unknown";
+    try {
+      const allowed = await getRateLimitStore().checkAndIncrement(
+        `ip:${ip}`,
+        action,
+        WINDOW_MS,
+        limit
+      );
+      if (!allowed) {
+        console.warn(`[humanPregrade] IP rate limit exceeded ip=${ip} action=${action}`);
         res.status(429).json({ error: "Too many requests. Please try again shortly." });
         return;
       }

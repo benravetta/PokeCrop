@@ -5,6 +5,8 @@ import {
   validateAISnapshotSize,
   assertValidImageType,
   sanitizeAdminOrder,
+  normalizeShareToken,
+  shareTokensEqual,
 } from "../api/security.js";
 import { assertMaxLength, MAX_MESSAGE_BYTES } from "../domain/limits.js";
 
@@ -70,5 +72,13 @@ describe("security helpers", () => {
   it("returns full admin order rows for admins", () => {
     const order = { id: "1", user_id: "secret-user" };
     expect(sanitizeAdminOrder(order, true)).toEqual(order);
+  });
+
+  it("validates share tokens", () => {
+    const valid = "550e8400-e29b-41d4-a716-446655440000";
+    expect(normalizeShareToken(valid)).toBe(valid);
+    expect(normalizeShareToken("bad")).toBeNull();
+    expect(shareTokensEqual(valid, valid)).toBe(true);
+    expect(shareTokensEqual(valid, "550e8400-e29b-41d4-a716-446655440001")).toBe(false);
   });
 });

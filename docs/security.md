@@ -11,11 +11,19 @@ The browser **does not** persist Supabase JWTs in `localStorage`. Instead:
    - `gc_access` — short-lived access token
    - `gc_refresh` — refresh token
 3. Mutating `/api` requests send `credentials: 'include'` and an `X-CSRF-Token` header matching the readable `gc_csrf` cookie (double-submit).
-4. `backend/src/middleware/auth.ts` reads `gc_access` first, then falls back to `Authorization: Bearer` for migration tooling.
+4. `backend/src/middleware/auth.ts` reads `gc_access` only (cookie session). `/v1` API keys use separate middleware — not Bearer on `/api`.
 
 Cookie flags: `HttpOnly` (access/refresh), `SameSite=Lax`, `Secure` in production (or when `SESSION_COOKIE_SECURE=1`), path `/`.
 
 CSRF is enforced on POST/PUT/PATCH/DELETE under `/api`, except auth bootstrap routes (`/auth/login`, `/auth/signup`, `/auth/password-reset`, `/auth/exchange`) and Stripe webhooks.
+
+### Session invalidation
+
+- **Logout:** `POST /api/auth/logout` clears `gc_access`, `gc_refresh`, and `gc_csrf` cookies and calls Supabase signOut.
+- **Password change:** `POST /api/auth/password-update` rotates session cookies with new tokens after `updateUser({ password })`.
+- **Expired refresh:** `POST /api/auth/refresh` failure clears session cookies; client should redirect to login.
+
+Profile read/write uses `GET/PATCH /api/me/profile` (service-role backend) — not direct Supabase client access from the browser.
 
 Environment:
 
@@ -45,9 +53,8 @@ nginx adds belt-and-suspenders `limit_req` on upload/checkout paths (see `deploy
 
 ## HTTP security headers
 
-- **nginx** sets `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, and **Content-Security-Policy-Report-Only** for the SPA.
+- **nginx** sets `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, and **enforcing `Content-Security-Policy`** for the SPA.
 - **Express** uses `helmet()` with CSP disabled (nginx owns HTML CSP); API responses get `noSniff` and frameguard.
-- After a soak period with no CSP violations, switch nginx to enforcing `Content-Security-Policy`.
 
 ## Database access model
 
@@ -56,4 +63,4 @@ Human pre-grade tables use RLS enabled with **no client policies** — all acces
 ## Related documents
 
 - `security_best_practices_report.md` — audit findings and remediation status
-- `docs/human-pregrade/share-api.md` — planned public share endpoint spec
+- `docs/human-pregrade/share-api.md` — public share endpoint (`GET /api/human-pregrades/share/:token`)

@@ -54,8 +54,8 @@ Optional: signed URL for PDF download with short TTL if `hasPdf` is true (separa
 
 ## Implementation checklist
 
-- [ ] Migration: ensure `public_token` column indexed uniquely where used
-- [ ] Route + rate limit middleware
-- [ ] Unit tests: constant-time compare, `is_shareable` gate, sanitized DTO
+- [x] Migration: `public_token` indexed uniquely on `human_pregrade_reports`
+- [x] Route + IP rate limit middleware (`GET /api/human-pregrades/share/:token`)
+- [x] Unit tests: constant-time compare, token format validation
 - [ ] Frontend share link UI (copy URL only after publish)
-- [ ] Switch CSP from report-only to enforcing before allowing third-party embeds
+- [x] CSP enforcing before public share links

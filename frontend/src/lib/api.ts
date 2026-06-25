@@ -145,6 +145,22 @@ export async function fetchMe(): Promise<MeResponse> {
   return res.json();
 }
 
+export async function getProfile(): Promise<{ displayName: string | null }> {
+  const res = await apiFetch(`${BASE}/me/profile`);
+  if (!res.ok) await fail(res, "Failed to load profile");
+  return res.json();
+}
+
+export async function updateProfile(displayName: string): Promise<{ displayName: string | null }> {
+  const res = await apiFetch(`${BASE}/me/profile`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ displayName }),
+  });
+  if (!res.ok) await fail(res, "Failed to save profile");
+  return res.json();
+}
+
 export async function startCheckout(plan: SubscriptionPlan): Promise<string> {
   const res = await apiFetch(`${BASE}/billing/checkout`, {
     method: "POST",

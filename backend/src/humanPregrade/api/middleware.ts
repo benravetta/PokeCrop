@@ -44,6 +44,27 @@ export async function requireHumanPregradeEnabled(
   }
 }
 
+/** Public routes (no session): env + feature flag only. */
+export async function requireHumanPregradePublicEnabled(
+  _req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  if (!isHumanPregradeEnvEnabled()) {
+    res.status(404).json({ error: "Not found." });
+    return;
+  }
+  try {
+    if (!(await isHumanPregradeFeatureEnabled())) {
+      res.status(404).json({ error: "Not found." });
+      return;
+    }
+    next();
+  } catch (err) {
+    sendHumanPregradeError(res, err);
+  }
+}
+
 export function requireHumanPregradePermission(permission: HumanPregradePermission) {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const userId = req.user?.id;

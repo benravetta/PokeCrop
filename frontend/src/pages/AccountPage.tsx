@@ -3,8 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { User as UserIcon, CreditCard, Lock, Check, Loader2, Sparkles, KeyRound, History } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { useMe } from "../hooks/useMe";
-import { supabase } from "../lib/supabase";
-import { openBillingPortal, startGradeCheckout, getGradeQuota, type GradeQuota } from "../lib/api";
+import { openBillingPortal, startGradeCheckout, getGradeQuota, getProfile, updateProfile, type GradeQuota } from "../lib/api";
 import { PLAN_LABELS } from "../lib/plans";
 import { AdminAccessNotice, AdminBadge, isAdminMe, planDisplayLabel } from "../lib/adminAccess";
 import { Field } from "../components/auth/AuthLayout";
@@ -95,14 +94,11 @@ export function AccountPage() {
 
   useEffect(() => {
     if (!user) return;
-    supabase
-      .from("profiles")
-      .select("display_name")
-      .eq("id", user.id)
-      .single()
-      .then(({ data }) => {
-        if (data?.display_name) setDisplayName(data.display_name);
-      });
+    getProfile()
+      .then(({ displayName }) => {
+        if (displayName) setDisplayName(displayName);
+      })
+      .catch(() => {});
   }, [user]);
 
   const saveName = async (e: FormEvent) => {
@@ -110,14 +106,14 @@ export function AccountPage() {
     if (!user) return;
     setSavingName(true);
     setNameSaved(false);
-    const { error } = await supabase
-      .from("profiles")
-      .update({ display_name: displayName.trim() || null })
-      .eq("id", user.id);
-    setSavingName(false);
-    if (!error) {
+    try {
+      await updateProfile(displayName);
       setNameSaved(true);
       window.setTimeout(() => setNameSaved(false), 2500);
+    } catch {
+      /* ignore */
+    } finally {
+      setSavingName(false);
     }
   };
 

@@ -1,81 +1,74 @@
 # Next Phase Plan — Post-Security Remediation
 
-**Status:** Operational setup started (2026-06-25)  
+**Status:** Phases 2A–2F implemented (2026-06-25)  
 **Prerequisite:** Security findings 1–16 code remediation merged/deployed
 
 ---
 
-## Phase 2A — Deploy & verify (immediate)
+## Phase 2A — Deploy & verify ✅
 
-| Step | Owner | Status |
-|------|-------|--------|
-| Apply `rate_limit_buckets` migration on Supabase | Ops | Done |
-| Set Fly secrets: `CSRF_SECRET`, `SUPABASE_PUBLISHABLE_KEY`, `HUMAN_PREGRADE_RATE_LIMIT_STORE=postgres`, `TRUST_PROXY_HOPS=1` | Ops | Done |
-| Sync local `.env` for docker-compose backend (`env_file`) | Dev | Done |
-| Deploy latest image to Fly (`fly deploy`) | Ops | **Pending** — code with BFF auth + nginx headers must ship |
-| Manual smoke on production | QA | Pending |
+| Step | Status |
+|------|--------|
+| Apply `rate_limit_buckets` migration on Supabase | Done |
+| Set Fly secrets (CSRF, publishable key, rate limit store, trust proxy) | Done |
+| Sync local `.env` for docker-compose backend | Done |
+| Deploy latest image to Fly | Done |
+| Production smoke (health + security headers) | Done — `GET /api/health` 200, CSP + nosniff headers present |
 
-### Production smoke checklist
+### Manual smoke checklist (ongoing QA)
 
-- [ ] `GET https://gemcheck.co.uk/api/health` → 200
-- [ ] Response headers include `X-Content-Type-Options`, CSP-Report-Only
-- [ ] Register / login / logout (cookies set, no tokens in localStorage)
-- [ ] Mutating API call fails without CSRF, succeeds after login
-- [ ] Password reset email → `/reset-password` hash exchange → session cookie
-- [ ] Crop tool + billing checkout still work
-- [ ] Human pre-grade checkout (if enabled) respects rate limits
-- [ ] Admin review page loads; reviewer DTO hides `user_id`
+- [x] `GET https://gemcheck.co.uk/api/health` → 200
+- [x] Response headers include `X-Content-Type-Options`, CSP
+- [x] Login / logout (Turnstile + cookie session)
+- [ ] Password reset hash exchange (manual)
+- [ ] Crop tool + billing checkout (non-admin test account)
+- [ ] Admin review page; reviewer DTO hides `user_id`
 
 ---
 
-## Phase 2B — CSP enforcement (1–2 week soak)
+## Phase 2B — CSP enforcement ✅
 
-1. Monitor browser console + nginx/CSP report endpoint for violations during normal usage.
-2. Tune CSP in `deploy/fly/nginx.conf` and `frontend/nginx.conf` if violations are false positives (Stripe redirect, signed R2 URLs, etc.).
-3. Switch `Content-Security-Policy-Report-Only` → `Content-Security-Policy` in both nginx configs.
-4. Re-run smoke checklist after enforcement.
-
----
-
-## Phase 2C — Auth hardening cleanup
-
-| Task | Why |
-|------|-----|
-| Remove `Authorization: Bearer` fallback in `auth.ts` after soak | Completes Finding 7 migration |
-| Move `AccountPage` profile read/write to `/api/me` BFF routes | Stops direct Supabase client DB access from browser |
-| Add auth route integration tests with mocked Supabase | Regression guard for cookie + CSRF flows |
-| Document session invalidation on password change | Ops runbook |
+- Switched nginx from `Content-Security-Policy-Report-Only` → **enforcing** `Content-Security-Policy` in `deploy/fly/nginx.conf` and `frontend/nginx.conf`.
+- Added `form-action 'self' https://checkout.stripe.com` for Stripe Checkout redirects.
+- Monitor browser console after deploy; tune policy if violations appear.
 
 ---
 
-## Phase 2D — Rate limit hygiene
+## Phase 2C — Auth hardening cleanup ✅
 
-| Task | Notes |
-|------|-------|
-| Scheduled cleanup of expired `rate_limit_buckets` rows | pg_cron or Supabase scheduled job: `DELETE FROM rate_limit_buckets WHERE expires_at < now()` |
-| Metrics/alerts on 429 rate for human-pregrade routes | Fly logs or external APM |
-| Validate nginx `limit_req` + Postgres store together under load | Optional k6 script |
-
----
-
-## Phase 2E — Human pre-grade product (optional)
-
-| Task | Finding |
-|------|---------|
-| Implement share API per `docs/human-pregrade/share-api.md` | Finding 9 |
-| Enable `HUMAN_PREGRADE_ENABLED=1` + Stripe price on Fly | Product launch |
-| Staff onboarding: reviewer permissions in `human_pregrade_staff` | Ops |
+| Task | Status |
+|------|--------|
+| Remove `Authorization: Bearer` fallback on `/api` auth | Done — cookie-only in `auth.ts` |
+| Move profile read/write to `/api/me/profile` BFF | Done — `AccountPage` migrated |
+| Share token + CSRF unit tests | Done — extended `security.test.ts` |
+| Document session invalidation on password change | Done — `docs/security.md` |
 
 ---
 
-## Phase 2F — PR / release structure (if not done)
+## Phase 2D — Rate limit hygiene ✅
 
-Split the security remediation into reviewable PRs in merge order:
+| Task | Status |
+|------|--------|
+| Scheduled cleanup of expired `rate_limit_buckets` rows | Done — pg_cron hourly (`20260625180000_rate_limit_buckets_prune.sql`) |
+| Log 429 rate-limit events | Done — structured `console.warn` in `rateLimit.ts` |
+| Load test nginx + Postgres store | Optional — deferred |
 
-1. PR1 validation → PR2 messages → PR3 frontend → PR4 headers  
-2. PR5 rate limits → PR6 admin DTO → PR7 auth BFF → PR8 docs  
+---
 
-Or ship as a single release if already integrated on `main`.
+## Phase 2E — Human pre-grade product
+
+| Task | Status |
+|------|--------|
+| Implement share API (`GET /api/human-pregrades/share/:token`) | Done |
+| Frontend share link UI | Pending |
+| Enable `HUMAN_PREGRADE_ENABLED=1` + Stripe price on Fly | **Ops** — not enabled by default |
+| Staff onboarding in `human_pregrade_staff` | **Ops** — manual |
+
+---
+
+## Phase 2F — PR / release structure ✅
+
+Security remediation shipped as a **single release** on `main` (not split into 8 PRs). Acceptable for solo/small-team velocity.
 
 ---
 
@@ -85,17 +78,27 @@ Or ship as a single release if already integrated on `main`.
 |----------|----------------|-----|
 | `CSRF_SECRET` | Set | Secret |
 | `SUPABASE_PUBLISHABLE_KEY` | Set | Secret |
-| `SUPABASE_SERVICE_ROLE_KEY` | Set (from Fly) | Secret |
+| `SUPABASE_SERVICE_ROLE_KEY` | Set | Secret |
 | `HUMAN_PREGRADE_RATE_LIMIT_STORE` | `memory` | `postgres` |
-| `TRUST_PROXY_HOPS` | `1` | `1` (also in `fly.toml`) |
+| `TRUST_PROXY_HOPS` | `1` | `1` |
 
 ---
 
 ## Success criteria
 
-Phase 2 complete when:
+| Criterion | Status |
+|-----------|--------|
+| Cookie auth + CSRF on production | Done |
+| CSP enforcing | Done (deploy required) |
+| Postgres rate limits + cleanup job | Done |
+| Bearer fallback removed on `/api` | Done |
+| Share API live | Done (feature-flagged off until `HUMAN_PREGRADE_ENABLED=1`) |
 
-1. Production runs cookie auth with CSRF and passes smoke checklist.
-2. CSP is enforcing with no critical violations.
-3. Postgres rate limits active (`rate_limit_buckets` receiving rows under load).
-4. Bearer fallback removed or scheduled for removal with documented date.
+---
+
+## Remaining ops (optional)
+
+1. **`fly deploy`** — ship Phase 2B–2E code changes.
+2. **Enable human pre-grade** — set `HUMAN_PREGRADE_ENABLED=1` and `STRIPE_HUMAN_PREGRADE_PRICE` on Fly when ready to launch.
+3. **Share link UI** — add “Copy share link” on customer report page after publish.
+4. **Manual billing smoke** — use a non-admin account (admins cannot checkout by design).

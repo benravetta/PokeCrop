@@ -5,15 +5,18 @@ import { isAdminRole } from "../../lib/adminAccess.js";
 import { getServiceClient } from "../../lib/supabase.js";
 import {
   requireHumanPregradeEnabled,
+  requireHumanPregradePublicEnabled,
   sendHumanPregradeError,
 } from "./middleware.js";
-import { humanPregradeRateLimit } from "./rateLimit.js";
+import { humanPregradeRateLimit, humanPregradeIpRateLimit } from "./rateLimit.js";
 import {
   resolvePublicOrigin,
   sanitizeCustomerReport,
   validateAISnapshotSize,
   validateGraderIds,
   assertValidImageType,
+  normalizeShareToken,
+  shareTokensEqual,
 } from "./security.js";
 import { assertMaxLength, MAX_MESSAGE_BYTES } from "../domain/limits.js";
 import { getHumanPregradeSettings } from "../infrastructure/settingsRepo.js";
@@ -635,6 +638,56 @@ humanPregradeCustomerRoutes.delete(
         .eq("order_id", order.id)
         .eq("status", "published");
       res.json({ ok: true });
+    } catch (err) {
+      sendHumanPregradeError(res, err);
+    }
+  }
+);
+
+humanPregradeCustomerRoutes.get(
+  "/human-pregrades/share/:token",
+  requireHumanPregradePublicEnabled,
+  humanPregradeIpRateLimit("share"),
+  async (req, res) => {
+    try {
+      const token = normalizeShareToken(req.params.token ?? "");
+      if (!token) {
+        res.status(404).json({ error: "Not found." });
+        return;
+      }
+      const sb = getServiceClient();
+      const { data: report } = await sb
+        .from("human_pregrade_reports")
+        .select(
+          "id, report_data, published_at, template_version, disclaimer_version, version, pdf_storage_object_id, is_shareable, public_token, status, order_id"
+        )
+        .eq("public_token", token)
+        .eq("status", "published")
+        .eq("is_shareable", true)
+        .not("published_at", "is", null)
+        .maybeSingle();
+
+      if (
+        !report ||
+        !report.public_token ||
+        !shareTokensEqual(token, String(report.public_token))
+      ) {
+        res.status(404).json({ error: "Not found." });
+        return;
+      }
+
+      const { data: order } = await sb
+        .from("human_pregrade_orders")
+        .select("status")
+        .eq("id", report.order_id)
+        .maybeSingle();
+
+      if (!order || order.status !== "completed") {
+        res.status(404).json({ error: "Not found." });
+        return;
+      }
+
+      res.json({ report: sanitizeCustomerReport(report as Record<string, unknown>) });
     } catch (err) {
       sendHumanPregradeError(res, err);
     }
