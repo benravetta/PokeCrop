@@ -23,8 +23,7 @@ export function UserMenu() {
 
   if (!user) return null;
 
-  const isAdmin =
-    (user.app_metadata as Record<string, unknown> | undefined)?.role === "admin";
+  const isAdmin = user.role === "admin";
   const email = user.email ?? "Account";
   const initial = email.charAt(0).toUpperCase();
 

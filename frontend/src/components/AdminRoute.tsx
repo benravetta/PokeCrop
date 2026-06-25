@@ -16,8 +16,7 @@ export function AdminRoute({ children }: { children: ReactNode }) {
 
   if (!session) return <Navigate to="/login" replace />;
 
-  const isAdmin =
-    (user?.app_metadata as Record<string, unknown> | undefined)?.role === "admin";
+  const isAdmin = user?.role === "admin";
   if (!isAdmin) return <Navigate to="/" replace />;
 
   return <>{children}</>;

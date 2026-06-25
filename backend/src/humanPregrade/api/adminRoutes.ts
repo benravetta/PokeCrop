@@ -27,7 +27,8 @@ import { getOrderGraderIds } from "../infrastructure/orderRepo.js";
 import { validateProbabilityDistribution, validateAssessmentComplete } from "../domain/validation.js";
 import { HumanPregradeError } from "../domain/types.js";
 import { getStaffPermissions } from "../infrastructure/auditRepo.js";
-import { assertAssignedReviewer } from "./security.js";
+import { assertAssignedReviewer, assertValidImageType, sanitizeAdminOrder } from "./security.js";
+import { assertMaxJsonSize, assertMaxLength, MAX_GEOMETRY_JSON, MAX_TEXT_FIELD } from "../domain/limits.js";
 
 export const humanPregradeAdminRoutes = Router();
 
@@ -53,7 +54,10 @@ humanPregradeAdminRoutes.get("/admin/human-pregrades", ...adminAuth, async (req,
   try {
     const status = typeof req.query.status === "string" ? req.query.status : undefined;
     const orders = await listOrdersAdmin({ status, limit: 200 });
-    res.json({ orders });
+    const fullAccess = isAdminRole(req.user?.role);
+    res.json({
+      orders: orders.map((o) => sanitizeAdminOrder(o as unknown as Record<string, unknown>, fullAccess)),
+    });
   } catch (err) {
     sendHumanPregradeError(res, err);
   }
@@ -132,11 +136,16 @@ humanPregradeAdminRoutes.get("/admin/human-pregrades/:id", ...adminAuth, async (
       .eq("order_id", order.id)
       .eq("status", "open");
     const graderIds = await getOrderGraderIds(order.id);
+    const fullAccess = isAdminRole(req.user?.role);
     res.json({
-      order,
+      order: sanitizeAdminOrder(order as unknown as Record<string, unknown>, fullAccess),
       images: enriched,
       assignment,
-      aiAnalysis,
+      aiAnalysis: fullAccess
+        ? aiAnalysis
+        : aiAnalysis
+          ? { usageEventId: aiAnalysis.usageEventId, hasSnapshot: Boolean(aiAnalysis.snapshot) }
+          : null,
       assessment,
       predictions,
       defects,
@@ -239,9 +248,15 @@ humanPregradeAdminRoutes.post(
   async (req, res) => {
     try {
       await requireAssigned(req, req.params.id!);
-      const instructions = String(req.body?.instructions ?? "").trim();
-      const requiredImageType = String(req.body?.requiredImageType ?? "back");
+      const instructions = assertMaxLength(
+        String(req.body?.instructions ?? "").trim(),
+        MAX_TEXT_FIELD,
+        "Instructions"
+      );
       if (!instructions) return res.status(400).json({ error: "instructions required" });
+      const requiredImageType = assertValidImageType(
+        String(req.body?.requiredImageType ?? "back")
+      );
       const { data, error } = await getServiceClient()
         .from("human_pregrade_image_requests")
         .insert({
@@ -294,16 +309,24 @@ humanPregradeAdminRoutes.put(
         surface_score: body.surfaceScore ?? null,
         print_quality_score: body.printQualityScore ?? null,
         eye_appeal_score: body.eyeAppealScore ?? null,
-        image_sufficiency: body.imageSufficiency ?? null,
-        alteration_risk: body.alterationRisk ?? null,
-        authenticity_risk: body.authenticityRisk ?? null,
-        condition_summary: body.conditionSummary ?? null,
-        key_positive_factors: body.keyPositiveFactors ?? null,
-        key_negative_factors: body.keyNegativeFactors ?? null,
-        main_grade_limiter: body.mainGradeLimiter ?? null,
-        submission_recommendation: body.submissionRecommendation ?? null,
+        image_sufficiency: assertMaxLength(body.imageSufficiency, MAX_TEXT_FIELD, "Image sufficiency"),
+        alteration_risk: assertMaxLength(body.alterationRisk, MAX_TEXT_FIELD, "Alteration risk"),
+        authenticity_risk: assertMaxLength(body.authenticityRisk, MAX_TEXT_FIELD, "Authenticity risk"),
+        condition_summary: assertMaxLength(body.conditionSummary, MAX_TEXT_FIELD, "Condition summary"),
+        key_positive_factors: assertMaxLength(body.keyPositiveFactors, MAX_TEXT_FIELD, "Key positive factors"),
+        key_negative_factors: assertMaxLength(body.keyNegativeFactors, MAX_TEXT_FIELD, "Key negative factors"),
+        main_grade_limiter: assertMaxLength(body.mainGradeLimiter, MAX_TEXT_FIELD, "Main grade limiter"),
+        submission_recommendation: assertMaxLength(
+          body.submissionRecommendation,
+          MAX_TEXT_FIELD,
+          "Submission recommendation"
+        ),
         suggested_grader_id: body.suggestedGraderId ?? null,
-        reviewer_internal_notes: body.reviewerInternalNotes ?? null,
+        reviewer_internal_notes: assertMaxLength(
+          body.reviewerInternalNotes,
+          MAX_TEXT_FIELD,
+          "Internal notes"
+        ),
         updated_at: new Date().toISOString(),
       };
       let assessment;
@@ -580,21 +603,24 @@ humanPregradeAdminRoutes.post(
         .maybeSingle();
       if (!assessment) throw new HumanPregradeError("HUMAN_PREGRADE_ASSESSMENT_INCOMPLETE", "No assessment", 404);
       const b = req.body ?? {};
+      const title = assertMaxLength(b.title, MAX_TEXT_FIELD, "Title");
+      if (!title) return res.status(400).json({ error: "title required" });
+      const geometryData = assertMaxJsonSize(b.geometryData, MAX_GEOMETRY_JSON, "Geometry data");
       const { data, error } = await sb
         .from("human_pregrade_defects")
         .insert({
           assessment_id: assessment.id,
           image_id: b.imageId ?? null,
-          card_side: b.cardSide ?? null,
-          category: b.category,
-          subtype: b.subtype ?? null,
-          severity: b.severity,
+          card_side: assertMaxLength(b.cardSide, MAX_TEXT_FIELD, "Card side"),
+          category: assertMaxLength(b.category, MAX_TEXT_FIELD, "Category"),
+          subtype: assertMaxLength(b.subtype, MAX_TEXT_FIELD, "Subtype"),
+          severity: assertMaxLength(b.severity, MAX_TEXT_FIELD, "Severity"),
           confidence: b.confidence ?? null,
-          geometry_type: b.geometryType ?? "point",
-          geometry_data: b.geometryData ?? {},
-          title: b.title,
-          description: b.description ?? null,
-          grading_impact: b.gradingImpact ?? null,
+          geometry_type: assertMaxLength(b.geometryType, MAX_TEXT_FIELD, "Geometry type") ?? "point",
+          geometry_data: geometryData,
+          title,
+          description: assertMaxLength(b.description, MAX_TEXT_FIELD, "Description"),
+          grading_impact: assertMaxLength(b.gradingImpact, MAX_TEXT_FIELD, "Grading impact"),
           display_order: b.displayOrder ?? 0,
           customer_visible: b.customerVisible !== false,
           created_by_user_id: req.user!.id,

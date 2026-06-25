@@ -63,7 +63,9 @@ function PublicOnly({ children }: { children: ReactNode }) {
 export default function App() {
   const init = useAuth((s) => s.init);
 
-  useEffect(() => init(), [init]);
+  useEffect(() => {
+    void init();
+  }, [init]);
 
   return (
     <Routes>

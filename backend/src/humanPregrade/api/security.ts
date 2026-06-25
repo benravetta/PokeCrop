@@ -5,12 +5,12 @@ import { HumanPregradeError } from "../domain/types.js";
 import { hasHumanPregradePermission } from "../permissions/index.js";
 import { getStaffPermissions } from "../infrastructure/auditRepo.js";
 
-/** Strip PostgREST filter metacharacters from customer search input. */
+/** Strip PostgREST filter metacharacters and ILIKE wildcards from customer search input. */
 export function sanitizeOrderSearchQuery(raw: string): string {
   return raw
     .trim()
     .slice(0, 100)
-    .replace(/[,().\\]/g, " ")
+    .replace(/[,().\\%_]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -130,4 +130,36 @@ export async function validateGraderIds(ids: string[]): Promise<string[]> {
     }
   }
   return unique;
+}
+
+export function sanitizeAdminOrder(
+  order: Record<string, unknown>,
+  fullAccess: boolean
+): Record<string, unknown> {
+  if (fullAccess) return order;
+  return {
+    id: order.id,
+    public_id: order.public_id,
+    status: order.status,
+    version: order.version,
+    card_game: order.card_game,
+    card_name: order.card_name,
+    set_name: order.set_name,
+    card_number: order.card_number,
+    language: order.language,
+    variant: order.variant,
+    finish_type: order.finish_type,
+    main_concern: order.main_concern,
+    customer_notes: order.customer_notes,
+    price_minor_units: order.price_minor_units,
+    currency: order.currency,
+    service_name_snapshot: order.service_name_snapshot,
+    estimated_completion_at: order.estimated_completion_at,
+    submitted_at: order.submitted_at,
+    completed_at: order.completed_at,
+    source_ai_report_id: order.source_ai_report_id,
+    has_ai_snapshot: Boolean(order.ai_report_snapshot),
+    created_at: order.created_at,
+    updated_at: order.updated_at,
+  };
 }

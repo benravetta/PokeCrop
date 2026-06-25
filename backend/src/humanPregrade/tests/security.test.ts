@@ -3,12 +3,29 @@ import {
   sanitizeOrderSearchQuery,
   sanitizeCustomerReport,
   validateAISnapshotSize,
+  assertValidImageType,
+  sanitizeAdminOrder,
 } from "../api/security.js";
+import { assertMaxLength, MAX_MESSAGE_BYTES } from "../domain/limits.js";
 
 describe("security helpers", () => {
   it("strips PostgREST metacharacters from search", () => {
-    expect(sanitizeOrderSearchQuery("charizard, user_id.eq.evil")).toBe("charizard user_id eq evil");
+    expect(sanitizeOrderSearchQuery("charizard, user_id.eq.evil")).toBe("charizard user id eq evil");
     expect(sanitizeOrderSearchQuery("a".repeat(200)).length).toBeLessThanOrEqual(100);
+  });
+
+  it("strips ILIKE wildcards from search", () => {
+    expect(sanitizeOrderSearchQuery("100% match")).toBe("100 match");
+    expect(sanitizeOrderSearchQuery("foo_bar")).toBe("foo bar");
+  });
+
+  it("rejects invalid image types", () => {
+    expect(() => assertValidImageType("evil_type")).toThrow();
+    expect(assertValidImageType("front")).toBe("front");
+  });
+
+  it("rejects oversized message bodies", () => {
+    expect(() => assertMaxLength("x".repeat(MAX_MESSAGE_BYTES + 1), MAX_MESSAGE_BYTES, "Message")).toThrow();
   });
 
   it("sanitizes customer report response", () => {
@@ -32,5 +49,26 @@ describe("security helpers", () => {
   it("rejects oversized AI snapshots", () => {
     const big: Record<string, unknown> = { data: "x".repeat(40_000) };
     expect(() => validateAISnapshotSize(big)).toThrow();
+  });
+
+  it("redacts reviewer admin order fields", () => {
+    const order = {
+      id: "1",
+      public_id: "pub",
+      status: "under_review",
+      user_id: "secret-user",
+      ai_report_snapshot: { grade: 10 },
+      card_name: "Charizard",
+    };
+    const out = sanitizeAdminOrder(order, false);
+    expect(out).not.toHaveProperty("user_id");
+    expect(out).not.toHaveProperty("ai_report_snapshot");
+    expect(out.has_ai_snapshot).toBe(true);
+    expect(out.card_name).toBe("Charizard");
+  });
+
+  it("returns full admin order rows for admins", () => {
+    const order = { id: "1", user_id: "secret-user" };
+    expect(sanitizeAdminOrder(order, true)).toEqual(order);
   });
 });

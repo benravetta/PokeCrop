@@ -6,11 +6,32 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 const SUPABASE_URL = process.env.SUPABASE_URL || "";
 const SUPABASE_SERVICE_KEY =
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || "";
+const SUPABASE_PUBLISHABLE_KEY =
+  process.env.SUPABASE_PUBLISHABLE_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY || "";
 
 let client: SupabaseClient | null = null;
+let authClient: SupabaseClient | null = null;
 
 export function isSupabaseConfigured(): boolean {
   return Boolean(SUPABASE_URL && SUPABASE_SERVICE_KEY);
+}
+
+export function isSupabaseAuthConfigured(): boolean {
+  return Boolean(SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY);
+}
+
+export function getAuthClient(): SupabaseClient {
+  if (!isSupabaseAuthConfigured()) {
+    throw new Error(
+      "Supabase auth is not configured. Set SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY."
+    );
+  }
+  if (!authClient) {
+    authClient = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+  }
+  return authClient;
 }
 
 export function getServiceClient(): SupabaseClient {

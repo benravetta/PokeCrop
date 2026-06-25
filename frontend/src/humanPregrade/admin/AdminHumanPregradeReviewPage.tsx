@@ -517,7 +517,7 @@ export function AdminHumanPregradeReviewPage() {
       {previewHtml ? (
         <section className="rounded-xl border border-border-subtle overflow-hidden">
           <div className="p-2 bg-surface-overlay text-xs font-medium">Report preview</div>
-          <iframe title="Report preview" srcDoc={previewHtml} className="w-full h-[480px] bg-white" />
+          <iframe title="Report preview" sandbox="" srcDoc={previewHtml} className="w-full h-[480px] bg-white" />
         </section>
       ) : null}
     </div>

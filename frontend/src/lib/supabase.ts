@@ -19,11 +19,9 @@ if (!isSupabaseConfigured) {
 
 export const supabase = createClient(url ?? "http://localhost", publishableKey ?? "public-anon-key", {
   auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    // Needed to capture the session from email-confirmation / password-reset
-    // redirect links that carry tokens in the URL hash.
-    detectSessionInUrl: true,
+    persistSession: false,
+    autoRefreshToken: false,
+    detectSessionInUrl: false,
     flowType: "pkce",
   },
 });

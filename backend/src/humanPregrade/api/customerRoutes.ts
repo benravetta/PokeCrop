@@ -15,6 +15,7 @@ import {
   validateGraderIds,
   assertValidImageType,
 } from "./security.js";
+import { assertMaxLength, MAX_MESSAGE_BYTES } from "../domain/limits.js";
 import { getHumanPregradeSettings } from "../infrastructure/settingsRepo.js";
 import {
   getOrderByPublicId,
@@ -146,7 +147,7 @@ humanPregradeCustomerRoutes.post(
         main_concern: body.mainConcern ?? null,
         submission_recommendation_requested: Boolean(body.submissionRecommendationRequested),
         training_consent: Boolean(body.trainingConsent),
-        primary_grader_id: body.primaryGraderId ?? null,
+        primary_grader_id: null,
       });
 
       const graderIds = Array.isArray(body.selectedGraderIds)
@@ -154,7 +155,20 @@ humanPregradeCustomerRoutes.post(
         : [];
       if (graderIds.length) await setOrderGraders(order.id, graderIds);
 
-      res.status(201).json({ order: sanitizeCustomerOrder(order) });
+      let primaryGraderId: string | null = null;
+      if (body.primaryGraderId != null && body.primaryGraderId !== "") {
+        const [validated] = await validateGraderIds([String(body.primaryGraderId)]);
+        primaryGraderId = validated ?? null;
+        if (primaryGraderId) {
+          await updateOrder(order.id, { primary_grader_id: primaryGraderId }, order.version);
+        }
+      }
+
+      const refreshed = primaryGraderId
+        ? await getOrderByPublicId(order.public_id)
+        : order;
+
+      res.status(201).json({ order: sanitizeCustomerOrder(refreshed ?? order) });
     } catch (err) {
       sendHumanPregradeError(res, err);
     }
@@ -423,6 +437,8 @@ humanPregradeCustomerRoutes.get(
   }
 );
 
+const MESSAGE_COLS = "id, body, created_at, sender_type";
+
 humanPregradeCustomerRoutes.get(
   "/human-pregrades/:publicId/messages",
   requireActiveAuth,
@@ -432,10 +448,11 @@ humanPregradeCustomerRoutes.get(
       const order = await loadOwnedOrder(req.user!.id, req.params.publicId!);
       const { data } = await getServiceClient()
         .from("human_pregrade_messages")
-        .select("*")
+        .select(MESSAGE_COLS)
         .eq("order_id", order.id)
         .eq("customer_visible", true)
-        .order("created_at");
+        .order("created_at")
+        .limit(100);
       res.json({ messages: data ?? [] });
     } catch (err) {
       sendHumanPregradeError(res, err);
@@ -451,7 +468,7 @@ humanPregradeCustomerRoutes.post(
   async (req, res) => {
     try {
       const order = await loadOwnedOrder(req.user!.id, req.params.publicId!);
-      const body = String(req.body?.body ?? "").trim();
+      const body = assertMaxLength(String(req.body?.body ?? "").trim(), MAX_MESSAGE_BYTES, "Message");
       if (!body) return res.status(400).json({ error: "Message required." });
       const { data, error } = await getServiceClient()
         .from("human_pregrade_messages")
@@ -462,7 +479,7 @@ humanPregradeCustomerRoutes.post(
           body,
           customer_visible: true,
         })
-        .select("*")
+        .select(MESSAGE_COLS)
         .single();
       if (error) throw error;
       res.status(201).json({ message: data });
@@ -491,10 +508,11 @@ humanPregradeCustomerRoutes.post(
         .maybeSingle();
       if (!request) throw new HumanPregradeError("HUMAN_PREGRADE_NOT_FOUND", "Request not found", 404);
       if (!req.file) throw new HumanPregradeError("HUMAN_PREGRADE_IMAGES_REQUIRED", "File required", 400);
+      const imageType = assertValidImageType(String(request.required_image_type));
       const uploaded = await uploadHumanPregradeImage({
         orderId: order.id,
         userId: req.user!.id,
-        imageType: String(request.required_image_type),
+        imageType,
         filename: req.file.originalname,
         buffer: req.file.buffer,
         declaredMime: req.file.mimetype,

@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { getServiceClient, isSupabaseConfigured } from "../lib/supabase.js";
-import { checkAdminRateLimit } from "./adminRateLimit.js";
+import { ACCESS_COOKIE } from "../lib/sessionCookies.js";
 
 const SUPABASE_URL = process.env.SUPABASE_URL || "";
 const ISSUER = SUPABASE_URL ? `${SUPABASE_URL}/auth/v1` : "";
@@ -33,6 +33,10 @@ declare global {
 }
 
 function extractToken(req: Request): string | null {
+  const fromCookie = req.cookies?.[ACCESS_COOKIE];
+  if (typeof fromCookie === "string" && fromCookie.trim()) {
+    return fromCookie.trim();
+  }
   const header = req.headers.authorization;
   if (header && header.startsWith("Bearer ")) {
     return header.slice("Bearer ".length).trim();
@@ -40,7 +44,7 @@ function extractToken(req: Request): string | null {
   return null;
 }
 
-function roleFromAppMetadata(appMetadata: unknown): "user" | "admin" {
+export function roleFromAppMetadata(appMetadata: unknown): "user" | "admin" {
   if (appMetadata && typeof appMetadata === "object") {
     const role = (appMetadata as Record<string, unknown>).role;
     if (role === "admin") return "admin";

@@ -23,6 +23,8 @@ primary_region = 'lhr'
   CORS_ORIGIN = "https://gemcheck.co.uk"
   PYTHON_TIMEOUT_MS = '180000'
   UVICORN_WORKERS = '1'
+  TRUST_PROXY_HOPS = '1'
+  HUMAN_PREGRADE_RATE_LIMIT_STORE = 'postgres'
 
 [http_service]
   internal_port = 8080

@@ -1,4 +1,4 @@
-import { supabase } from "./supabase";
+import { apiFetch } from "./sessionFetch";
 import type { Plan, SubscriptionPlan } from "./plans";
 
 const BASE = "/api";
@@ -14,14 +14,6 @@ export class ApiError extends Error {
     this.status = status;
     this.body = body;
   }
-}
-
-async function authHeaders(
-  extra: Record<string, string> = {}
-): Promise<Record<string, string>> {
-  const { data } = await supabase.auth.getSession();
-  const token = data.session?.access_token;
-  return token ? { ...extra, Authorization: `Bearer ${token}` } : { ...extra };
 }
 
 async function fail(res: Response, fallback: string): Promise<never> {
@@ -102,9 +94,8 @@ export async function uploadFile(file: File): Promise<UploadResult> {
   const form = new FormData();
   form.append("file", file);
 
-  const res = await fetch(`${BASE}/upload`, {
+  const res = await apiFetch(`${BASE}/upload`, {
     method: "POST",
-    headers: await authHeaders(),
     body: form,
   });
   if (!res.ok) await fail(res, "Upload failed");
@@ -115,9 +106,9 @@ export async function processImage(
   sessionId: string,
   params: ProcessParams
 ): Promise<ProcessResult> {
-  const res = await fetch(`${BASE}/process`, {
+  const res = await apiFetch(`${BASE}/process`, {
     method: "POST",
-    headers: await authHeaders({ "Content-Type": "application/json" }),
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ sessionId, params }),
   });
   if (!res.ok) await fail(res, "Processing failed");
@@ -125,9 +116,8 @@ export async function processImage(
 }
 
 export async function deleteSession(sessionId: string): Promise<void> {
-  await fetch(`${BASE}/session/${sessionId}`, {
+  await apiFetch(`${BASE}/session/${sessionId}`, {
     method: "DELETE",
-    headers: await authHeaders(),
   });
 }
 
@@ -135,8 +125,7 @@ export async function fetchExport(
   sessionId: string,
   size: "original" | "web"
 ): Promise<Blob> {
-  const res = await fetch(`${BASE}/export/${sessionId}?size=${size}`, {
-    headers: await authHeaders(),
+  const res = await apiFetch(`${BASE}/export/${sessionId}?size=${size}`, {
   });
   if (!res.ok) await fail(res, "Export failed");
   return res.blob();
@@ -151,15 +140,15 @@ export interface MeResponse {
 }
 
 export async function fetchMe(): Promise<MeResponse> {
-  const res = await fetch(`${BASE}/me`, { headers: await authHeaders() });
+  const res = await apiFetch(`${BASE}/me`);
   if (!res.ok) await fail(res, "Failed to load account");
   return res.json();
 }
 
 export async function startCheckout(plan: SubscriptionPlan): Promise<string> {
-  const res = await fetch(`${BASE}/billing/checkout`, {
+  const res = await apiFetch(`${BASE}/billing/checkout`, {
     method: "POST",
-    headers: await authHeaders({ "Content-Type": "application/json" }),
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ plan }),
   });
   if (!res.ok) await fail(res, "Could not start checkout");
@@ -168,9 +157,8 @@ export async function startCheckout(plan: SubscriptionPlan): Promise<string> {
 }
 
 export async function openBillingPortal(): Promise<string> {
-  const res = await fetch(`${BASE}/billing/portal`, {
+  const res = await apiFetch(`${BASE}/billing/portal`, {
     method: "POST",
-    headers: await authHeaders(),
   });
   if (!res.ok) await fail(res, "Could not open billing portal");
   const data = (await res.json()) as { url: string };
@@ -180,9 +168,8 @@ export async function openBillingPortal(): Promise<string> {
 // Start a one-time Checkout to buy a single grade (no subscription). Returns
 // the Stripe Checkout URL to redirect to.
 export async function startGradeCheckout(): Promise<{ url: string; sessionId: string }> {
-  const res = await fetch(`${BASE}/billing/checkout-grade`, {
+  const res = await apiFetch(`${BASE}/billing/checkout-grade`, {
     method: "POST",
-    headers: await authHeaders(),
   });
   if (!res.ok) await fail(res, "Could not start checkout");
   return res.json() as Promise<{ url: string; sessionId: string }>;
@@ -198,9 +185,9 @@ export type PurchaseStatus =
 export async function getPurchaseStatus(
   sessionId: string
 ): Promise<{ status: PurchaseStatus; payment_status?: string }> {
-  const res = await fetch(
+  const res = await apiFetch(
     `${BASE}/billing/purchase-status?session_id=${encodeURIComponent(sessionId)}`,
-    { headers: await authHeaders() }
+    {  }
   );
   if (!res.ok) await fail(res, "Could not confirm purchase");
   return res.json();
@@ -245,8 +232,7 @@ export async function getHistory(opts: {
   if (opts.to) params.set("to", opts.to);
   if (opts.page) params.set("page", String(opts.page));
   if (opts.pageSize) params.set("pageSize", String(opts.pageSize));
-  const res = await fetch(`${BASE}/me/history?${params.toString()}`, {
-    headers: await authHeaders(),
+  const res = await apiFetch(`${BASE}/me/history?${params.toString()}`, {
   });
   if (!res.ok) await fail(res, "Failed to load history");
   return res.json();
@@ -264,7 +250,7 @@ export interface ApiKeySummary {
 }
 
 export async function listApiKeys(): Promise<ApiKeySummary[]> {
-  const res = await fetch(`${BASE}/keys`, { headers: await authHeaders() });
+  const res = await apiFetch(`${BASE}/keys`);
   if (!res.ok) await fail(res, "Failed to load API keys");
   const data = (await res.json()) as { keys: ApiKeySummary[] };
   return data.keys;
@@ -273,9 +259,9 @@ export async function listApiKeys(): Promise<ApiKeySummary[]> {
 export async function createApiKey(
   label?: string
 ): Promise<{ key: ApiKeySummary; secret: string }> {
-  const res = await fetch(`${BASE}/keys`, {
+  const res = await apiFetch(`${BASE}/keys`, {
     method: "POST",
-    headers: await authHeaders({ "Content-Type": "application/json" }),
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ label: label ?? null }),
   });
   if (!res.ok) await fail(res, "Failed to create API key");
@@ -283,9 +269,8 @@ export async function createApiKey(
 }
 
 export async function revokeApiKey(id: string): Promise<void> {
-  const res = await fetch(`${BASE}/keys/${id}`, {
+  const res = await apiFetch(`${BASE}/keys/${id}`, {
     method: "DELETE",
-    headers: await authHeaders(),
   });
   if (!res.ok) await fail(res, "Failed to revoke API key");
 }
@@ -487,17 +472,16 @@ export async function adminListUsers(opts: {
   if (opts.status) q.set("status", opts.status);
   if (opts.suspended) q.set("suspended", opts.suspended);
   if (opts.role) q.set("role", opts.role);
-  const res = await fetch(`${BASE}/admin/users?${q.toString()}`, {
-    headers: await authHeaders(),
+  const res = await apiFetch(`${BASE}/admin/users?${q.toString()}`, {
   });
   if (!res.ok) await fail(res, "Failed to load users");
   return res.json();
 }
 
 export async function adminSetRole(id: string, role: "user" | "admin"): Promise<void> {
-  const res = await fetch(`${BASE}/admin/users/${id}/role`, {
+  const res = await apiFetch(`${BASE}/admin/users/${id}/role`, {
     method: "POST",
-    headers: await authHeaders({ "Content-Type": "application/json" }),
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ role }),
   });
   if (!res.ok) await fail(res, "Failed to update role");
@@ -508,25 +492,23 @@ export async function adminSetPlan(
   plan: Plan,
   status?: PlanStatus
 ): Promise<void> {
-  const res = await fetch(`${BASE}/admin/users/${id}/plan`, {
+  const res = await apiFetch(`${BASE}/admin/users/${id}/plan`, {
     method: "POST",
-    headers: await authHeaders({ "Content-Type": "application/json" }),
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(status ? { plan, status } : { plan }),
   });
   if (!res.ok) await fail(res, "Failed to update plan");
 }
 
 export async function adminGetUser(id: string): Promise<{ user: AdminUserDetail }> {
-  const res = await fetch(`${BASE}/admin/users/${id}`, {
-    headers: await authHeaders(),
+  const res = await apiFetch(`${BASE}/admin/users/${id}`, {
   });
   if (!res.ok) await fail(res, "Failed to load user");
   return res.json();
 }
 
 export async function adminGetStats(): Promise<{ stats: AdminStats }> {
-  const res = await fetch(`${BASE}/admin/stats`, {
-    headers: await authHeaders(),
+  const res = await apiFetch(`${BASE}/admin/stats`, {
   });
   if (!res.ok) await fail(res, "Failed to load stats");
   return res.json();
@@ -536,8 +518,7 @@ export async function adminGetActivity(
   id: string,
   limit = 10
 ): Promise<{ activity: ActivityEvent[] }> {
-  const res = await fetch(`${BASE}/admin/users/${id}/activity?limit=${limit}`, {
-    headers: await authHeaders(),
+  const res = await apiFetch(`${BASE}/admin/users/${id}/activity?limit=${limit}`, {
   });
   if (!res.ok) await fail(res, "Failed to load activity");
   return res.json();
@@ -545,8 +526,7 @@ export async function adminGetActivity(
 
 // Download the full (2-day) activity log for a user as a CSV file.
 export async function adminDownloadActivity(id: string, email?: string): Promise<void> {
-  const res = await fetch(`${BASE}/admin/users/${id}/activity/export`, {
-    headers: await authHeaders(),
+  const res = await apiFetch(`${BASE}/admin/users/${id}/activity/export`, {
   });
   if (!res.ok) await fail(res, "Failed to download activity");
   const blob = await res.blob();
@@ -561,26 +541,25 @@ export async function adminDownloadActivity(id: string, email?: string): Promise
 }
 
 export async function adminSetKeyLimit(id: string, limit: number | null): Promise<void> {
-  const res = await fetch(`${BASE}/admin/users/${id}/key-limit`, {
+  const res = await apiFetch(`${BASE}/admin/users/${id}/key-limit`, {
     method: "POST",
-    headers: await authHeaders({ "Content-Type": "application/json" }),
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ limit }),
   });
   if (!res.ok) await fail(res, "Failed to update key limit");
 }
 
 export async function adminSuspend(id: string, suspended: boolean): Promise<void> {
-  const res = await fetch(`${BASE}/admin/users/${id}/suspend`, {
+  const res = await apiFetch(`${BASE}/admin/users/${id}/suspend`, {
     method: "POST",
-    headers: await authHeaders({ "Content-Type": "application/json" }),
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ suspended }),
   });
   if (!res.ok) await fail(res, "Failed to update account");
 }
 
 export async function adminListApiKeys(id: string): Promise<{ keys: AdminApiKey[] }> {
-  const res = await fetch(`${BASE}/admin/users/${id}/api-keys`, {
-    headers: await authHeaders(),
+  const res = await apiFetch(`${BASE}/admin/users/${id}/api-keys`, {
   });
   if (!res.ok) await fail(res, "Failed to load API keys");
   return res.json();
@@ -590,9 +569,9 @@ export async function adminCreateApiKey(
   id: string,
   label: string
 ): Promise<{ key: AdminApiKey; secret: string }> {
-  const res = await fetch(`${BASE}/admin/users/${id}/api-keys`, {
+  const res = await apiFetch(`${BASE}/admin/users/${id}/api-keys`, {
     method: "POST",
-    headers: await authHeaders({ "Content-Type": "application/json" }),
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ label }),
   });
   if (!res.ok) await fail(res, "Failed to issue API key");
@@ -600,9 +579,8 @@ export async function adminCreateApiKey(
 }
 
 export async function adminRevokeApiKey(keyId: string): Promise<void> {
-  const res = await fetch(`${BASE}/admin/api-keys/${keyId}`, {
+  const res = await apiFetch(`${BASE}/admin/api-keys/${keyId}`, {
     method: "DELETE",
-    headers: await authHeaders(),
   });
   if (!res.ok) await fail(res, "Failed to revoke API key");
 }
@@ -637,8 +615,7 @@ export async function adminCatalogFacets(opts: {
   const q = new URLSearchParams();
   if (opts.tcg) q.set("tcg", opts.tcg);
   if (opts.set) q.set("set", opts.set);
-  const res = await fetch(`${BASE}/admin/catalog/facets?${q.toString()}`, {
-    headers: await authHeaders(),
+  const res = await apiFetch(`${BASE}/admin/catalog/facets?${q.toString()}`, {
   });
   if (!res.ok) await fail(res, "Failed to load catalog facets");
   return res.json();
@@ -810,7 +787,7 @@ export interface CaptureQuality {
 }
 
 export async function getGradeQuota(): Promise<{ quota: GradeQuota }> {
-  const res = await fetch(`${BASE}/grade/quota`, { headers: await authHeaders() });
+  const res = await apiFetch(`${BASE}/grade/quota`);
   if (!res.ok) await fail(res, "Failed to load grading quota");
   return res.json();
 }
@@ -820,9 +797,8 @@ export async function getGradeQuota(): Promise<{ quota: GradeQuota }> {
 export async function straightenForGrade(file: File): Promise<string | null> {
   const form = new FormData();
   form.append("image", file);
-  const res = await fetch(`${BASE}/grade/straighten`, {
+  const res = await apiFetch(`${BASE}/grade/straighten`, {
     method: "POST",
-    headers: await authHeaders(),
     body: form,
   });
   if (!res.ok) return null;
@@ -841,9 +817,8 @@ export async function gradeCard(
   if (images.angled_back) form.append("angled_back", images.angled_back);
   for (const c of images.closeups ?? []) form.append("closeups", c);
   if (centering) form.append("centering", JSON.stringify(centering));
-  const res = await fetch(`${BASE}/grade`, {
+  const res = await apiFetch(`${BASE}/grade`, {
     method: "POST",
-    headers: await authHeaders(),
     body: form,
   });
   if (!res.ok) await fail(res, "Grading failed");
@@ -860,8 +835,7 @@ export interface AiSpend {
 }
 
 export async function adminGetAiSpend(days = 30): Promise<{ spend: AiSpend; days: number }> {
-  const res = await fetch(`${BASE}/admin/ai-spend?days=${days}`, {
-    headers: await authHeaders(),
+  const res = await apiFetch(`${BASE}/admin/ai-spend?days=${days}`, {
   });
   if (!res.ok) await fail(res, "Failed to load AI spend");
   return res.json();
@@ -870,8 +844,7 @@ export async function adminGetAiSpend(days = 30): Promise<{ spend: AiSpend; days
 export async function adminGetRevenueOverview(
   days = 30
 ): Promise<{ overview: RevenueOverview }> {
-  const res = await fetch(`${BASE}/admin/revenue/overview?days=${days}`, {
-    headers: await authHeaders(),
+  const res = await apiFetch(`${BASE}/admin/revenue/overview?days=${days}`, {
   });
   if (!res.ok) await fail(res, "Failed to load revenue overview");
   return res.json();
@@ -884,8 +857,7 @@ export async function adminGetRevenuePurchases(opts: {
   const q = new URLSearchParams();
   if (opts.page) q.set("page", String(opts.page));
   if (opts.status) q.set("status", opts.status);
-  const res = await fetch(`${BASE}/admin/revenue/purchases?${q}`, {
-    headers: await authHeaders(),
+  const res = await apiFetch(`${BASE}/admin/revenue/purchases?${q}`, {
   });
   if (!res.ok) await fail(res, "Failed to load purchases");
   return res.json();
@@ -900,8 +872,7 @@ export async function adminGetRevenueSubscriptions(opts: {
   if (opts.page) q.set("page", String(opts.page));
   if (opts.plan) q.set("plan", opts.plan);
   if (opts.status) q.set("status", opts.status);
-  const res = await fetch(`${BASE}/admin/revenue/subscriptions?${q}`, {
-    headers: await authHeaders(),
+  const res = await apiFetch(`${BASE}/admin/revenue/subscriptions?${q}`, {
   });
   if (!res.ok) await fail(res, "Failed to load subscriptions");
   return res.json();
@@ -914,8 +885,7 @@ export async function adminGetRevenueInvoices(opts: {
   const q = new URLSearchParams();
   if (opts.page) q.set("page", String(opts.page));
   if (opts.status) q.set("status", opts.status);
-  const res = await fetch(`${BASE}/admin/revenue/invoices?${q}`, {
-    headers: await authHeaders(),
+  const res = await apiFetch(`${BASE}/admin/revenue/invoices?${q}`, {
   });
   if (!res.ok) await fail(res, "Failed to load invoices");
   return res.json();
@@ -924,8 +894,7 @@ export async function adminGetRevenueInvoices(opts: {
 export async function adminGetRevenueFailures(
   days = 30
 ): Promise<{ failures: AdminFailure[] }> {
-  const res = await fetch(`${BASE}/admin/revenue/failures?days=${days}`, {
-    headers: await authHeaders(),
+  const res = await apiFetch(`${BASE}/admin/revenue/failures?days=${days}`, {
   });
   if (!res.ok) await fail(res, "Failed to load payment failures");
   return res.json();
@@ -948,8 +917,7 @@ export async function adminListUsageEvents(opts: {
   if (opts.from) q.set("from", opts.from);
   if (opts.to) q.set("to", opts.to);
   if (opts.userId) q.set("userId", opts.userId);
-  const res = await fetch(`${BASE}/admin/usage/events?${q}`, {
-    headers: await authHeaders(),
+  const res = await apiFetch(`${BASE}/admin/usage/events?${q}`, {
   });
   if (!res.ok) await fail(res, "Failed to load usage events");
   return res.json();
@@ -968,8 +936,7 @@ export async function adminExportUsageEvents(opts: {
   if (opts.source) q.set("source", opts.source);
   if (opts.from) q.set("from", opts.from);
   if (opts.to) q.set("to", opts.to);
-  const res = await fetch(`${BASE}/admin/usage/events.csv?${q}`, {
-    headers: await authHeaders(),
+  const res = await apiFetch(`${BASE}/admin/usage/events.csv?${q}`, {
   });
   if (!res.ok) await fail(res, "Failed to export usage events");
   const blob = await res.blob();
@@ -990,8 +957,7 @@ export async function adminListFormSubmissions(opts: {
   const q = new URLSearchParams();
   if (opts.page) q.set("page", String(opts.page));
   if (opts.kind) q.set("kind", opts.kind);
-  const res = await fetch(`${BASE}/admin/forms/submissions?${q}`, {
-    headers: await authHeaders(),
+  const res = await apiFetch(`${BASE}/admin/forms/submissions?${q}`, {
   });
   if (!res.ok) await fail(res, "Failed to load form submissions");
   return res.json();
@@ -1002,8 +968,7 @@ export async function adminListStripeEvents(opts: {
 }): Promise<{ events: StripeEventLog[]; total: number; page: number; pageSize: number }> {
   const q = new URLSearchParams();
   if (opts.page) q.set("page", String(opts.page));
-  const res = await fetch(`${BASE}/admin/stripe/events?${q}`, {
-    headers: await authHeaders(),
+  const res = await apiFetch(`${BASE}/admin/stripe/events?${q}`, {
   });
   if (!res.ok) await fail(res, "Failed to load Stripe events");
   return res.json();
@@ -1024,8 +989,7 @@ export async function adminCatalogItems(opts: {
   if (opts.number) q.set("number", opts.number);
   if (opts.page) q.set("page", String(opts.page));
   if (opts.pageSize) q.set("pageSize", String(opts.pageSize));
-  const res = await fetch(`${BASE}/admin/catalog/items?${q.toString()}`, {
-    headers: await authHeaders(),
+  const res = await apiFetch(`${BASE}/admin/catalog/items?${q.toString()}`, {
   });
   if (!res.ok) await fail(res, "Failed to load catalog items");
   return res.json();
@@ -1049,9 +1013,9 @@ export async function saveHistoryCentring(
   eventId: number,
   front: { leftRight?: string; topBottom?: string }
 ): Promise<{ centring: CropCentring }> {
-  const res = await fetch(`${BASE}/me/history/${eventId}/centring`, {
+  const res = await apiFetch(`${BASE}/me/history/${eventId}/centring`, {
     method: "PATCH",
-    headers: await authHeaders({ "Content-Type": "application/json" }),
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ front }),
   });
   if (!res.ok) await fail(res, "Failed to save centring");
@@ -1064,7 +1028,7 @@ export async function submitContactForm(body: {
   message: string;
   turnstileToken?: string;
 }): Promise<void> {
-  const res = await fetch(`${BASE}/forms/contact`, {
+  const res = await apiFetch(`${BASE}/forms/contact`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -1079,7 +1043,7 @@ export async function submitTradeForm(body: {
   monthlyVolume: string;
   turnstileToken?: string;
 }): Promise<void> {
-  const res = await fetch(`${BASE}/forms/trade`, {
+  const res = await apiFetch(`${BASE}/forms/trade`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),

@@ -1,8 +1,11 @@
 import express, { Request, Response, NextFunction } from "express";
 import cors from "cors";
+import cookieParser from "cookie-parser";
+import helmet from "helmet";
 import multer from "multer";
 import { processRoutes } from "./routes/process.js";
 import { meRoutes } from "./routes/me.js";
+import { authRoutes } from "./routes/auth.js";
 import { billingRoutes, stripeWebhookHandler } from "./routes/billing.js";
 import { adminRoutes } from "./routes/admin.js";
 import { keyRoutes } from "./routes/keys.js";
@@ -15,13 +18,25 @@ import {
   humanPregradeAdminRoutes,
 } from "./humanPregrade/index.js";
 import { sendApiError } from "./lib/apiError.js";
+import { csrfProtection } from "./middleware/csrf.js";
 
 const app = express();
 const PORT = parseInt(process.env.PORT || "3001", 10);
 
+app.disable("x-powered-by");
+app.set("trust proxy", parseInt(process.env.TRUST_PROXY_HOPS || "1", 10));
+
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false,
+  })
+);
+
 // Web app + account/billing/admin API: locked-down CORS.
 const webCors = cors({
   origin: process.env.CORS_ORIGIN || "http://localhost:5173",
+  credentials: true,
 });
 // Public API (/v1): open CORS so machine clients on any origin can call it.
 const apiCors = cors({
@@ -44,12 +59,15 @@ app.post(
 app.use("/v1", apiCors, express.json({ limit: "55mb" }));
 
 app.use("/api", webCors);
+app.use(cookieParser());
 app.use(express.json({ limit: "1mb" }));
 
 app.get("/api/health", (_req, res) => {
   res.json({ status: "ok" });
 });
 
+app.use("/api", authRoutes);
+app.use("/api", csrfProtection);
 app.use("/api", meRoutes);
 app.use("/api", billingRoutes);
 app.use("/api", adminRoutes);

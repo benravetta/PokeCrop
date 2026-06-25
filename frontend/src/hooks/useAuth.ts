@@ -1,15 +1,26 @@
 import { create } from "zustand";
-import type { Session, User } from "@supabase/supabase-js";
-import { supabase } from "../lib/supabase";
+import {
+  apiFetch,
+  clearCsrfToken,
+  exchangeHashSession,
+  setCsrfToken,
+} from "../lib/sessionFetch";
+
+export interface SessionUser {
+  id: string;
+  email: string | null;
+  role: "user" | "admin";
+  displayName: string | null;
+}
 
 interface AuthState {
-  session: Session | null;
-  user: User | null;
+  user: SessionUser | null;
+  /** Alias for user — kept for existing components. */
+  session: SessionUser | null;
   initializing: boolean;
-  /** Set when a password-recovery link has been opened (drives the reset flow). */
   recovering: boolean;
 
-  init: () => () => void;
+  init: () => Promise<void>;
   signIn: (email: string, password: string, captchaToken?: string) => Promise<void>;
   signUp: (
     email: string,
@@ -23,77 +34,98 @@ interface AuthState {
   clearRecovering: () => void;
 }
 
-export const useAuth = create<AuthState>((set) => ({
-  session: null,
+async function loadSession(): Promise<SessionUser | null> {
+  const res = await apiFetch("/api/auth/session");
+  if (!res.ok) return null;
+  const data = (await res.json()) as { user?: SessionUser | null };
+  return data.user ?? null;
+}
+
+export const useAuth = create<AuthState>((set, get) => ({
   user: null,
+  session: null,
   initializing: true,
   recovering: false,
 
-  init: () => {
-    supabase.auth.getSession().then(({ data }) => {
-      set({
-        session: data.session,
-        user: data.session?.user ?? null,
-        initializing: false,
-      });
-    });
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
-      set({
-        session,
-        user: session?.user ?? null,
-        initializing: false,
-        ...(event === "PASSWORD_RECOVERY" ? { recovering: true } : {}),
-      });
-    });
-
-    return () => subscription.unsubscribe();
+  init: async () => {
+    try {
+      const fromHash = await exchangeHashSession();
+      if (fromHash) {
+        set({ recovering: window.location.pathname === "/reset-password" });
+      }
+      const user = await loadSession();
+      set({ user, session: user, initializing: false });
+    } catch {
+      set({ user: null, session: null, initializing: false });
+    }
   },
 
   signIn: async (email, password, captchaToken) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-      options: captchaToken ? { captchaToken } : undefined,
+    const res = await apiFetch("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password, captchaToken }),
     });
-    if (error) throw error;
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error((body as { error?: string }).error ?? "Could not sign in.");
+    }
+    const data = (await res.json()) as { user: SessionUser; csrfToken?: string };
+    if (data.csrfToken) setCsrfToken(data.csrfToken);
+    set({ user: data.user, session: data.user });
   },
 
   signUp: async (email, password, displayName, captchaToken) => {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: window.location.origin,
-        data: displayName ? { display_name: displayName } : undefined,
-        ...(captchaToken ? { captchaToken } : {}),
-      },
+    const res = await apiFetch("/api/auth/signup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password, displayName, captchaToken }),
     });
-    if (error) throw error;
-    // When email confirmation is enabled, signUp returns a user but no session.
-    const needsConfirmation = !data.session;
-    return { needsConfirmation };
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error((body as { error?: string }).error ?? "Could not register.");
+    }
+    const data = (await res.json()) as {
+      user: SessionUser | null;
+      needsConfirmation?: boolean;
+      csrfToken?: string;
+    };
+    if (data.csrfToken) setCsrfToken(data.csrfToken);
+    if (data.user) set({ user: data.user, session: data.user });
+    return { needsConfirmation: Boolean(data.needsConfirmation) };
   },
 
   signOut: async () => {
-    await supabase.auth.signOut();
-    set({ session: null, user: null, recovering: false });
+    await apiFetch("/api/auth/logout", { method: "POST" });
+    clearCsrfToken();
+    set({ user: null, session: null, recovering: false });
   },
 
   sendPasswordReset: async (email, captchaToken) => {
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
-      ...(captchaToken ? { captchaToken } : {}),
+    const res = await apiFetch("/api/auth/password-reset", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, captchaToken }),
     });
-    if (error) throw error;
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error((body as { error?: string }).error ?? "Could not send reset email.");
+    }
   },
 
   updatePassword: async (password) => {
-    const { error } = await supabase.auth.updateUser({ password });
-    if (error) throw error;
+    const res = await apiFetch("/api/auth/password-update", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error((body as { error?: string }).error ?? "Could not update password.");
+    }
     set({ recovering: false });
+    const user = await loadSession();
+    if (user) set({ user, session: user });
   },
 
   clearRecovering: () => set({ recovering: false }),

@@ -80,7 +80,7 @@ export function resolveCustomerProgress(status: string): CustomerProgress {
   }
   for (let i = 0; i < CUSTOMER_PROGRESS_STEPS.length; i++) {
     const def = CUSTOMER_PROGRESS_STEPS[i]!;
-    if ((def.statuses as readonly string[]).includes(status)) {
+    if (def.statuses.some((s) => s === status)) {
       const completed = status === "completed" ? totalSteps : i + 1;
       const percentComplete =
         status === "completed" ? 100 : Math.round(((i + 0.5) / totalSteps) * 100);

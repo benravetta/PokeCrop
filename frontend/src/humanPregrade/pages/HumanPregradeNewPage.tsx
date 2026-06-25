@@ -8,6 +8,7 @@ import {
   submitHumanPregradeOrder,
 } from "../api";
 import { useHumanPregradeConfig, formatMinorUnits } from "../hooks/useHumanPregradeConfig";
+import { safeStripeCheckoutUrl } from "../../lib/safeUrl";
 
 export function HumanPregradeNewPage() {
   const { config, enabled } = useHumanPregradeConfig();
@@ -72,7 +73,12 @@ export function HumanPregradeNewPage() {
     if (frontFile) await uploadHumanPregradeImage(id, frontFile, "front");
     if (backFile) await uploadHumanPregradeImage(id, backFile, "back");
     const { url } = await startHumanPregradeCheckout(id);
-    window.location.href = url;
+    const safe = safeStripeCheckoutUrl(url);
+    if (!safe) {
+      setError("Invalid checkout URL. Please try again or contact support.");
+      return;
+    }
+    window.location.href = safe;
   };
 
   const handleSubmitAfterPayment = async () => {
