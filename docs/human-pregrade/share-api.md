@@ -1,12 +1,12 @@
 # Human Pre-Grade public share API (specification)
 
-This document describes the **planned** public share endpoint for published human pre-grade reports. No route is implemented yet; use this spec when building the feature.
+This document describes the public share endpoint for published human pre-grade reports.
 
 ## Purpose
 
 Allow a customer to share a read-only view of a completed report via an unguessable token, without exposing internal IDs, staff data, or draft content.
 
-## Endpoint (planned)
+## Endpoint
 
 ```
 GET /api/human-pregrades/share/:publicToken

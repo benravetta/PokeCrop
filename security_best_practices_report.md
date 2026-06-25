@@ -357,7 +357,7 @@ All findings below have been addressed in code unless noted. See `docs/security.
 | 6 — Grader ID validation | Done | `validateGraderIds()` on create |
 | 7 — Session storage / BFF | Done | HttpOnly cookies, CSRF, `/api/auth/*` |
 | 8 — iframe sandbox | Done | Admin preview iframe `sandbox=""` |
-| 9 — Public share API | Spec only | `docs/human-pregrade/share-api.md` (no route yet) |
+| 9 — Public share API | Done | `GET /api/human-pregrades/share/:token` + IP rate limit |
 | 10 — Admin DTO | Done | `sanitizeAdminOrder()` by role |
 | 11 — ILIKE wildcards | Done | `%` / `_` stripped in search |
 | 12 — RLS documentation | Done | `docs/human-pregrade/schema.md` |

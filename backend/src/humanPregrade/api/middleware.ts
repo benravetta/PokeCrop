@@ -1,5 +1,4 @@
 import type { Request, Response, NextFunction } from "express";
-import { isAdminRole } from "../../lib/adminAccess.js";
 import { isHumanPregradeEnvEnabled } from "../domain/featureFlag.js";
 import { HumanPregradeError } from "../domain/types.js";
 import { isHumanPregradeFeatureEnabled } from "../infrastructure/settingsRepo.js";
@@ -25,11 +24,6 @@ export async function requireHumanPregradeEnabled(
 ): Promise<void> {
   if (!isHumanPregradeEnvEnabled()) {
     res.status(404).json({ error: "Not found." });
-    return;
-  }
-  const isAdmin = isAdminRole(req.user?.role);
-  if (isAdmin) {
-    next();
     return;
   }
   try {

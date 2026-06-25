@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import multer from "multer";
 import { requireActiveAuth } from "../../middleware/auth.js";
-import { isAdminRole } from "../../lib/adminAccess.js";
+import { rejectAdminBilling } from "../../lib/adminAccess.js";
 import { getServiceClient } from "../../lib/supabase.js";
 import {
   requireHumanPregradeEnabled,
@@ -333,6 +333,7 @@ humanPregradeCustomerRoutes.post(
   humanPregradeRateLimit("checkout"),
   async (req, res) => {
     try {
+      if (rejectAdminBilling(req.user!.role, res)) return;
       if (!isStripeConfigured()) throw new HumanPregradeError("HUMAN_PREGRADE_PAYMENT_REQUIRED", "Billing unavailable", 503);
       const order = await loadOwnedOrder(req.user!.id, req.params.publicId!);
       const settings = await getHumanPregradeSettings();
@@ -613,11 +614,16 @@ humanPregradeCustomerRoutes.post(
   async (req, res) => {
     try {
       const order = await loadOwnedOrder(req.user!.id, req.params.publicId!);
-      await getServiceClient()
+      const { data: report } = await getServiceClient()
         .from("human_pregrade_reports")
         .update({ is_shareable: true })
         .eq("order_id", order.id)
-        .eq("status", "published");
+        .eq("status", "published")
+        .select("id")
+        .maybeSingle();
+      if (!report) {
+        throw new HumanPregradeError("HUMAN_PREGRADE_REPORT_NOT_PUBLISHED", "Report not ready", 404);
+      }
       res.json({ ok: true });
     } catch (err) {
       sendHumanPregradeError(res, err);
@@ -632,11 +638,16 @@ humanPregradeCustomerRoutes.delete(
   async (req, res) => {
     try {
       const order = await loadOwnedOrder(req.user!.id, req.params.publicId!);
-      await getServiceClient()
+      const { data: report } = await getServiceClient()
         .from("human_pregrade_reports")
         .update({ is_shareable: false })
         .eq("order_id", order.id)
-        .eq("status", "published");
+        .eq("status", "published")
+        .select("id")
+        .maybeSingle();
+      if (!report) {
+        throw new HumanPregradeError("HUMAN_PREGRADE_REPORT_NOT_PUBLISHED", "Report not ready", 404);
+      }
       res.json({ ok: true });
     } catch (err) {
       sendHumanPregradeError(res, err);

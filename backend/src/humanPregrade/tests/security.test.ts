@@ -9,6 +9,7 @@ import {
   shareTokensEqual,
 } from "../api/security.js";
 import { assertMaxLength, MAX_MESSAGE_BYTES } from "../domain/limits.js";
+import { rejectAdminBilling } from "../../lib/adminAccess.js";
 
 describe("security helpers", () => {
   it("strips PostgREST metacharacters from search", () => {
@@ -80,5 +81,23 @@ describe("security helpers", () => {
     expect(normalizeShareToken("bad")).toBeNull();
     expect(shareTokensEqual(valid, valid)).toBe(true);
     expect(shareTokensEqual(valid, "550e8400-e29b-41d4-a716-446655440001")).toBe(false);
+  });
+
+  it("blocks admin billing checkout", () => {
+    const res = {
+      statusCode: 200,
+      body: null as unknown,
+      status(code: number) {
+        this.statusCode = code;
+        return this;
+      },
+      json(payload: unknown) {
+        this.body = payload;
+        return this;
+      },
+    };
+    expect(rejectAdminBilling("admin", res as never)).toBe(true);
+    expect(res.statusCode).toBe(403);
+    expect(rejectAdminBilling("user", res as never)).toBe(false);
   });
 });

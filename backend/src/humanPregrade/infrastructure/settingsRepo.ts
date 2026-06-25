@@ -45,7 +45,7 @@ export async function getHumanPregradeSettings(): Promise<HumanPregradeSettings>
     enabled: Boolean(row.enabled),
     product_name: String(row.product_name ?? "GemCheck Expert Review"),
     product_description: String(row.product_description ?? ""),
-    price_minor_units: Number(row.price_minor_units ?? 4999),
+    price_minor_units: Number(row.price_minor_units ?? 2999),
     currency: String(row.currency ?? "GBP"),
     expected_turnaround_hours: Number(row.expected_turnaround_hours ?? 72),
     queue_capacity: Number(row.queue_capacity ?? 100),
