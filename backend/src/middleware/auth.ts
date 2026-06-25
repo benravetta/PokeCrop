@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { getServiceClient, isSupabaseConfigured } from "../lib/supabase.js";
 import { ACCESS_COOKIE } from "../lib/sessionCookies.js";
+import { checkAdminRateLimit } from "./adminRateLimit.js";
 
 const SUPABASE_URL = process.env.SUPABASE_URL || "";
 const ISSUER = SUPABASE_URL ? `${SUPABASE_URL}/auth/v1` : "";
