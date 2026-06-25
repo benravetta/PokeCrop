@@ -31,19 +31,27 @@ function serializeUser(user: {
   };
 }
 
-async function verifyCaptcha(req: Request, res: Response): Promise<boolean> {
-  const token =
-    typeof req.body?.captchaToken === "string"
-      ? req.body.captchaToken
-      : typeof req.body?.turnstileToken === "string"
-        ? req.body.turnstileToken
-        : undefined;
+function readCaptchaToken(req: Request): string | undefined {
+  if (typeof req.body?.captchaToken === "string" && req.body.captchaToken.trim()) {
+    return req.body.captchaToken.trim();
+  }
+  if (typeof req.body?.turnstileToken === "string" && req.body.turnstileToken.trim()) {
+    return req.body.turnstileToken.trim();
+  }
+  return undefined;
+}
+
+async function verifyCaptcha(
+  req: Request,
+  res: Response
+): Promise<{ ok: true; token: string | undefined } | { ok: false }> {
+  const token = readCaptchaToken(req);
   const result = await verifyTurnstileToken(token, req.ip);
   if (!result.ok) {
     res.status(400).json({ error: result.message });
-    return false;
+    return { ok: false };
   }
-  return true;
+  return { ok: true, token };
 }
 
 authRoutes.get("/auth/csrf", (_req, res) => {
@@ -79,7 +87,8 @@ authRoutes.post("/auth/login", async (req, res) => {
     authUnavailable(res);
     return;
   }
-  if (!(await verifyCaptcha(req, res))) return;
+  const captcha = await verifyCaptcha(req, res);
+  if (!captcha.ok) return;
 
   const email = String(req.body?.email ?? "").trim();
   const password = String(req.body?.password ?? "");
@@ -88,7 +97,11 @@ authRoutes.post("/auth/login", async (req, res) => {
     return;
   }
 
-  const { data, error } = await getAuthClient().auth.signInWithPassword({ email, password });
+  const { data, error } = await getAuthClient().auth.signInWithPassword({
+    email,
+    password,
+    options: captcha.token ? { captchaToken: captcha.token } : undefined,
+  });
   if (error || !data.session) {
     res.status(401).json({ error: error?.message ?? "Invalid credentials." });
     return;
@@ -105,7 +118,8 @@ authRoutes.post("/auth/signup", async (req, res) => {
     authUnavailable(res);
     return;
   }
-  if (!(await verifyCaptcha(req, res))) return;
+  const captcha = await verifyCaptcha(req, res);
+  if (!captcha.ok) return;
 
   const email = String(req.body?.email ?? "").trim();
   const password = String(req.body?.password ?? "");
@@ -122,6 +136,7 @@ authRoutes.post("/auth/signup", async (req, res) => {
     options: {
       emailRedirectTo: process.env.PUBLIC_ORIGIN || "http://localhost:8080",
       data: displayName ? { display_name: displayName } : undefined,
+      ...(captcha.token ? { captchaToken: captcha.token } : {}),
     },
   });
   if (error) {
@@ -183,7 +198,8 @@ authRoutes.post("/auth/password-reset", async (req, res) => {
     authUnavailable(res);
     return;
   }
-  if (!(await verifyCaptcha(req, res))) return;
+  const captcha = await verifyCaptcha(req, res);
+  if (!captcha.ok) return;
 
   const email = String(req.body?.email ?? "").trim();
   if (!email) {
@@ -193,6 +209,7 @@ authRoutes.post("/auth/password-reset", async (req, res) => {
   const origin = process.env.PUBLIC_ORIGIN || "http://localhost:8080";
   const { error } = await getAuthClient().auth.resetPasswordForEmail(email, {
     redirectTo: `${origin}/reset-password`,
+    ...(captcha.token ? { captchaToken: captcha.token } : {}),
   });
   if (error) {
     res.status(400).json({ error: error.message });
