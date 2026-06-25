@@ -3,6 +3,7 @@ import { ArrowRight, CheckCircle2, Upload } from "lucide-react";
 import { HERO_CARD_IMG, SINGLE_GRADE } from "./data";
 import { AppWindow } from "./shared";
 import { ESTIMATE_DISCLAIMER_SHORT, HERO, TRUST_STRIP } from "../../lib/marketingCopy";
+import { STAFF_ACCOUNT } from "../../lib/adminAccess";
 import { PLAN_LABELS, type Plan } from "../../lib/plans";
 
 export function HeroSection({
@@ -19,7 +20,7 @@ export function HeroSection({
     : { to: "/register", label: HERO.primaryCtaGuest };
 
   const supportLine = isAdmin
-    ? "Admin account: unlimited crops, reports and API access."
+    ? STAFF_ACCOUNT.heroSupport
     : plan === "free"
       ? HERO.supportFreePlan(SINGLE_GRADE.price)
       : plan

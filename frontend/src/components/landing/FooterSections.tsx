@@ -4,6 +4,7 @@ import { API_SNIPPET } from "./data";
 import { SectionHeading } from "./shared";
 import { ESTIMATE_DISCLAIMER, FOOTER, GRADER_INDEPENDENCE } from "../../lib/marketingCopy";
 import { FOOTER_EXTERNAL_LINKS, FOOTER_NAV_LINKS } from "../../lib/siteNav";
+import { STAFF_ACCOUNT } from "../../lib/adminAccess";
 import { SiteNavLinks } from "../marketing/SiteNavLinks";
 import { Wordmark } from "./shared";
 import type { Plan } from "../../lib/plans";
@@ -31,7 +32,7 @@ export function ApiSection({
   let cta: { label: string; action: () => void };
   if (isAdmin || plan === "api") {
     cta = {
-      label: isAdmin ? "Admin — manage API keys" : "Manage your API keys",
+      label: STAFF_ACCOUNT.apiCta,
       action: () => (window.location.href = "/account"),
     };
   } else if (loggedIn) {

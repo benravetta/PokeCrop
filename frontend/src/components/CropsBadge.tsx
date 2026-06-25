@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { Sparkles } from "lucide-react";
 import { useMe } from "../hooks/useMe";
 import { useAuth } from "../hooks/useAuth";
-import { AdminBadge, isAdminMe } from "../lib/adminAccess";
+import { isAdminMe } from "../lib/adminAccess";
 
 // Compact header indicator: shows remaining free crops, or an "Unlimited" pill
 // for paying users. Links through to the account/billing page.
@@ -17,23 +17,13 @@ export function CropsBadge() {
 
   if (!me) return null;
 
-  if (isAdminMe(me)) {
-    return (
-      <Link
-        to="/account"
-        className="inline-flex items-center"
-        title="Admin account — full access"
-      >
-        <AdminBadge />
-      </Link>
-    );
-  }
+  if (isAdminMe(me)) return null;
 
   if (me.plan !== "free") {
     return (
       <Link
         to="/account"
-        className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium
+        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium
                    text-accent bg-accent/10 border border-accent/20 hover:bg-accent/15 transition-colors"
         title="Your plan"
       >

@@ -6,7 +6,8 @@ import { useAuth } from "../hooks/useAuth";
 import { useMe } from "../hooks/useMe";
 import { startCheckout, startGradeCheckout, openBillingPortal } from "../lib/api";
 import type { Plan } from "../lib/plans";
-import { AdminAccessNotice, isAdminMe } from "../lib/adminAccess";
+import { isAdminMe, STAFF_ACCOUNT } from "../lib/adminAccess";
+import { StaffIncludedLabel } from "../components/staff/StaffIncludedLabel";
 import { SingleGradeOffer } from "../components/landing/PricingSection";
 import { FeatureCompareTable } from "../components/pricing/FeatureCompareTable";
 import {
@@ -94,9 +95,9 @@ export function PricingPage() {
         </div>
 
         {admin && (
-          <div className="max-w-2xl mx-auto mb-8">
-            <AdminAccessNotice />
-          </div>
+          <p className="max-w-2xl mx-auto mb-8 text-center text-sm text-text-muted">
+            {STAFF_ACCOUNT.pricingFootnote}
+          </p>
         )}
 
         {error && (
@@ -105,11 +106,7 @@ export function PricingPage() {
           </div>
         )}
 
-        {admin ? (
-          <p className="mb-8 text-center text-sm text-text-muted">
-            Pricing below is for customer accounts. Your admin account already has full access.
-          </p>
-        ) : gradeBusy ? (
+        {admin ? null : gradeBusy ? (
           <div className="mb-8 flex justify-center">
             <Loader2 className="w-6 h-6 animate-spin text-accent" />
           </div>
@@ -173,12 +170,7 @@ export function PricingPage() {
 
                 <div className="mt-6">
                   {admin ? (
-                    <button
-                      disabled
-                      className="w-full px-4 py-2.5 text-sm font-medium rounded-xl bg-amber-500/10 text-amber-200/80 border border-amber-500/30 cursor-default"
-                    >
-                      Admin — included
-                    </button>
+                    <StaffIncludedLabel />
                   ) : isCurrent ? (
                     <button
                       disabled

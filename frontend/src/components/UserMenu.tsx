@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { LogOut, Settings, Shield, ChevronDown, History } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
-import { AdminBadge } from "../lib/adminAccess";
 
 export function UserMenu() {
   const { user, signOut } = useAuth();
@@ -51,11 +50,6 @@ export function UserMenu() {
           <div className="px-4 py-3 border-b border-border-subtle">
             <p className="text-[11px] text-text-muted">Signed in as</p>
             <p className="text-sm text-text-primary truncate">{email}</p>
-            {isAdmin && (
-              <div className="mt-2">
-                <AdminBadge />
-              </div>
-            )}
           </div>
           <Link
             to="/account"

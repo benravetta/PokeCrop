@@ -5,7 +5,8 @@ import { isProLaunchPromoActive, PRO_LAUNCH_PROMO } from "../pricing/pricingComp
 import type { Plan, SubscriptionPlan } from "../../lib/plans";
 import { PRICING, NAV } from "../../lib/marketingCopy";
 import { SectionHeading } from "./shared";
-import { AdminAccessNotice } from "../../lib/adminAccess";
+import { STAFF_ACCOUNT } from "../../lib/adminAccess";
+import { StaffIncludedLabel } from "../staff/StaffIncludedLabel";
 
 export function SingleGradeOffer({
   loggedIn,
@@ -105,9 +106,7 @@ export function PricingSection({
         )}
 
         {isAdmin && (
-          <div className="mt-6">
-            <AdminAccessNotice />
-          </div>
+          <p className="mt-6 text-center text-sm text-text-muted">{STAFF_ACCOUNT.pricingFootnote}</p>
         )}
 
         <div className="mt-8">
@@ -163,9 +162,7 @@ export function PricingSection({
                 </ul>
                 <div className="mt-6">
                   {isAdmin ? (
-                    <span className="block w-full rounded-xl border border-amber-500/30 bg-amber-500/10 py-2.5 text-sm font-medium text-center text-amber-200">
-                      Admin — included
-                    </span>
+                    <StaffIncludedLabel />
                   ) : isCurrent ? (
                     <span className="block w-full rounded-xl border border-border-strong py-2.5 text-sm font-medium text-center text-text-muted">
                       Current plan
@@ -231,10 +228,10 @@ export function PlanCta({
   };
 
   if (isAdmin) {
-    title = "You're signed in as admin.";
-    copy = "Full access to crops, grades, and API keys. Billing and plan changes are not available for admin accounts.";
-    primary = { label: "Open the app", to: "/crop" };
-    secondary = { label: "Admin panel", to: "/admin" };
+    title = STAFF_ACCOUNT.planCta.title;
+    copy = STAFF_ACCOUNT.planCta.copy;
+    primary = { label: STAFF_ACCOUNT.planCta.primary, to: "/crop" };
+    secondary = { label: STAFF_ACCOUNT.planCta.secondary, to: "/admin" };
   } else if (!loggedIn) {
     title = "Check a card before you ever pay to grade.";
     copy = `Free to start — or buy a single report for ${SINGLE_GRADE.price} with no subscription.`;

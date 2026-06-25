@@ -32,7 +32,6 @@ import {
   type CardPricing,
 } from "../lib/api";
 import { useMe } from "../hooks/useMe";
-import { AdminBadge } from "../lib/adminAccess";
 import { GradeProgress } from "../components/grade/GradeProgress";
 import { GradeUploadWorkspace } from "../components/grade/GradeUploadWorkspace";
 import { HumanPregradePromo } from "../humanPregrade/components/HumanPregradePromo";
@@ -394,16 +393,8 @@ export function GradePage() {
 
   const outOfQuota = isAdmin ? false : quota ? quota.remaining <= 0 : false;
 
-  const quotaLabel = quota ? (
-    quota.isAdmin || isAdmin ? (
-      <div className="shrink-0 rounded-xl border border-amber-500/30 bg-amber-500/10 backdrop-blur-sm px-4 py-3 text-right">
-        <div className="text-[11px] uppercase tracking-wide text-amber-200/80">Admin access</div>
-        <div className="mt-1 flex justify-end">
-          <AdminBadge />
-        </div>
-        <div className="text-[11px] text-amber-100/80 mt-1">Unlimited grades</div>
-      </div>
-    ) : (
+  const quotaLabel =
+    quota && !isAdmin && !quota.isAdmin ? (
     <div className="shrink-0 rounded-xl border border-border-subtle bg-surface/60 backdrop-blur-sm px-4 py-3 text-right">
       <div className="text-[11px] uppercase tracking-wide text-text-muted">Grades left</div>
       <div className="text-lg font-semibold text-text-primary tabular-nums">
@@ -417,7 +408,6 @@ export function GradePage() {
         )}
       </div>
     </div>
-    )
   ) : null;
 
   const purchaseBanner =

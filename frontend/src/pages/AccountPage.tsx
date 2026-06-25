@@ -5,7 +5,8 @@ import { useAuth } from "../hooks/useAuth";
 import { useMe } from "../hooks/useMe";
 import { openBillingPortal, startGradeCheckout, getGradeQuota, getProfile, updateProfile, type GradeQuota } from "../lib/api";
 import { PLAN_LABELS } from "../lib/plans";
-import { AdminAccessNotice, AdminBadge, isAdminMe } from "../lib/adminAccess";
+import { isAdminMe, STAFF_ACCOUNT } from "../lib/adminAccess";
+import { StaffAccountPanel } from "../components/staff/StaffAccountPanel";
 import { Field } from "../components/auth/AuthLayout";
 import { ApiKeysPanel } from "../components/ApiKeysPanel";
 import { HumanPregradeAccountSection } from "../humanPregrade/components/HumanPregradePromo";
@@ -181,20 +182,9 @@ export function AccountPage() {
           </form>
         </Section>
 
-        <Section icon={<CreditCard className="w-4 h-4" />} title={admin ? "Admin access" : "Plan &amp; billing"}>
+        <Section icon={<CreditCard className="w-4 h-4" />} title={admin ? STAFF_ACCOUNT.accountSectionTitle : "Plan &amp; billing"}>
           {admin ? (
-            <>
-              <AdminAccessNotice />
-              <div className="mt-4">
-                <AdminBadge />
-              </div>
-              <p className="mt-3 text-sm text-text-secondary">
-                Full access to crops, grades, and API keys — no subscription required.
-              </p>
-              <p className="mt-2 text-[12px] text-text-muted">
-                Plan purchases and billing portal access are disabled for admin accounts.
-              </p>
-            </>
+            <StaffAccountPanel />
           ) : (
             <>
           {checkoutStatus === "success" && (
@@ -289,7 +279,7 @@ export function AccountPage() {
         </Section>
 
         {(plan === "api" || admin) && (
-          <Section icon={<KeyRound className="w-4 h-4" />} title={admin ? "Admin — API keys" : "API keys"}>
+          <Section icon={<KeyRound className="w-4 h-4" />} title="API keys">
             <ApiKeysPanel />
           </Section>
         )}
