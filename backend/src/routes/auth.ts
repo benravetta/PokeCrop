@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from "express";
 import { getAuthClient, isSupabaseAuthConfigured } from "../lib/supabase.js";
-import { verifyTurnstileToken } from "../lib/turnstile.js";
+import { isTurnstileConfigured } from "../lib/turnstile.js";
 import {
   clearCsrfCookie,
   clearSessionCookies,
@@ -41,14 +41,20 @@ function readCaptchaToken(req: Request): string | undefined {
   return undefined;
 }
 
-async function verifyCaptcha(
+/**
+ * Turnstile tokens are single-use. Supabase Auth verifies captchaToken itself —
+ * calling Cloudflare siteverify here first would consume the token and cause
+ * "timeout-or-duplicate" on sign-in.
+ */
+function requireCaptchaToken(
   req: Request,
   res: Response
-): Promise<{ ok: true; token: string | undefined } | { ok: false }> {
+): { ok: true; token: string | undefined } | { ok: false } {
   const token = readCaptchaToken(req);
-  const result = await verifyTurnstileToken(token, req.ip);
-  if (!result.ok) {
-    res.status(400).json({ error: result.message });
+  const captchaRequired =
+    isTurnstileConfigured() || process.env.NODE_ENV === "production";
+  if (captchaRequired && !token) {
+    res.status(400).json({ error: "Complete the security check." });
     return { ok: false };
   }
   return { ok: true, token };
@@ -87,7 +93,7 @@ authRoutes.post("/auth/login", async (req, res) => {
     authUnavailable(res);
     return;
   }
-  const captcha = await verifyCaptcha(req, res);
+  const captcha = requireCaptchaToken(req, res);
   if (!captcha.ok) return;
 
   const email = String(req.body?.email ?? "").trim();
@@ -118,7 +124,7 @@ authRoutes.post("/auth/signup", async (req, res) => {
     authUnavailable(res);
     return;
   }
-  const captcha = await verifyCaptcha(req, res);
+  const captcha = requireCaptchaToken(req, res);
   if (!captcha.ok) return;
 
   const email = String(req.body?.email ?? "").trim();
@@ -198,7 +204,7 @@ authRoutes.post("/auth/password-reset", async (req, res) => {
     authUnavailable(res);
     return;
   }
-  const captcha = await verifyCaptcha(req, res);
+  const captcha = requireCaptchaToken(req, res);
   if (!captcha.ok) return;
 
   const email = String(req.body?.email ?? "").trim();
