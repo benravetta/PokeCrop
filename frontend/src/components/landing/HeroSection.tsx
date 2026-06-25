@@ -1,8 +1,9 @@
 import { Link } from "react-router-dom";
-import { ArrowRight, CheckCircle2, Upload } from "lucide-react";
+import { ArrowRight, CheckCircle2, Upload, UserCheck } from "lucide-react";
 import { HERO_CARD_IMG, SINGLE_GRADE } from "./data";
 import { AppWindow } from "./shared";
 import { ESTIMATE_DISCLAIMER_SHORT, HERO, TRUST_STRIP } from "../../lib/marketingCopy";
+import { EXPERT_REVIEW } from "../../humanPregrade/landing/expertReviewCopy";
 import { STAFF_ACCOUNT } from "../../lib/adminAccess";
 import { PLAN_LABELS, type Plan } from "../../lib/plans";
 
@@ -59,6 +60,15 @@ export function HeroSection({
                 <ArrowRight className="w-4 h-4 text-text-muted" />
               </Link>
             </div>
+
+            <Link
+              to="#expert-review"
+              className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-sky-300/90 transition hover:text-sky-200"
+            >
+              <UserCheck className="h-4 w-4 shrink-0" />
+              {EXPERT_REVIEW.home.heroTeaser}
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
 
             <p className="mt-4 text-sm text-text-muted">{supportLine}</p>
 
