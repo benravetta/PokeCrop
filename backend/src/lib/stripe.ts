@@ -1,20 +1,23 @@
 import Stripe from "stripe";
 import { type SubscriptionPlan } from "./plans.js";
 
-const KEY = process.env.STRIPE_SECRET_KEY || "";
-
 let client: Stripe | null = null;
 
+function stripeSecretKey(): string {
+  return process.env.STRIPE_SECRET_KEY || "";
+}
+
 export function isStripeConfigured(): boolean {
-  return Boolean(KEY);
+  return Boolean(stripeSecretKey());
 }
 
 export function getStripe(): Stripe {
-  if (!KEY) {
+  const key = stripeSecretKey();
+  if (!key) {
     throw new Error("Stripe is not configured (set STRIPE_SECRET_KEY).");
   }
   if (!client) {
-    client = new Stripe(KEY);
+    client = new Stripe(key);
   }
   return client;
 }

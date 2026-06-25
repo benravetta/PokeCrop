@@ -147,7 +147,7 @@ export function AdminOverviewPage() {
             </div>
           )}
 
-          {!revenue?.stripeConfigured && (
+          {revenue && !revenue.stripeConfigured && (
             <div className="mb-6 rounded-lg bg-amber-500/10 border border-amber-500/20 px-3 py-2 text-[13px] text-amber-200">
               Stripe is not configured. Revenue KPIs show local purchase data only.
             </div>

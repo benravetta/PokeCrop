@@ -112,7 +112,7 @@ export function RevenuePage() {
         Stripe-backed subscriptions, one-off grade purchases and payment failures.
       </p>
 
-      {!overview?.stripeConfigured && (
+      {overview && !overview.stripeConfigured && (
         <div className="mb-4 rounded-lg bg-amber-500/10 border border-amber-500/20 px-3 py-2 text-[13px] text-amber-200">
           Stripe is not configured. Showing local purchase data only.
         </div>
