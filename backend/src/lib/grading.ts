@@ -2,6 +2,7 @@ import { chatComplete, isOpenAiConfigured, type ChatImage } from "./openai.js";
 import { buildPreparation } from "./preparation.js";
 import { estimateMarketPrices } from "./marketPricing.js";
 import { scoreGrades } from "./gradeScoring.js";
+import { centeringAnalysisForApi } from "./centeringEngine.js";
 
 // Strict, anti-hype PSA-style pre-grader. Two passes:
 //   1) inspection — vision model reports structured condition findings, no grade
@@ -25,6 +26,22 @@ export interface GradeImageInput {
 export interface MeasuredCentering {
   front?: { leftRight?: string; topBottom?: string };
   back?: { leftRight?: string; topBottom?: string };
+  /** Extended measurement metadata (optional, backward compatible). */
+  front_centering_confidence?: number;
+  back_centering_confidence?: number;
+  measurement_confidence?: number;
+  detectionQuality?: "good" | "fair" | "poor";
+  perspectiveWarning?: boolean;
+  sleeveSuspected?: boolean;
+  lowContrastBorder?: boolean;
+  borderlessDesign?: boolean;
+  userAdjustmentDelta?: number;
+  imageResolution?: number;
+  printSheetVisible?: boolean;
+  borderWidths?: {
+    front?: { left?: number; right?: number; top?: number; bottom?: number; leftMm?: number; rightMm?: number; topMm?: number; bottomMm?: number };
+    back?: { left?: number; right?: number; top?: number; bottom?: number; leftMm?: number; rightMm?: number; topMm?: number; bottomMm?: number };
+  };
 }
 
 const INSPECT_SYSTEM =
@@ -359,6 +376,18 @@ export async function gradeCard(
   return {
     ...findings,
     ...mergedDecision,
+    ...(scored.centering_analysis
+      ? {
+          centering_analysis: centeringAnalysisForApi(scored.centering_analysis),
+          centering: {
+            ...(findings.centering && typeof findings.centering === "object"
+              ? (findings.centering as Record<string, unknown>)
+              : {}),
+            verdict: scored.centering_analysis.explanation,
+            measured: true,
+          },
+        }
+      : {}),
     preparation: buildPreparation((findings as Record<string, unknown>).defects),
     ...(pricing ? { pricing } : {}),
     disclaimer:

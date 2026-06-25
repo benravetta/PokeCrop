@@ -4,8 +4,6 @@ import {
   type CardSide,
   type Box,
   borderRatios,
-  centeringCeiling,
-  ceilingLabel,
   detectBorders,
 } from "../../lib/centering";
 
@@ -91,7 +89,6 @@ export function CenteringTool({
 
   const ready = outer && inner;
   const ratios = ready ? borderRatios(outer!, inner!) : null;
-  const ceiling = ratios ? centeringCeiling(ratios, side) : null;
 
   const pct = (n: number) => `${n * 100}%`;
   const startDrag = (box: BoxId, edge: Edge) => (e: React.PointerEvent) => {
@@ -172,19 +169,6 @@ export function CenteringTool({
             <span className="text-sm text-text-secondary">
               T/B <span className="font-semibold text-text-primary">{ratios.topBottom.ratio}</span>
             </span>
-            {ceiling != null && (
-              <span
-                className={`text-xs rounded-full px-2.5 py-1 font-medium ${
-                  ceiling >= 10
-                    ? "bg-emerald-500/15 text-emerald-300"
-                    : ceiling >= 8
-                    ? "bg-accent/15 text-accent"
-                    : "bg-amber-500/15 text-amber-300"
-                }`}
-              >
-                {ceilingLabel(ceiling)}
-              </span>
-            )}
           </>
         ) : (
           <span className="text-sm text-text-muted">Centring skipped for this side.</span>

@@ -784,6 +784,39 @@ export interface GradeImages {
 export interface MeasuredCentering {
   front?: { leftRight?: string; topBottom?: string };
   back?: { leftRight?: string; topBottom?: string };
+  front_centering_confidence?: number;
+  back_centering_confidence?: number;
+  measurement_confidence?: number;
+  detectionQuality?: "good" | "fair" | "poor";
+  perspectiveWarning?: boolean;
+  sleeveSuspected?: boolean;
+  lowContrastBorder?: boolean;
+  borderlessDesign?: boolean;
+  userAdjustmentDelta?: number;
+  imageResolution?: number;
+  printSheetVisible?: boolean;
+  borderWidths?: {
+    front?: {
+      left?: number;
+      right?: number;
+      top?: number;
+      bottom?: number;
+      leftMm?: number;
+      rightMm?: number;
+      topMm?: number;
+      bottomMm?: number;
+    };
+    back?: {
+      left?: number;
+      right?: number;
+      top?: number;
+      bottom?: number;
+      leftMm?: number;
+      rightMm?: number;
+      topMm?: number;
+      bottomMm?: number;
+    };
+  };
 }
 
 export type CaptureIssueSeverity = "block" | "warn";

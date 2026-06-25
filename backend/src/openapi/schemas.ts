@@ -262,6 +262,12 @@ export const components = {
         edges: { type: "object", properties: { score: { type: "number" }, verdict: { type: "string" } } },
         surface: { type: "object", properties: { score: { type: "number" }, verdict: { type: "string" } } },
         centering: { type: "object", additionalProperties: true },
+        centering_analysis: {
+          type: "object",
+          description: "Optional grader-specific centering analysis (present on new grade runs).",
+          nullable: true,
+          additionalProperties: true,
+        },
         pricing: {
           type: "object",
           description: "Rough GBP value bands (AI estimate unless live market APIs configured).",

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Crosshair } from "lucide-react";
 import { CenteringTool } from "./grade/CenteringTool";
-import { borderRatios, centeringCeiling, type Box } from "../lib/centering";
+import { borderRatios, type Box } from "../lib/centering";
 import { saveHistoryCentring } from "../lib/api";
 
 export function CropCentringPanel({
@@ -44,7 +44,6 @@ export function CropCentringPanel({
 
   const ratios =
     outer && inner && !skipped ? borderRatios(outer, inner) : null;
-  const psaCeiling = ratios ? centeringCeiling(ratios, "front") : null;
 
   return (
     <div className="flex flex-col min-h-0 lg:w-[min(100%,22rem)] lg:shrink-0 rounded-2xl border border-border-subtle bg-surface-raised overflow-hidden">
@@ -76,10 +75,9 @@ export function CropCentringPanel({
             {" · "}
             T/B <span className="text-text-primary font-medium">{ratios.topBottom.ratio}</span>
           </div>
-          {psaCeiling != null && (
+          {historyEventId && (
             <div className="text-text-muted">
-              PSA centring subgrade ~{psaCeiling}/10
-              {historyEventId && saved ? " · saved" : historyEventId ? " · saving…" : ""}
+              {saved ? "Saved to history" : "Saving…"}
             </div>
           )}
         </div>

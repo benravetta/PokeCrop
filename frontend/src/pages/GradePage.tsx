@@ -35,7 +35,7 @@ import { useMe } from "../hooks/useMe";
 import { GradeProgress } from "../components/grade/GradeProgress";
 import { GradeUploadWorkspace } from "../components/grade/GradeUploadWorkspace";
 import { HumanPregradePromo } from "../humanPregrade/components/HumanPregradePromo";
-import { borderRatios, type Box } from "../lib/centering";
+import { borderRatios, sideMeasurementMeta, type Box } from "../lib/centering";
 import { loadImage, cropFromImage, resolveRect } from "../lib/cardRegions";
 import { useAppStore } from "../hooks/useProcessing";
 import { PAYMENT } from "../lib/marketingCopy";
@@ -298,16 +298,48 @@ export function GradePage() {
   // Build the measured-centering payload from the (un-skipped) boxes.
   const buildCentering = useCallback((): MeasuredCentering | undefined => {
     const out: MeasuredCentering = {};
+    let frontConf: number | undefined;
+    let backConf: number | undefined;
     if (!skip.front && outers.front && inners.front) {
       const r = borderRatios(outers.front, inners.front);
       out.front = { leftRight: r.leftRight.ratio, topBottom: r.topBottom.ratio };
+      const meta = sideMeasurementMeta(outers.front, inners.front, {
+        autoDetectOk: !proc.front.failed,
+        imageLongEdge: frontLongEdge ?? undefined,
+      });
+      frontConf = meta.measurement_confidence;
+      out.borderWidths = {
+        ...out.borderWidths,
+        front: meta.borderWidths,
+      };
+      if (meta.detectionQuality) out.detectionQuality = meta.detectionQuality;
+      if (meta.sleeveSuspected) out.sleeveSuspected = true;
+      if (meta.lowContrastBorder) out.lowContrastBorder = true;
+      if (meta.borderlessDesign) out.borderlessDesign = true;
     }
     if (files.back && !skip.back && outers.back && inners.back) {
       const r = borderRatios(outers.back, inners.back);
       out.back = { leftRight: r.leftRight.ratio, topBottom: r.topBottom.ratio };
+      const meta = sideMeasurementMeta(outers.back, inners.back, {
+        autoDetectOk: !proc.back.failed,
+      });
+      backConf = meta.measurement_confidence;
+      out.borderWidths = {
+        ...out.borderWidths,
+        back: meta.borderWidths,
+      };
     }
+    if (frontConf != null) out.front_centering_confidence = frontConf;
+    if (backConf != null) out.back_centering_confidence = backConf;
+    if (frontConf != null || backConf != null) {
+      out.measurement_confidence =
+        frontConf != null && backConf != null
+          ? Math.round((frontConf * 0.7 + backConf * 0.3) * 100) / 100
+          : frontConf ?? backConf;
+    }
+    if (frontLongEdge != null) out.imageResolution = frontLongEdge;
     return out.front || out.back ? out : undefined;
-  }, [outers, inners, skip, files.back]);
+  }, [outers, inners, skip, files.back, proc, frontLongEdge]);
 
   // The image we send for inspection: the straightened card when available
   // (cleaner read), otherwise the downscaled original.

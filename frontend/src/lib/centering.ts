@@ -60,33 +60,115 @@ export function borderRatios(outer: Box, inner: Box): CenteringResult {
   };
 }
 
-// PSA centering tolerances (max larger-side % allowed for each grade).
-const FRONT_TIERS: [number, number][] = [
-  [55, 10],
-  [60, 9],
-  [65, 8],
-  [70, 7],
-  [75, 6],
-];
-const BACK_TIERS: [number, number][] = [
-  [75, 10],
-  [80, 9],
-  [85, 8],
-  [90, 7],
-];
+/** Standard TCG cut assumption for mm estimates from normalised geometry. */
+export const STANDARD_CARD_WIDTH_MM = 63;
+export const STANDARD_CARD_HEIGHT_MM = 88;
 
-export function centeringCeiling(result: CenteringResult, side: CardSide): number {
-  const worst = Math.max(result.leftRight.larger, result.topBottom.larger);
-  const tiers = side === "front" ? FRONT_TIERS : BACK_TIERS;
-  for (const [maxPct, grade] of tiers) {
-    if (worst <= maxPct) return grade;
-  }
-  return side === "front" ? 5 : 6;
+export interface BorderWidthsNormalized {
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
 }
 
-export function ceilingLabel(grade: number): string {
-  if (grade >= 10) return "PSA 10 centring";
-  return `Caps centring at PSA ${grade}`;
+export interface BorderWidthsWithMm extends BorderWidthsNormalized {
+  leftMm: number;
+  rightMm: number;
+  topMm: number;
+  bottomMm: number;
+}
+
+export function borderWidthsWithMm(outer: Box, inner: Box): BorderWidthsWithMm {
+  const w = borderWidths(outer, inner);
+  const cardW = outer.x1 - outer.x0;
+  const cardH = outer.y1 - outer.y0;
+  return {
+    ...w,
+    leftMm: cardW > 0 ? (w.left / cardW) * STANDARD_CARD_WIDTH_MM : 0,
+    rightMm: cardW > 0 ? (w.right / cardW) * STANDARD_CARD_WIDTH_MM : 0,
+    topMm: cardH > 0 ? (w.top / cardH) * STANDARD_CARD_HEIGHT_MM : 0,
+    bottomMm: cardH > 0 ? (w.bottom / cardH) * STANDARD_CARD_HEIGHT_MM : 0,
+  };
+}
+
+export interface MeasurementHeuristics {
+  sleeveSuspected?: boolean;
+  lowContrastBorder?: boolean;
+  borderlessDesign?: boolean;
+  perspectiveWarning?: boolean;
+}
+
+export interface MeasurementConfidenceInput {
+  autoDetectOk: boolean;
+  outer: Box;
+  inner: Box;
+  imageLongEdge?: number;
+  userAdjustmentDelta?: number;
+  skipped?: boolean;
+  heuristics?: MeasurementHeuristics;
+}
+
+/** Compute 0–1 measurement confidence from box sanity and image quality heuristics. */
+export function computeMeasurementConfidence(input: MeasurementConfidenceInput): number {
+  if (input.skipped) return 0;
+  let score = input.autoDetectOk ? 0.82 : 0.68;
+  const w = borderWidths(input.outer, input.inner);
+  const minBorder = Math.min(w.left, w.right, w.top, w.bottom);
+  const maxBorder = Math.max(w.left, w.right, w.top, w.bottom);
+  if (minBorder < 0.008) score -= 0.15;
+  if (maxBorder > 0.22) score -= 0.1;
+  if (input.imageLongEdge != null) {
+    if (input.imageLongEdge >= 1200) score += 0.06;
+    else if (input.imageLongEdge < 800) score -= 0.12;
+  }
+  if (input.userAdjustmentDelta != null && input.userAdjustmentDelta > 0.08) score -= 0.08;
+  const h = input.heuristics;
+  if (h?.lowContrastBorder) score -= 0.15;
+  if (h?.sleeveSuspected) score -= 0.25;
+  if (h?.borderlessDesign) score -= 0.2;
+  if (h?.perspectiveWarning) score -= 0.2;
+  return Math.max(0.2, Math.min(0.98, score));
+}
+
+export interface SideMeasurementMeta {
+  borderWidths?: BorderWidthsWithMm;
+  measurement_confidence?: number;
+  detectionQuality?: "good" | "fair" | "poor";
+  sleeveSuspected?: boolean;
+  lowContrastBorder?: boolean;
+  borderlessDesign?: boolean;
+  perspectiveWarning?: boolean;
+  userAdjustmentDelta?: number;
+}
+
+export function sideMeasurementMeta(
+  outer: Box,
+  inner: Box,
+  opts: {
+    autoDetectOk?: boolean;
+    imageLongEdge?: number;
+    userAdjustmentDelta?: number;
+    heuristics?: MeasurementHeuristics;
+  } = {}
+): SideMeasurementMeta {
+  const confidence = computeMeasurementConfidence({
+    autoDetectOk: opts.autoDetectOk ?? true,
+    outer,
+    inner,
+    imageLongEdge: opts.imageLongEdge,
+    userAdjustmentDelta: opts.userAdjustmentDelta,
+    heuristics: opts.heuristics,
+  });
+  let detectionQuality: "good" | "fair" | "poor" = "good";
+  if (confidence < 0.55) detectionQuality = "poor";
+  else if (confidence < 0.75) detectionQuality = "fair";
+  return {
+    borderWidths: borderWidthsWithMm(outer, inner),
+    measurement_confidence: Math.round(confidence * 100) / 100,
+    detectionQuality,
+    ...opts.heuristics,
+    userAdjustmentDelta: opts.userAdjustmentDelta,
+  };
 }
 
 function colourDist(a: number[], b: number[]): number {

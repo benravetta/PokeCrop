@@ -55,16 +55,39 @@ async function toVisionBuffer(
 
 export function parseCentering(raw: unknown): MeasuredCentering | undefined {
   if (typeof raw !== "string" || !raw.trim()) return undefined;
+  if (raw.length > 16_000) return undefined;
   try {
     const v = JSON.parse(raw) as MeasuredCentering;
-    if (!v || typeof v !== "object") return undefined;
+    if (!v || typeof v !== "object" || Array.isArray(v)) return undefined;
     const ratio = (s: unknown) =>
       typeof s === "string" && /^\d{1,3}\/\d{1,3}$/.test(s) ? s : undefined;
+    const clamp01 = (n: number) => Math.max(0, Math.min(1, n));
+    const num = (n: unknown) =>
+      typeof n === "number" && Number.isFinite(n) ? clamp01(n) : undefined;
     const out: MeasuredCentering = {};
-    if (v.front)
+    if (v.front && typeof v.front === "object")
       out.front = { leftRight: ratio(v.front.leftRight), topBottom: ratio(v.front.topBottom) };
-    if (v.back)
+    if (v.back && typeof v.back === "object")
       out.back = { leftRight: ratio(v.back.leftRight), topBottom: ratio(v.back.topBottom) };
+    out.front_centering_confidence = num(v.front_centering_confidence);
+    out.back_centering_confidence = num(v.back_centering_confidence);
+    out.measurement_confidence = num(v.measurement_confidence);
+    if (v.detectionQuality === "good" || v.detectionQuality === "fair" || v.detectionQuality === "poor") {
+      out.detectionQuality = v.detectionQuality;
+    }
+    out.perspectiveWarning = v.perspectiveWarning === true ? true : undefined;
+    out.sleeveSuspected = v.sleeveSuspected === true ? true : undefined;
+    out.lowContrastBorder = v.lowContrastBorder === true ? true : undefined;
+    out.borderlessDesign = v.borderlessDesign === true ? true : undefined;
+    out.userAdjustmentDelta =
+      typeof v.userAdjustmentDelta === "number" && Number.isFinite(v.userAdjustmentDelta)
+        ? Math.max(0, Math.min(1, v.userAdjustmentDelta))
+        : undefined;
+    out.imageResolution =
+      typeof v.imageResolution === "number" && Number.isFinite(v.imageResolution)
+        ? Math.max(0, Math.min(20_000, v.imageResolution))
+        : undefined;
+    out.printSheetVisible = v.printSheetVisible === true ? true : undefined;
     const hasAny =
       out.front?.leftRight || out.front?.topBottom || out.back?.leftRight || out.back?.topBottom;
     return hasAny ? out : undefined;

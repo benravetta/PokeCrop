@@ -1,26 +1,13 @@
 import { detectBgsTier, formatBgsLikely, type BgsTier } from "./bgsTier.js";
+import { ratiosFromFindings, type GraderCenteringKey } from "./centeringRules.js";
 import {
-  centeringGradeFor,
-  ratiosFromFindings,
-  type GraderCenteringKey,
-} from "./centeringRules.js";
-
-// Deterministic subgrade + final-grade engine.
-//
-// The vision inspection produces per-axis condition scores (0-10) and findings;
-// this module turns them into CONSISTENT numeric subgrades and a final grade on
-// each grading company's own scale, applying the same hard caps the adjudicator
-// describes so the headline numbers can never contradict the findings (a torn
-// card can never read as a 7). The language model still does all perception and
-// writes the human-facing reasoning — only the numbers are made rigorous here.
-//
-// Each company is modelled from how it actually behaves:
-//   - PSA   — whole 1-10, holistic, heavily weighted to the weakest aspect.
-//   - BGS   — 0.5 steps, four subgrades; final ≈ a blend held within ~1 of the
-//             lowest subgrade (Pristine/Black Label need near-perfect subs).
-//   - CGC   — 0.5 steps; strict, final tracks close to the lowest subgrade.
-//   - TAG   — one-decimal CV point score; granular, ~PSA strictness.
-//   - ACE   — one-decimal AI grade; granular, slightly forgiving of centering.
+  analyzeCentering,
+  centeringSubgradeFor,
+  companyToGraderKey,
+  type CenteringMeasurementMeta,
+  type GradeCapType,
+} from "./centeringEngine.js";
+import { getGradingCenteringConfig, type GraderKey } from "./gradingCriteria/index.js";
 
 type Json = Record<string, unknown>;
 
@@ -38,8 +25,6 @@ function halfStr(n: number): string {
   return Number.isInteger(n) ? String(n) : n.toFixed(1);
 }
 
-// ---- per-axis condition (0-10) -------------------------------------------
-
 function scoreOf(v: unknown): number | null {
   const o = asObj(v);
   const raw = o.score;
@@ -53,25 +38,70 @@ function hasRatioData(findings: Json): boolean {
   return Boolean(r.frontLR || r.frontTB || r.backLR || r.backTB);
 }
 
-/** Per-grader centering subgrade from measured ratios or a conservative fallback. */
+function centeringMetaFromFindings(findings: Json): CenteringMeasurementMeta | undefined {
+  const mc = findings.measured_centering;
+  if (!mc || typeof mc !== "object") {
+    return asObj(findings.centering).measured === true ? { measured: true } : undefined;
+  }
+  const m = mc as Record<string, unknown>;
+  return {
+    measured: true,
+    front_centering_confidence:
+      typeof m.front_centering_confidence === "number" ? m.front_centering_confidence : undefined,
+    back_centering_confidence:
+      typeof m.back_centering_confidence === "number" ? m.back_centering_confidence : undefined,
+    measurement_confidence:
+      typeof m.measurement_confidence === "number" ? m.measurement_confidence : undefined,
+    detectionQuality:
+      m.detectionQuality === "good" || m.detectionQuality === "fair" || m.detectionQuality === "poor"
+        ? m.detectionQuality
+        : undefined,
+    perspectiveWarning: m.perspectiveWarning === true,
+    sleeveSuspected: m.sleeveSuspected === true,
+    lowContrastBorder: m.lowContrastBorder === true,
+    borderlessDesign: m.borderlessDesign === true,
+    printSheetVisible: m.printSheetVisible === true,
+  };
+}
+
 function centeringFor(
   findings: Json,
   grader: GraderCenteringKey,
-  fallback: number
-): { score: number; known: boolean } {
+  fallback: number,
+  cached?: ReturnType<typeof analyzeCentering>
+): { score: number; known: boolean; cap: GradeCapType; capValue: number | null } {
   const ratios = ratiosFromFindings(asObj(findings.centering));
-  const { score, measured } = centeringGradeFor(ratios, grader);
-  if (score != null) {
-    return { score: clamp(score, 1, 10), known: measured || hasRatioData(findings) };
+  const meta = centeringMetaFromFindings(findings);
+  const key: GraderKey = grader === "Beckett" ? "BGS" : (grader as GraderKey);
+  const gr = cached?.grader_results[key];
+  if (gr?.centering_equivalent != null) {
+    return {
+      score: clamp(gr.centering_equivalent, 1, 10),
+      known: ratios.measured === true || meta?.measured === true || hasRatioData(findings),
+      cap: gr.grade_cap ?? "none",
+      capValue: gr.grade_cap_value ?? null,
+    };
   }
-  return { score: clamp(Math.min(9, fallback), 1, 10), known: false };
+  const { score, measured, analysis } = centeringSubgradeFor(key, ratios, meta);
+  if (score != null) {
+    return {
+      score: clamp(score, 1, 10),
+      known: measured || hasRatioData(findings),
+      cap: analysis?.grade_cap ?? "none",
+      capValue: analysis?.grade_cap_value ?? null,
+    };
+  }
+  return {
+    score: clamp(Math.min(9, fallback), 1, 10),
+    known: false,
+    cap: "none",
+    capValue: null,
+  };
 }
 
-// ---- structural / condition caps -----------------------------------------
-
 export interface CapResult {
-  overallCap: number | null; // max grade any company may reach
-  authenticOnly: boolean; // torn / missing material / altered → not gradeable
+  overallCap: number | null;
+  authenticOnly: boolean;
   reasons: string[];
 }
 
@@ -135,7 +165,6 @@ function detectCaps(findings: Json): CapResult {
   if (creases >= 2) lower(3, "multiple creases / folds");
   else if (creases === 1) lower(5, "crease / fold");
 
-  // Defects array can also reveal structural breaks the inspector listed there.
   for (const dd of asArr(findings.defects).map(asObj)) {
     const kind = asStr(dd.kind).toLowerCase();
     const sev = asStr(dd.severity).toLowerCase();
@@ -146,7 +175,19 @@ function detectCaps(findings: Json): CapResult {
   return { overallCap: cap, authenticOnly, reasons };
 }
 
-// ---- per-company grade synthesis ------------------------------------------
+function printScore(findings: Json, fallback: number): number {
+  const obs = asArr(findings.observations).map(asObj);
+  let penalty = 0;
+  for (const o of obs) {
+    if (asStr(o.likely) === "factory") {
+      const sev = asStr(o.severity).toLowerCase();
+      if (sev === "major") penalty += 2;
+      else if (sev === "moderate") penalty += 1;
+      else penalty += 0.5;
+    }
+  }
+  return penalty === 0 ? 8 : clamp(fallback - penalty, 1, 10);
+}
 
 export interface AxisScores {
   centering: number;
@@ -162,6 +203,7 @@ interface RawAxes {
   edges: number;
   surface: number;
   eyeAppeal: number | null;
+  print: number;
   fallback: number;
 }
 
@@ -179,6 +221,7 @@ function resolveAxes(findings: Json): RawAxes {
     edges: clamp(edges ?? fallback, 1, 10),
     surface: clamp(surface ?? fallback, 1, 10),
     eyeAppeal: eye,
+    print: printScore(findings, fallback),
     fallback,
   };
 }
@@ -193,18 +236,81 @@ const SCALES: Record<CompanyKey, string> = {
   ACE: "One-decimal 1-10",
 };
 
-function topLikelihood(
-  likely: number,
+function legacyGraderKey(company: CompanyKey): GraderCenteringKey {
+  if (company === "Beckett (BGS)") return "Beckett";
+  return company;
+}
+
+interface CategoryWeights {
+  surface: number;
+  corners: number;
+  edges: number;
+  centering: number;
+  print: number;
+  eyeAppeal: number;
+}
+
+function categoryWeightsFor(company: CompanyKey): CategoryWeights {
+  const cfg = getGradingCenteringConfig();
+  const gk = companyToGraderKey(company);
+  const centering = cfg.centering_weight_by_grader[gk];
+  const print = 0.05;
+  const eyeAppeal = 0.05;
+  const sceTotal = 1 - centering - print - eyeAppeal;
+  const baseSce = 0.72;
+  return {
+    surface: (sceTotal * 0.3) / baseSce,
+    corners: (sceTotal * 0.22) / baseSce,
+    edges: (sceTotal * 0.2) / baseSce,
+    centering,
+    print,
+    eyeAppeal,
+  };
+}
+
+function weightedGrade(
+  axes: RawAxes,
+  centeringScore: number,
   centeringKnown: boolean,
-  authenticOnly: boolean
-): string {
+  meta: CenteringMeasurementMeta | undefined,
+  weights: CategoryWeights
+): number {
+  let cWeight = weights.centering;
+  const conf = meta?.measurement_confidence ?? (centeringKnown ? 0.85 : 0.5);
+  const cfg = getGradingCenteringConfig();
+  if (conf < cfg.minimum_confidence_for_cap) cWeight *= 0.35;
+
+  const eye = axes.eyeAppeal ?? axes.fallback;
+  return clamp(
+    axes.surface * weights.surface +
+      axes.corners * weights.corners +
+      axes.edges * weights.edges +
+      centeringScore * cWeight +
+      axes.print * weights.print +
+      eye * weights.eyeAppeal,
+    1,
+    10
+  );
+}
+
+function applyCenteringCeiling(
+  likely: number,
+  cap: GradeCapType,
+  capValue: number | null,
+  useHalfSteps: boolean
+): number {
+  if (cap === "none" || capValue == null) return likely;
+  const buffer = cap === "soft" ? (useHalfSteps ? 0.5 : 1) : 0;
+  return Math.min(likely, capValue + buffer);
+}
+
+function topLikelihood(likely: number, centeringKnown: boolean, authenticOnly: boolean): string {
   if (authenticOnly) return "very_low";
   let band: string;
   if (likely >= 9.5) band = "high";
   else if (likely >= 9) band = "medium";
   else if (likely >= 8) band = "low";
   else band = "very_low";
-  // Without a measured/visible centering read, never claim a confident gem.
   if (!centeringKnown && band === "high") band = "medium";
   return band;
 }
@@ -217,34 +323,86 @@ interface CompanyEstimate {
   high: string;
   top_grade_likelihood: string;
   subgrades: { centering: string; corners: string; edges: string; surface: string } | null;
-  /** Beckett-only: Black Label (all 10s) or Pristine 10 (all ≥9.5, final 10). */
   bgs_tier?: BgsTier;
+  predicted_range?: [number, number] | null;
 }
 
 export interface ScoreResult {
   axes: AxisScores;
   caps: CapResult;
   company_estimates: CompanyEstimate[];
+  centering_analysis?: ReturnType<typeof analyzeCentering>;
 }
 
 function subsFor(
   findings: Json,
   axes: RawAxes,
-  grader: GraderCenteringKey
-): { subs: number[]; centeringKnown: boolean; centering: number } {
-  const { score: centering, known } = centeringFor(findings, grader, axes.fallback);
+  grader: GraderCenteringKey,
+  cached?: ReturnType<typeof analyzeCentering>
+): {
+  subs: number[];
+  centeringKnown: boolean;
+  centering: number;
+  cap: GradeCapType;
+  capValue: number | null;
+} {
+  const { score: centering, known, cap, capValue } = centeringFor(
+    findings,
+    grader,
+    axes.fallback,
+    cached
+  );
   return {
     centering,
     centeringKnown: known,
+    cap,
+    capValue,
     subs: [centering, axes.corners, axes.edges, axes.surface],
   };
+}
+
+function predictedRange(likely: number, downStep: number): [number, number] {
+  const lo = clamp(likely - downStep, 1, 10);
+  return [lo, likely];
+}
+
+function computeLikely(
+  company: CompanyKey,
+  findings: Json,
+  axes: RawAxes,
+  meta: CenteringMeasurementMeta | undefined,
+  useHalf: boolean,
+  cached?: ReturnType<typeof analyzeCentering>
+): { likelyNum: number; sub: ReturnType<typeof subsFor> } {
+  const gk = legacyGraderKey(company);
+  const sub = subsFor(findings, axes, gk, cached);
+  const weights = categoryWeightsFor(company);
+  let weighted = weightedGrade(axes, sub.centering, sub.centeringKnown, meta, weights);
+
+  const lo = Math.min(...sub.subs);
+  const mean = sub.subs.reduce((a, b) => a + b, 0) / sub.subs.length;
+  const legacyBlend = company === "Beckett (BGS)" ? 0.35 * lo + 0.65 * mean : 0.45 * lo + 0.55 * mean;
+  weighted = Math.max(weighted, legacyBlend * 0.92);
+
+  weighted = applyCenteringCeiling(weighted, sub.cap, sub.capValue, useHalf);
+
+  let likelyNum = useHalf ? toHalf(weighted) : company === "PSA" ? toWhole(weighted) : toDec1(weighted);
+  if (company === "PSA" && lo < 9.5 && likelyNum > 9) likelyNum = 9;
+
+  return { likelyNum: clamp(likelyNum, 1, 10), sub };
 }
 
 export function scoreGrades(findings: Json): ScoreResult {
   const axes = resolveAxes(findings);
   const caps = detectCaps(findings);
-  const cap = caps.overallCap;
-  const applyCap = (v: number) => (cap != null ? Math.min(v, cap) : v);
+  const structuralCap = caps.overallCap;
+  const applyStructuralCap = (v: number) =>
+    structuralCap != null ? Math.min(v, structuralCap) : v;
+  const meta = centeringMetaFromFindings(findings);
+  const ratios = ratiosFromFindings(asObj(findings.centering));
+  const centeringAnalysis = hasRatioData(findings)
+    ? analyzeCentering(ratios, meta, "PSA")
+    : undefined;
 
   const estimates: CompanyEstimate[] = [];
 
@@ -254,8 +412,8 @@ export function scoreGrades(findings: Json): ScoreResult {
     subgradeFmt: ((v: number) => string) | null,
     downStep: number,
     fmt: (v: number) => string,
-    centeringKnown: boolean,
-    subs: number[]
+    sub: ReturnType<typeof subsFor>,
+    bgsTier?: BgsTier | null
   ): CompanyEstimate => {
     if (caps.authenticOnly) {
       return {
@@ -266,116 +424,102 @@ export function scoreGrades(findings: Json): ScoreResult {
         high: "Authentic / Altered",
         top_grade_likelihood: "very_low",
         subgrades: null,
+        predicted_range: null,
       };
     }
-    const likely = clamp(applyCap(likelyNum), 1, 10);
+    const likely = clamp(applyStructuralCap(likelyNum), 1, 10);
     const low = clamp(likely - downStep, 1, 10);
-    return {
+    const est: CompanyEstimate = {
       company,
       scale: SCALES[company],
       low: fmt(low),
-      likely: fmt(likely),
-      high: fmt(likely), // anti-hype: our likely is already the best plausible read
-      top_grade_likelihood: topLikelihood(likely, centeringKnown, false),
+      likely:
+        company === "Beckett (BGS)" && bgsTier
+          ? formatBgsLikely(likely, bgsTier, fmt)
+          : fmt(likely),
+      high: fmt(likely),
+      top_grade_likelihood: topLikelihood(likely, sub.centeringKnown, false),
       subgrades: subgradeFmt
         ? {
-            centering: subgradeFmt(subs[0]),
-            corners: subgradeFmt(subs[1]),
-            edges: subgradeFmt(subs[2]),
-            surface: subgradeFmt(subs[3]),
+            centering: subgradeFmt(sub.subs[0]),
+            corners: subgradeFmt(sub.subs[1]),
+            edges: subgradeFmt(sub.subs[2]),
+            surface: subgradeFmt(sub.subs[3]),
           }
         : null,
+      predicted_range: predictedRange(likely, downStep),
     };
+    if (bgsTier) est.bgs_tier = bgsTier;
+    return est;
   };
 
-  const psaSubs = subsFor(findings, axes, "PSA");
-  const psaLo = Math.min(...psaSubs.subs);
-  const psaMean = psaSubs.subs.reduce((a, b) => a + b, 0) / psaSubs.subs.length;
-  let psa = 0.55 * psaLo + 0.45 * psaMean;
-  if (psaLo < 9.5) psa = Math.min(psa, 9);
-  if (psaLo < 8.5) psa = Math.min(psa, 8);
-  estimates.push(
-    build(
-      "PSA",
-      clamp(toWhole(psa), 1, 10),
-      null,
-      1,
-      (v) => `PSA ${toWhole(v)}`,
-      psaSubs.centeringKnown,
-      psaSubs.subs
-    )
-  );
-
-  const bgsSubs = subsFor(findings, axes, "Beckett");
-  const bgsLo = Math.min(...bgsSubs.subs);
-  const bgsMean = bgsSubs.subs.reduce((a, b) => a + b, 0) / bgsSubs.subs.length;
-  const bgsBlend = Math.min(0.35 * bgsLo + 0.65 * bgsMean, bgsLo + 1.0);
-  const bgsLikelyNum = toHalf(clamp(bgsBlend, 1, 10));
-  const bgsTier = detectBgsTier(bgsSubs.subs, bgsLikelyNum);
-  const bgsFmt = (v: number) => `BGS ${halfStr(toHalf(v))}`;
-  const bgsEstimate = build(
-    "Beckett (BGS)",
-    bgsLikelyNum,
-    (v) => halfStr(toHalf(v)),
-    1,
-    (v) => formatBgsLikely(v, bgsTier, bgsFmt),
-    bgsSubs.centeringKnown,
-    bgsSubs.subs
-  );
-  if (bgsTier) {
-    bgsEstimate.bgs_tier = bgsTier;
+  {
+    const { likelyNum, sub } = computeLikely("PSA", findings, axes, meta, false, centeringAnalysis);
+    estimates.push(
+      build("PSA", likelyNum, null, 1, (v) => `PSA ${toWhole(v)}`, sub)
+    );
   }
-  estimates.push(bgsEstimate);
 
-  const cgcSubs = subsFor(findings, axes, "CGC");
-  const cgcLo = Math.min(...cgcSubs.subs);
-  const cgcMean = cgcSubs.subs.reduce((a, b) => a + b, 0) / cgcSubs.subs.length;
-  const cgcBlend = Math.min(cgcLo + 0.5, 0.7 * cgcLo + 0.3 * cgcMean);
-  estimates.push(
-    build(
-      "CGC",
-      toHalf(clamp(cgcBlend, 1, 10)),
-      (v) => halfStr(toHalf(v)),
-      1,
-      (v) => `CGC ${halfStr(toHalf(v))}`,
-      cgcSubs.centeringKnown,
-      cgcSubs.subs
-    )
-  );
+  {
+    const { likelyNum, sub } = computeLikely("Beckett (BGS)", findings, axes, meta, true, centeringAnalysis);
+    const capped = applyStructuralCap(likelyNum);
+    const bgsTier = detectBgsTier(sub.subs, capped);
+    estimates.push(
+      build(
+        "Beckett (BGS)",
+        capped,
+        (v) => halfStr(toHalf(v)),
+        1,
+        (v) => `BGS ${halfStr(toHalf(v))}`,
+        sub,
+        bgsTier
+      )
+    );
+  }
 
-  const tagSubs = subsFor(findings, axes, "TAG");
-  const tagLo = Math.min(...tagSubs.subs);
-  const tagMean = tagSubs.subs.reduce((a, b) => a + b, 0) / tagSubs.subs.length;
-  const tagBlend = 0.5 * tagLo + 0.5 * tagMean;
-  estimates.push(
-    build(
-      "TAG",
-      toDec1(clamp(tagBlend, 1, 10)),
-      (v) => toDec1(v).toFixed(1),
-      0.5,
-      (v) => `TAG ${toDec1(v).toFixed(1)}`,
-      tagSubs.centeringKnown,
-      tagSubs.subs
-    )
-  );
+  {
+    const { likelyNum, sub } = computeLikely("CGC", findings, axes, meta, true, centeringAnalysis);
+    estimates.push(
+      build(
+        "CGC",
+        applyStructuralCap(likelyNum),
+        (v) => halfStr(toHalf(v)),
+        1,
+        (v) => `CGC ${halfStr(toHalf(v))}`,
+        sub
+      )
+    );
+  }
 
-  const aceSubs = subsFor(findings, axes, "ACE");
-  const aceLo = Math.min(...aceSubs.subs);
-  const aceMean = aceSubs.subs.reduce((a, b) => a + b, 0) / aceSubs.subs.length;
-  const aceBlend = 0.5 * aceLo + 0.5 * aceMean;
-  estimates.push(
-    build(
-      "ACE",
-      toDec1(clamp(aceBlend, 1, 10)),
-      (v) => toDec1(v).toFixed(1),
-      0.5,
-      (v) => `ACE ${toDec1(v).toFixed(1)}`,
-      aceSubs.centeringKnown,
-      aceSubs.subs
-    )
-  );
+  {
+    const { likelyNum, sub } = computeLikely("TAG", findings, axes, meta, false, centeringAnalysis);
+    estimates.push(
+      build(
+        "TAG",
+        applyStructuralCap(likelyNum),
+        (v) => toDec1(v).toFixed(1),
+        0.5,
+        (v) => `TAG ${toDec1(v).toFixed(1)}`,
+        sub
+      )
+    );
+  }
 
-  const psaCentering = centeringFor(findings, "PSA", axes.fallback);
+  {
+    const { likelyNum, sub } = computeLikely("ACE", findings, axes, meta, false, centeringAnalysis);
+    estimates.push(
+      build(
+        "ACE",
+        applyStructuralCap(likelyNum),
+        (v) => toDec1(v).toFixed(1),
+        0.5,
+        (v) => `ACE ${toDec1(v).toFixed(1)}`,
+        sub
+      )
+    );
+  }
+
+  const psaCentering = centeringFor(findings, "PSA", axes.fallback, centeringAnalysis);
   return {
     axes: {
       corners: axes.corners,
@@ -387,5 +531,6 @@ export function scoreGrades(findings: Json): ScoreResult {
     },
     caps,
     company_estimates: estimates,
+    centering_analysis: centeringAnalysis,
   };
 }
