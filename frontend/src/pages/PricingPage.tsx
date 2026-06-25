@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
+import { useHumanPregradeConfig, formatMinorUnits } from "../humanPregrade/hooks/useHumanPregradeConfig";
 import { Link } from "react-router-dom";
 import { Check, Sparkles, Loader2, Tag } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
@@ -23,6 +24,7 @@ export function PricingPage() {
   const session = useAuth((s) => s.session);
   const loggedIn = !!session;
   const { me, refresh } = useMe();
+  const { enabled: expertEnabled, config: expertConfig } = useHumanPregradeConfig();
   const [busy, setBusy] = useState<SubscriptionPlanId | null>(null);
   const [gradeBusy, setGradeBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -224,6 +226,22 @@ export function PricingPage() {
             );
           })}
         </div>
+
+        {expertEnabled && expertConfig ? (
+          <section className="mt-10 rounded-2xl border border-sky-500/25 bg-sky-500/10 p-6 text-center">
+            <h2 className="text-lg font-semibold text-text-primary">{expertConfig.productName}</h2>
+            <p className="mt-2 text-sm text-text-secondary max-w-lg mx-auto">
+              Human expert pre-grading — independent from AI pre-grade.{" "}
+              {formatMinorUnits(expertConfig.priceMinorUnits, expertConfig.currency)} per review.
+            </p>
+            <Link
+              to={loggedIn ? "/human-pregrade" : "/login"}
+              className="inline-block mt-4 text-sm font-semibold text-sky-300 hover:underline"
+            >
+              Learn more →
+            </Link>
+          </section>
+        ) : null}
 
         <section className="mt-14 sm:mt-16">
           <div className="text-center mb-8">

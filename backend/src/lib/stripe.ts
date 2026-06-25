@@ -44,6 +44,12 @@ export function isGradeSinglePriceConfigured(): boolean {
   return Boolean(GRADE_SINGLE_PRICE);
 }
 
+export const HUMAN_PREGRADE_PRICE = process.env.STRIPE_HUMAN_PREGRADE_PRICE || "";
+
+export function isHumanPregradePriceConfigured(): boolean {
+  return Boolean(HUMAN_PREGRADE_PRICE);
+}
+
 // Map a Stripe price id back to one of our plan tiers.
 export function planForPrice(priceId: string | undefined | null): SubscriptionPlan | null {
   if (!priceId) return null;

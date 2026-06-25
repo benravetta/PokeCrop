@@ -26,7 +26,18 @@ export type ActivityAction =
   | "account.suspended"
   | "account.reinstated"
   | "key_limit.changed"
-  | "subscription.synced";
+  | "subscription.synced"
+  | "human_pregrade.order_paid"
+  | "human_pregrade.order_submitted"
+  | "human_pregrade.review_assigned"
+  | "human_pregrade.review_started"
+  | "human_pregrade.additional_images_requested"
+  | "human_pregrade.additional_images_received"
+  | "human_pregrade.report_in_quality_check"
+  | "human_pregrade.report_completed"
+  | "human_pregrade.order_unable_to_assess"
+  | "human_pregrade.order_cancelled"
+  | "human_pregrade.refund_processed";
 
 export interface ActivityInput {
   /** Whose timeline this event belongs to. */

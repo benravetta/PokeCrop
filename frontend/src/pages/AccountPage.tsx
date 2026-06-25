@@ -9,6 +9,8 @@ import { PLAN_LABELS } from "../lib/plans";
 import { AdminAccessNotice, AdminBadge, isAdminMe, planDisplayLabel } from "../lib/adminAccess";
 import { Field } from "../components/auth/AuthLayout";
 import { ApiKeysPanel } from "../components/ApiKeysPanel";
+import { HumanPregradeAccountSection } from "../humanPregrade/components/HumanPregradePromo";
+import { UserCheck } from "lucide-react";
 
 function Section({
   icon,
@@ -270,6 +272,10 @@ export function AccountPage() {
           </div>
             </>
           )}
+        </Section>
+
+        <Section icon={<UserCheck className="w-4 h-4" />} title="Expert reviews">
+          <HumanPregradeAccountSection />
         </Section>
 
         <Section icon={<History className="w-4 h-4" />} title="History">

@@ -13,5 +13,8 @@ __pycache__/
 # Dev debug output
 python-service/test_*.png
 
+# Supabase CLI temp
+supabase/.temp/
+
 # Accidental Finder duplicates (e.g. "package-lock 2.json")
 *\ [0-9].json

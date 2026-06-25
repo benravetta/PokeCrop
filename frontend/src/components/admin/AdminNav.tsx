@@ -6,9 +6,11 @@ import {
   Activity,
   Wrench,
   Layers,
+  UserCheck,
 } from "lucide-react";
+import { useHumanPregradeConfig } from "../../humanPregrade/hooks/useHumanPregradeConfig";
 
-const LINKS = [
+const BASE_LINKS = [
   { to: "/admin", end: true, label: "Overview", icon: LayoutDashboard },
   { to: "/admin/users", label: "Users", icon: Users },
   { to: "/admin/revenue", label: "Revenue", icon: PoundSterling },
@@ -18,9 +20,17 @@ const LINKS = [
 ] as const;
 
 export function AdminNav({ horizontal }: { horizontal?: boolean }) {
+  const { enabled } = useHumanPregradeConfig();
+  const links = enabled
+    ? [
+        ...BASE_LINKS,
+        { to: "/admin/human-pregrades", label: "Expert reviews", icon: UserCheck },
+      ]
+    : BASE_LINKS;
+
   return (
     <nav className={`flex ${horizontal ? "flex-row gap-1 min-w-max" : "flex-col gap-0.5"}`}>
-      {LINKS.map(({ to, label, icon: Icon, ...rest }) => (
+      {links.map(({ to, label, icon: Icon, ...rest }) => (
         <NavLink
           key={to}
           to={to}

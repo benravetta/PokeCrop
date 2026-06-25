@@ -19,6 +19,7 @@ import {
   isPurchaseCredited,
   userIdForPaymentIntent,
 } from "../lib/billingPurchases.js";
+import { handleHumanPregradeStripeSession } from "../humanPregrade/index.js";
 import { rejectAdminBilling } from "../lib/adminAccess.js";
 
 const router = Router();
@@ -316,6 +317,10 @@ function paymentIntentIdFromCharge(charge: Stripe.Charge): string | null {
 
 async function handleCheckoutSession(session: Stripe.Checkout.Session): Promise<void> {
   if (session.mode !== "payment") return;
+  if (session.metadata?.product === "human_pregrade") {
+    await handleHumanPregradeStripeSession(session);
+    return;
+  }
   if (session.metadata?.product !== "grade_single") return;
 
   if (session.payment_status === "paid") {

@@ -33,6 +33,16 @@ import { PrivacyPage } from "./pages/PrivacyPage";
 import { TermsPage } from "./pages/TermsPage";
 import { RefundPage } from "./pages/RefundPage";
 import { MarketingPageShell } from "./components/marketing/MarketingPageShell";
+import { HumanPregradeLandingPage } from "./humanPregrade/pages/HumanPregradeLandingPage";
+import { HumanPregradeNewPage } from "./humanPregrade/pages/HumanPregradeNewPage";
+import { HumanPregradeOrdersPage } from "./humanPregrade/pages/HumanPregradeOrdersPage";
+import {
+  HumanPregradeOrderPage,
+  HumanPregradeReportPage,
+} from "./humanPregrade/pages/HumanPregradeOrderPage";
+import { AdminHumanPregradesPage } from "./humanPregrade/admin/AdminHumanPregradesPage";
+import { AdminHumanPregradeReviewPage } from "./humanPregrade/admin/AdminHumanPregradeReviewPage";
+import { AdminHumanPregradeSettingsPage } from "./humanPregrade/admin/AdminHumanPregradeSettingsPage";
 
 function FullScreenLoader() {
   return (
@@ -118,6 +128,11 @@ export default function App() {
         <Route path="/grade" element={<GradePage />} />
         <Route path="/account" element={<AccountPage />} />
         <Route path="/history" element={<HistoryPage />} />
+        <Route path="/human-pregrade" element={<HumanPregradeLandingPage />} />
+        <Route path="/human-pregrade/new" element={<HumanPregradeNewPage />} />
+        <Route path="/human-pregrade/orders" element={<HumanPregradeOrdersPage />} />
+        <Route path="/human-pregrade/orders/:publicId" element={<HumanPregradeOrderPage />} />
+        <Route path="/human-pregrade/orders/:publicId/report" element={<HumanPregradeReportPage />} />
         <Route
           path="/admin"
           element={
@@ -132,6 +147,9 @@ export default function App() {
           <Route path="usage" element={<UsagePage />} />
           <Route path="operations" element={<OperationsPage />} />
           <Route path="catalog" element={<CatalogPage />} />
+          <Route path="human-pregrades" element={<AdminHumanPregradesPage />} />
+          <Route path="human-pregrades/settings" element={<AdminHumanPregradeSettingsPage />} />
+          <Route path="human-pregrades/:id/review" element={<AdminHumanPregradeReviewPage />} />
         </Route>
       </Route>
 

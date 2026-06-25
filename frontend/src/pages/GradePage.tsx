@@ -35,6 +35,7 @@ import { useMe } from "../hooks/useMe";
 import { AdminBadge } from "../lib/adminAccess";
 import { GradeProgress } from "../components/grade/GradeProgress";
 import { GradeUploadWorkspace } from "../components/grade/GradeUploadWorkspace";
+import { HumanPregradePromo } from "../humanPregrade/components/HumanPregradePromo";
 import { borderRatios, type Box } from "../lib/centering";
 import { loadImage, cropFromImage, resolveRect } from "../lib/cardRegions";
 import { useAppStore } from "../hooks/useProcessing";
@@ -533,6 +534,30 @@ export function GradePage() {
             images={{
               front: proc.front.src ?? previews.front,
               back: proc.back.src ?? previews.back,
+            }}
+          />
+          <HumanPregradePromo
+            aiReportSnapshot={result as unknown as Record<string, unknown>}
+            cardHints={{
+              cardName:
+                typeof (result as GradeResult)?.card_identification === "object"
+                  ? String(
+                      ((result as GradeResult).card_identification as { name?: string })?.name ?? ""
+                    ) || undefined
+                  : undefined,
+              setName:
+                typeof (result as GradeResult)?.card_identification === "object"
+                  ? String(
+                      ((result as GradeResult).card_identification as { set?: string })?.set ?? ""
+                    ) || undefined
+                  : undefined,
+              cardNumber:
+                typeof (result as GradeResult)?.card_identification === "object"
+                  ? String(
+                      ((result as GradeResult).card_identification as { number?: string })?.number ??
+                        ""
+                    ) || undefined
+                  : undefined,
             }}
           />
         </>
