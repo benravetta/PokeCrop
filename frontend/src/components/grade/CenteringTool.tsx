@@ -22,6 +22,7 @@ export function CenteringTool({
   onInner,
   skipped,
   onSkip,
+  onAutoDetect,
 }: {
   side: CardSide;
   imageSrc: string;
@@ -31,11 +32,18 @@ export function CenteringTool({
   onInner: (b: Box) => void;
   skipped: boolean;
   onSkip: (v: boolean) => void;
+  onAutoDetect?: (outer: Box, inner: Box) => void;
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const drag = useRef<{ box: BoxId; edge: Edge } | null>(null);
   const autoDone = useRef(false);
+  const lastImageSrc = useRef(imageSrc);
+
+  if (lastImageSrc.current !== imageSrc) {
+    lastImageSrc.current = imageSrc;
+    autoDone.current = false;
+  }
 
   const runAutoDetect = () => {
     if (autoDone.current || !imgRef.current) return;
@@ -44,6 +52,7 @@ export function CenteringTool({
       const { outer: o, inner: i } = detectBorders(imgRef.current);
       onOuter(o);
       onInner(i);
+      onAutoDetect?.(o, i);
     } catch {
       onOuter({ x0: 0, y0: 0, x1: 1, y1: 1 });
       onInner({ x0: 0.09, y0: 0.07, x1: 0.91, y1: 0.93 });
@@ -51,7 +60,10 @@ export function CenteringTool({
   };
 
   useEffect(() => {
-    autoDone.current = false;
+    const img = imgRef.current;
+    if (img?.complete && img.naturalWidth > 0) {
+      runAutoDetect();
+    }
   }, [imageSrc]);
 
   useEffect(() => {

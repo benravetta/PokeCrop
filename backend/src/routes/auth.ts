@@ -9,6 +9,14 @@ import {
 } from "../lib/sessionCookies.js";
 import { issueCsrfToken } from "../middleware/csrf.js";
 import { roleFromAppMetadata } from "../middleware/auth.js";
+import { authIpRateLimit } from "../middleware/authRateLimit.js";
+import { safeAuthError } from "../lib/authErrors.js";
+import {
+  finalizeBetaAccess,
+  isBetaInviteRequired,
+  validateInviteToken,
+} from "../lib/invites.js";
+import { getServiceClient } from "../lib/supabase.js";
 
 export const authRoutes = Router();
 
@@ -31,6 +39,20 @@ function serializeUser(user: {
   };
 }
 
+async function loadFreshUser(userId: string) {
+  const { data, error } = await getServiceClient().auth.admin.getUserById(userId);
+  if (error || !data.user) return null;
+  return data.user;
+}
+
+async function deleteAuthUser(userId: string): Promise<void> {
+  try {
+    await getServiceClient().auth.admin.deleteUser(userId);
+  } catch (err) {
+    console.error("deleteAuthUser failed:", err);
+  }
+}
+
 function readCaptchaToken(req: Request): string | undefined {
   if (typeof req.body?.captchaToken === "string" && req.body.captchaToken.trim()) {
     return req.body.captchaToken.trim();
@@ -51,14 +73,17 @@ function requireCaptchaToken(
   res: Response
 ): { ok: true; token: string | undefined } | { ok: false } {
   const token = readCaptchaToken(req);
-  const captchaRequired =
-    isTurnstileConfigured() || process.env.NODE_ENV === "production";
+  const captchaRequired = isTurnstileConfigured();
   if (captchaRequired && !token) {
     res.status(400).json({ error: "Complete the security check." });
     return { ok: false };
   }
   return { ok: true, token };
 }
+
+authRoutes.get("/auth/config", (_req, res) => {
+  res.json({ inviteRequired: isBetaInviteRequired() });
+});
 
 authRoutes.get("/auth/csrf", (_req, res) => {
   const token = issueCsrfToken();
@@ -82,7 +107,8 @@ authRoutes.get("/auth/session", async (req, res) => {
       res.json({ user: null });
       return;
     }
-    res.json({ user: serializeUser(data.user) });
+    const fresh = await loadFreshUser(data.user.id);
+    res.json({ user: serializeUser(fresh ?? data.user) });
   } catch {
     res.json({ user: null });
   }
@@ -108,18 +134,66 @@ authRoutes.post("/auth/login", async (req, res) => {
     password,
     options: captcha.token ? { captchaToken: captcha.token } : undefined,
   });
-  if (error || !data.session) {
-    res.status(401).json({ error: error?.message ?? "Invalid credentials." });
+  if (error || !data.session || !data.user) {
+    res.status(401).json({
+      error: safeAuthError("login", error?.message, "Invalid email or password."),
+    });
     return;
   }
 
-  setSessionCookies(res, data.session.access_token, data.session.refresh_token);
+  const inviteToken =
+    typeof req.body?.inviteToken === "string" ? req.body.inviteToken.trim() : undefined;
+  const beta = await finalizeBetaAccess({
+    userId: data.user.id,
+    email: data.user.email ?? email,
+    inviteToken,
+  });
+  if (!beta.ok) {
+    try {
+      await getAuthClient().auth.signOut();
+    } catch {
+      /* ignore */
+    }
+    res.status(403).json({ error: beta.error });
+    return;
+  }
+
+  let session = data.session;
+  let user = data.user;
+  if (beta.role === "admin") {
+    const refreshed = await getAuthClient().auth.refreshSession({
+      refresh_token: data.session.refresh_token,
+    });
+    if (refreshed.data.session) session = refreshed.data.session;
+    const fresh = await loadFreshUser(data.user.id);
+    if (fresh) user = fresh;
+  }
+
+  setSessionCookies(res, session.access_token, session.refresh_token);
   const csrf = issueCsrfToken();
   setCsrfCookie(res, csrf);
-  res.json({ user: serializeUser(data.user), csrfToken: csrf });
+  res.json({ user: serializeUser(user), csrfToken: csrf });
 });
 
-authRoutes.post("/auth/signup", async (req, res) => {
+authRoutes.post(
+  "/auth/invite/validate",
+  authIpRateLimit("invite_validate"),
+  async (req, res) => {
+    const token = String(req.body?.token ?? "").trim();
+    if (!token) {
+      res.status(400).json({ valid: false, error: "Invite token required." });
+      return;
+    }
+    const result = await validateInviteToken(token);
+    if (!result.valid) {
+      res.json({ valid: false });
+      return;
+    }
+    res.json({ valid: true, emailMasked: result.emailMasked });
+  }
+);
+
+authRoutes.post("/auth/signup", authIpRateLimit("signup"), async (req, res) => {
   if (!isSupabaseAuthConfigured()) {
     authUnavailable(res);
     return;
@@ -136,6 +210,28 @@ authRoutes.post("/auth/signup", async (req, res) => {
     return;
   }
 
+  const inviteToken =
+    typeof req.body?.inviteToken === "string" ? req.body.inviteToken.trim() : "";
+  if (isBetaInviteRequired()) {
+    if (!inviteToken) {
+      res.status(403).json({
+        error: "Registration is invite-only. Use the link from your invitation email.",
+      });
+      return;
+    }
+    const invite = await validateInviteToken(inviteToken);
+    if (!invite.valid) {
+      res.status(403).json({ error: "This invitation is invalid or has expired." });
+      return;
+    }
+    if (invite.email.toLowerCase() !== email.toLowerCase()) {
+      res.status(403).json({
+        error: "Sign up with the email address that received the invitation.",
+      });
+      return;
+    }
+  }
+
   const { data, error } = await getAuthClient().auth.signUp({
     email,
     password,
@@ -146,7 +242,43 @@ authRoutes.post("/auth/signup", async (req, res) => {
     },
   });
   if (error) {
-    res.status(400).json({ error: error.message });
+    res.status(400).json({
+      error: safeAuthError("signup", error.message, "Could not create account."),
+    });
+    return;
+  }
+
+  if (data.user?.id && data.session && isBetaInviteRequired() && inviteToken) {
+    const beta = await finalizeBetaAccess({
+      userId: data.user.id,
+      email,
+      inviteToken,
+    });
+    if (!beta.ok) {
+      await deleteAuthUser(data.user.id);
+      res.status(403).json({ error: beta.error });
+      return;
+    }
+
+    let session = data.session;
+    let user = data.user;
+    if (beta.role === "admin") {
+      const refreshed = await getAuthClient().auth.refreshSession({
+        refresh_token: data.session.refresh_token,
+      });
+      if (refreshed.data.session) session = refreshed.data.session;
+      const fresh = await loadFreshUser(data.user.id);
+      if (fresh) user = fresh;
+    }
+
+    setSessionCookies(res, session.access_token, session.refresh_token);
+    const csrf = issueCsrfToken();
+    setCsrfCookie(res, csrf);
+    res.status(201).json({
+      user: serializeUser(user),
+      needsConfirmation: false,
+      csrfToken: csrf,
+    });
     return;
   }
 
@@ -196,7 +328,8 @@ authRoutes.post("/auth/refresh", async (req, res) => {
     return;
   }
   setSessionCookies(res, data.session.access_token, data.session.refresh_token);
-  res.json({ user: serializeUser(data.user!) });
+  const fresh = data.user ? await loadFreshUser(data.user.id) : null;
+  res.json({ user: serializeUser(fresh ?? data.user!) });
 });
 
 authRoutes.post("/auth/password-reset", async (req, res) => {
@@ -218,7 +351,9 @@ authRoutes.post("/auth/password-reset", async (req, res) => {
     ...(captcha.token ? { captchaToken: captcha.token } : {}),
   });
   if (error) {
-    res.status(400).json({ error: error.message });
+    // Always respond OK to avoid email enumeration.
+    console.warn("[auth] password-reset:", error.message);
+    res.json({ ok: true });
     return;
   }
   res.json({ ok: true });
@@ -251,7 +386,9 @@ authRoutes.post("/auth/password-update", async (req, res) => {
   }
   const { error } = await client.auth.updateUser({ password });
   if (error) {
-    res.status(400).json({ error: error.message });
+    res.status(400).json({
+      error: safeAuthError("password-update", error.message, "Could not update password."),
+    });
     return;
   }
   const { data: sessData } = await client.auth.getSession();
@@ -281,11 +418,14 @@ authRoutes.post("/auth/exchange", async (req, res) => {
     refresh_token: refreshToken,
   });
   if (error || !data.session || !data.user) {
-    res.status(401).json({ error: error?.message ?? "Invalid tokens." });
+    res.status(401).json({
+      error: safeAuthError("exchange", error?.message, "Invalid tokens."),
+    });
     return;
   }
   setSessionCookies(res, data.session.access_token, data.session.refresh_token);
   const csrf = issueCsrfToken();
   setCsrfCookie(res, csrf);
-  res.json({ user: serializeUser(data.user), csrfToken: csrf });
+  const fresh = await loadFreshUser(data.user.id);
+  res.json({ user: serializeUser(fresh ?? data.user), csrfToken: csrf });
 });

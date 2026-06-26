@@ -24,6 +24,11 @@ import {
 } from "../lib/adminAccess.js";
 import { assessCard, CardAssessment } from "../lib/cardVision.js";
 import { runCropJob } from "../lib/cropPipeline.js";
+import { webRateLimitPeek } from "../middleware/webRateLimit.js";
+import { consumeWebRateLimitSlot } from "../lib/accountRateLimit.js";
+import { validateMulterFile } from "../lib/uploadValidation.js";
+import { applyCropWatermark, shouldWatermarkCrop } from "../lib/cropWatermark.js";
+import type { UsageBilling } from "../lib/usageEvents.js";
 
 const router = Router();
 
@@ -75,6 +80,8 @@ interface Session {
   // True once a successful extraction has been metered against the user's daily
   // quota, so re-processing the same upload (crop tweaks) does not double-count.
   counted?: boolean;
+  plan?: Plan;
+  billing?: UsageBilling;
   // Params from the most recent /process, reused to regenerate the full-res
   // PNG lazily at export time (it is not produced during the interactive loop).
   lastParams?: Record<string, unknown>;
@@ -98,6 +105,7 @@ interface Session {
 }
 
 const MAX_SESSIONS = 50;
+const MAX_SESSIONS_PER_USER = 8;
 const SESSION_TTL_MS = 30 * 60 * 1000;
 const sessions = new Map<string, Session>();
 
@@ -182,13 +190,59 @@ function getOwnedSession(req: Request, sessionId: string): Session | null {
   return session;
 }
 
+function countUserSessions(userId: string): number {
+  let n = 0;
+  for (const session of sessions.values()) {
+    if (session.userId === userId) n++;
+  }
+  return n;
+}
+
+async function maybeWatermarkSessionPng(
+  session: Session,
+  role: import("../lib/adminAccess.js").UserRole | undefined,
+  pngBase64: string
+): Promise<string> {
+  if (
+    !shouldWatermarkCrop({
+      role,
+      plan: session.plan,
+      billing: session.billing,
+    })
+  ) {
+    return pngBase64;
+  }
+  try {
+    const buf = await applyCropWatermark(Buffer.from(pngBase64, "base64"));
+    return buf.toString("base64");
+  } catch (err) {
+    console.error("crop watermark failed:", err);
+    return pngBase64;
+  }
+}
+
 router.post(
   "/upload",
   requireActiveAuth,
   upload.single("file"),
+  webRateLimitPeek("web:crop_upload"),
   async (req: Request, res: Response) => {
     if (!req.file) {
       res.status(400).json({ error: "No file uploaded" });
+      return;
+    }
+
+    const sniff = await validateMulterFile(req.file, { allowPdf: true });
+    if (!sniff.ok) {
+      fs.unlink(req.file.path, () => {});
+      res.status(415).json({ error: sniff.error });
+      return;
+    }
+
+    const userId = req.user!.id;
+    if (countUserSessions(userId) >= MAX_SESSIONS_PER_USER) {
+      fs.unlink(req.file.path, () => {});
+      res.status(429).json({ error: "Too many active uploads. Finish or close a crop session first." });
       return;
     }
 
@@ -217,6 +271,7 @@ router.post(
         filename: req.file.originalname,
         originalBase64: base64,
       });
+      await consumeWebRateLimitSlot(userId, "web:crop_upload");
     } catch (err) {
       console.error("Upload read error:", err);
       res.status(500).json({ error: "Failed to read uploaded file" });
@@ -224,7 +279,7 @@ router.post(
   }
 );
 
-router.post("/process", requireActiveAuth, async (req: Request, res: Response) => {
+router.post("/process", requireActiveAuth, webRateLimitPeek("web:crop_process"), async (req: Request, res: Response) => {
   const { sessionId, params } = req.body;
 
   if (!sessionId || typeof sessionId !== "string") {
@@ -249,7 +304,7 @@ router.post("/process", requireActiveAuth, async (req: Request, res: Response) =
   // This crop only counts against the quota the first time a given upload is
   // successfully extracted; re-processing (crop tweaks, slider changes) is free.
   const willCount = !session.counted;
-  let plan: Plan = admin ? ADMIN_EFFECTIVE_PLAN : "free";
+  let plan: Plan = session.plan ?? (admin ? ADMIN_EFFECTIVE_PLAN : "free");
 
   if (willCount && !admin) {
     try {
@@ -272,10 +327,24 @@ router.post("/process", requireActiveAuth, async (req: Request, res: Response) =
       res.status(503).json({ error: "Could not verify your plan. Try again shortly." });
       return;
     }
+  } else if (!session.plan && !admin) {
+    try {
+      plan = await getPlan(userId);
+    } catch (err) {
+      console.error("Plan lookup failed:", err);
+      res.status(503).json({ error: "Could not verify your plan. Try again shortly." });
+      return;
+    }
+  } else if (admin) {
+    plan = ADMIN_EFFECTIVE_PLAN;
   }
 
   const validatedParams = validateParams(params);
   session.processing = true;
+  if (willCount || !session.plan) {
+    session.plan = plan;
+    session.billing = admin ? "admin" : plan === "free" ? "free" : "subscription";
+  }
 
   try {
     if (!session.assessed) {
@@ -367,15 +436,26 @@ router.post("/process", requireActiveAuth, async (req: Request, res: Response) =
       });
       if (historyEventId) session.historyEventId = historyEventId;
 
+      session.plan = plan;
+      session.billing = admin ? "admin" : plan === "free" ? "free" : "subscription";
+
       void ensureArchived(session);
     }
 
+    const webPng = await maybeWatermarkSessionPng(
+      session,
+      req.user!.role,
+      result.result_web_png
+    );
+    if (session.result) session.result.result_web_png = webPng;
+
     res.json({
-      result_web_png: result.result_web_png,
+      result_web_png: webPng,
       edit_image_jpeg: result.edit_image_jpeg,
       metadata: result.metadata,
       historyEventId: session.historyEventId ?? null,
     });
+    await consumeWebRateLimitSlot(userId, "web:crop_process");
   } catch (err: unknown) {
     console.error("Processing error:", err);
     res.status(500).json({ error: "Processing failed. Please try again." });
@@ -430,6 +510,8 @@ router.get("/export/:sessionId", requireActiveAuth, async (req: Request, res: Re
     res.status(404).json({ error: "Result not found" });
     return;
   }
+
+  base64Data = await maybeWatermarkSessionPng(session, req.user!.role, base64Data);
 
   const buffer = Buffer.from(base64Data, "base64");
   const safeName = sanitizeFilename(session.filename);

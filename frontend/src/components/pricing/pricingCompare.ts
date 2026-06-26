@@ -140,6 +140,15 @@ export const COMPARE_SECTIONS: CompareSection[] = [
         single: "—",
       },
       {
+        label: "Watermark-free exports",
+        hint: "Paid plans remove the GemCheck watermark from cropped downloads",
+        free: false,
+        unlimited: true,
+        pro: true,
+        api: true,
+        single: "—",
+      },
+      {
         label: "Send cropped card to grader",
         free: true,
         unlimited: true,

@@ -255,6 +255,83 @@ export async function getHistory(opts: {
   return res.json();
 }
 
+export async function downloadGradeArtifact(
+  eventId: number,
+  type: "pdf" | "zip"
+): Promise<string> {
+  const res = await apiFetch(`${BASE}/me/history/${eventId}/download?type=${type}`);
+  if (!res.ok) await fail(res, "Failed to create download link");
+  const data = (await res.json()) as { url?: string };
+  if (!data.url) throw new Error("Download link unavailable.");
+  return data.url;
+}
+
+export interface AuthConfig {
+  inviteRequired: boolean;
+}
+
+export async function getAuthConfig(): Promise<AuthConfig> {
+  const res = await fetch(`${BASE}/auth/config`);
+  if (!res.ok) throw new Error("Could not load registration settings.");
+  return res.json();
+}
+
+export interface InviteValidation {
+  valid: boolean;
+  emailMasked?: string;
+}
+
+export async function validateInviteToken(token: string): Promise<InviteValidation> {
+  const res = await fetch(`${BASE}/auth/invite/validate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token }),
+  });
+  return res.json();
+}
+
+export interface AdminInvite {
+  id: string;
+  email: string;
+  role: "user" | "admin";
+  invited_by: string | null;
+  expires_at: string;
+  accepted_at: string | null;
+  accepted_by: string | null;
+  created_at: string;
+}
+
+export async function adminListInvites(opts?: {
+  page?: number;
+  pageSize?: number;
+}): Promise<{ invites: AdminInvite[]; total: number }> {
+  const q = new URLSearchParams();
+  if (opts?.page) q.set("page", String(opts.page));
+  if (opts?.pageSize) q.set("pageSize", String(opts.pageSize));
+  const res = await apiFetch(`${BASE}/admin/invites?${q.toString()}`);
+  if (!res.ok) await fail(res, "Failed to load invites");
+  return res.json();
+}
+
+export async function adminSendInvite(
+  email: string,
+  role: "user" | "admin" = "user"
+): Promise<void> {
+  const res = await apiFetch(`${BASE}/admin/invites`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, role }),
+  });
+  if (!res.ok) await fail(res, "Failed to send invitation");
+}
+
+export async function adminResendInvite(id: string): Promise<void> {
+  const res = await apiFetch(`${BASE}/admin/invites/${id}/resend`, {
+    method: "POST",
+  });
+  if (!res.ok) await fail(res, "Failed to resend invitation");
+}
+
 // ---- API keys (self-serve, API plan) ----
 
 export interface ApiKeySummary {
@@ -836,9 +913,38 @@ export interface CaptureQuality {
   hasBack: boolean;
 }
 
+export interface CenteringPreviewHint {
+  grader: "PSA" | "BGS" | "ACE" | "CGC" | "TAG";
+  centering_equivalent: number | null;
+  grade_cap: "hard" | "soft" | "none";
+  grade_cap_value: number | null;
+  label: string | null;
+}
+
+export interface CenteringPreview {
+  explanation: string;
+  measurement_confidence: number;
+  grade_cap: "hard" | "soft" | "none";
+  grade_cap_value: number | null;
+  raw_centering_quality: number;
+  hints: CenteringPreviewHint[];
+}
+
 export async function getGradeQuota(): Promise<{ quota: GradeQuota }> {
   const res = await apiFetch(`${BASE}/grade/quota`);
   if (!res.ok) await fail(res, "Failed to load grading quota");
+  return res.json();
+}
+
+export async function previewCentering(
+  centering: MeasuredCentering
+): Promise<{ preview: CenteringPreview }> {
+  const res = await apiFetch(`${BASE}/grade/centering-preview`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ centering }),
+  });
+  if (!res.ok) await fail(res, "Failed to preview centering");
   return res.json();
 }
 

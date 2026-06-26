@@ -1,6 +1,7 @@
 import { getServiceClient } from "./supabase.js";
 import { signedGetUrl } from "./r2.js";
 import type { CentringPayload } from "./centringPayload.js";
+import { sanitizePostgrestSearch } from "./postgrestSearch.js";
 
 export interface AdminCatalogListOpts {
   q?: string;
@@ -52,7 +53,7 @@ export async function listAdminCatalogItems(opts: AdminCatalogListOpts): Promise
 
   const q = opts.q?.trim();
   if (q) {
-    const safe = q.replace(/[%,]/g, " ");
+    const safe = sanitizePostgrestSearch(q);
     query = query.or(
       `name.ilike.%${safe}%,card_set.ilike.%${safe}%,number.ilike.%${safe}%,tcg.ilike.%${safe}%`
     );

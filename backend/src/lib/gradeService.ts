@@ -16,10 +16,11 @@ import {
 import { isAdminRole, type UserRole } from "./adminAccess.js";
 import { isSuspended } from "./usage.js";
 import { logActivity } from "./activity.js";
-import { logUsageEvent, type UsageSource } from "./usageEvents.js";
+import { logUsageEventAwait, type UsageSource } from "./usageEvents.js";
 import { assessCaptureQuality, type CaptureImageInput } from "./captureQuality.js";
 import { sendToPython, transcodeViaPython } from "../services/pythonBridge.js";
 import { validateParams } from "./cropParams.js";
+import { sanitizeBorderSide } from "./centeringInput.js";
 
 export type FileMap = Record<string, Express.Multer.File[]>;
 
@@ -54,40 +55,71 @@ async function toVisionBuffer(
 }
 
 export function parseCentering(raw: unknown): MeasuredCentering | undefined {
-  if (typeof raw !== "string" || !raw.trim()) return undefined;
-  if (raw.length > 16_000) return undefined;
+  let v: unknown;
+  if (typeof raw === "string") {
+    if (!raw.trim() || raw.length > 16_000) return undefined;
+    try {
+      v = JSON.parse(raw);
+    } catch {
+      return undefined;
+    }
+  } else if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+    v = raw;
+  } else {
+    return undefined;
+  }
+  if (!v || typeof v !== "object" || Array.isArray(v)) return undefined;
   try {
-    const v = JSON.parse(raw) as MeasuredCentering;
-    if (!v || typeof v !== "object" || Array.isArray(v)) return undefined;
+    const parsed = v as MeasuredCentering;
     const ratio = (s: unknown) =>
       typeof s === "string" && /^\d{1,3}\/\d{1,3}$/.test(s) ? s : undefined;
     const clamp01 = (n: number) => Math.max(0, Math.min(1, n));
     const num = (n: unknown) =>
       typeof n === "number" && Number.isFinite(n) ? clamp01(n) : undefined;
     const out: MeasuredCentering = {};
-    if (v.front && typeof v.front === "object")
-      out.front = { leftRight: ratio(v.front.leftRight), topBottom: ratio(v.front.topBottom) };
-    if (v.back && typeof v.back === "object")
-      out.back = { leftRight: ratio(v.back.leftRight), topBottom: ratio(v.back.topBottom) };
-    out.front_centering_confidence = num(v.front_centering_confidence);
-    out.back_centering_confidence = num(v.back_centering_confidence);
-    out.measurement_confidence = num(v.measurement_confidence);
-    if (v.detectionQuality === "good" || v.detectionQuality === "fair" || v.detectionQuality === "poor") {
-      out.detectionQuality = v.detectionQuality;
+    if (parsed.front && typeof parsed.front === "object")
+      out.front = {
+        leftRight: ratio(parsed.front.leftRight),
+        topBottom: ratio(parsed.front.topBottom),
+      };
+    if (parsed.back && typeof parsed.back === "object")
+      out.back = {
+        leftRight: ratio(parsed.back.leftRight),
+        topBottom: ratio(parsed.back.topBottom),
+      };
+    out.front_centering_confidence = num(parsed.front_centering_confidence);
+    out.back_centering_confidence = num(parsed.back_centering_confidence);
+    out.measurement_confidence = num(parsed.measurement_confidence);
+    if (
+      parsed.detectionQuality === "good" ||
+      parsed.detectionQuality === "fair" ||
+      parsed.detectionQuality === "poor"
+    ) {
+      out.detectionQuality = parsed.detectionQuality;
     }
-    out.perspectiveWarning = v.perspectiveWarning === true ? true : undefined;
-    out.sleeveSuspected = v.sleeveSuspected === true ? true : undefined;
-    out.lowContrastBorder = v.lowContrastBorder === true ? true : undefined;
-    out.borderlessDesign = v.borderlessDesign === true ? true : undefined;
+    out.perspectiveWarning = parsed.perspectiveWarning === true ? true : undefined;
+    out.sleeveSuspected = parsed.sleeveSuspected === true ? true : undefined;
+    out.lowContrastBorder = parsed.lowContrastBorder === true ? true : undefined;
+    out.borderlessDesign = parsed.borderlessDesign === true ? true : undefined;
     out.userAdjustmentDelta =
-      typeof v.userAdjustmentDelta === "number" && Number.isFinite(v.userAdjustmentDelta)
-        ? Math.max(0, Math.min(1, v.userAdjustmentDelta))
+      typeof parsed.userAdjustmentDelta === "number" && Number.isFinite(parsed.userAdjustmentDelta)
+        ? Math.max(0, Math.min(1, parsed.userAdjustmentDelta))
         : undefined;
     out.imageResolution =
-      typeof v.imageResolution === "number" && Number.isFinite(v.imageResolution)
-        ? Math.max(0, Math.min(20_000, v.imageResolution))
+      typeof parsed.imageResolution === "number" && Number.isFinite(parsed.imageResolution)
+        ? Math.max(0, Math.min(20_000, parsed.imageResolution))
         : undefined;
-    out.printSheetVisible = v.printSheetVisible === true ? true : undefined;
+    out.printSheetVisible = parsed.printSheetVisible === true ? true : undefined;
+    if (
+      parsed.borderWidths &&
+      typeof parsed.borderWidths === "object" &&
+      !Array.isArray(parsed.borderWidths)
+    ) {
+      const bw = parsed.borderWidths as Record<string, unknown>;
+      const front = sanitizeBorderSide(bw.front);
+      const back = sanitizeBorderSide(bw.back);
+      if (front || back) out.borderWidths = { ...(front ? { front } : {}), ...(back ? { back } : {}) };
+    }
     const hasAny =
       out.front?.leftRight || out.front?.topBottom || out.back?.leftRight || out.back?.topBottom;
     return hasAny ? out : undefined;
@@ -352,7 +384,8 @@ export async function executeGrade(opts: {
       billing,
     },
   });
-  logUsageEvent({
+
+  const eventId = await logUsageEventAwait({
     userId,
     kind: "grade",
     source,
@@ -363,7 +396,27 @@ export async function executeGrade(opts: {
     remainingAfter,
     summary,
     detail,
+  }).catch((err) => {
+    console.error("logUsageEventAwait failed:", err);
+    return null;
   });
+
+  if (eventId) {
+    try {
+      const { persistGradeArtifacts, patchGradeArtifacts } = await import("./gradeArtifacts.js");
+      const artifacts = await persistGradeArtifacts({
+        userId,
+        eventId,
+        result: resultRec,
+        files,
+      });
+      if (artifacts) {
+        await patchGradeArtifacts(eventId, userId, artifacts, detail);
+      }
+    } catch (err) {
+      console.error("grade artifact persistence failed:", err);
+    }
+  }
 
   const updated = await getGradeQuota(userId, role);
   return {

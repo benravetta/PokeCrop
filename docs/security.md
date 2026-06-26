@@ -33,6 +33,16 @@ Environment:
 | `CSRF_SECRET` | HMAC secret for CSRF token signing |
 | `SESSION_COOKIE_SECURE` | Force `Secure` cookies in non-TLS dev |
 | `TRUST_PROXY_HOPS` | Express `trust proxy` hop count behind nginx |
+| `BETA_INVITE_REQUIRED` | When `true`, signup requires a valid invite token |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` | Mailgun SMTP for admin beta invite emails (not API keys) |
+
+## Beta invites
+
+When `BETA_INVITE_REQUIRED=true`, `POST /api/auth/signup` requires `inviteToken` matching a row in `public.invites`. Admins send invites via `POST /api/admin/invites` (SMTP must be configured). First admin is still bootstrapped manually; subsequent admins can be invited with `role=admin`.
+
+**Important:** Also disable public sign-ups in the Supabase dashboard (**Authentication → Providers → Email → “Enable sign ups”**) so callers cannot bypass the BFF by hitting Supabase Auth directly with the publishable key. Alternatively, add a Supabase `before-user-created` hook that validates an invite.
+
+Public invite validation uses `POST /api/auth/invite/validate` (rate-limited, token in body — not URL). Login consumes pending invites on first sign-in after email confirmation.
 
 ## Public REST API (`/v1`)
 
@@ -42,9 +52,29 @@ Machine clients use **API keys** via `Authorization: Bearer pk_…` or `X-API-Ke
 
 Rate limits: `API_RATE_PER_MIN`, `API_DAILY_SOFT_CAP`, etc. (see `.env.example`).
 
+## Rate limits
+
+Application rate limits use a pluggable store backed by Postgres in production:
+
+- `RATE_LIMIT_STORE=memory` — default for local dev/CI
+- `RATE_LIMIT_STORE=postgres` — shared buckets in `rate_limit_buckets` (survives restarts and horizontal scale)
+- `HUMAN_PREGRADE_RATE_LIMIT_STORE` — legacy alias for the same setting
+
+**Web app (`/api`, session auth)** — per-user limits (defaults per minute):
+
+| Env | Default | Route |
+|-----|---------|-------|
+| `WEB_CROP_UPLOAD_PER_MIN` | 20 | `POST /upload` |
+| `WEB_CROP_PROCESS_PER_MIN` | 40 | `POST /process` |
+| `WEB_GRADE_PER_MIN` | 6 | `POST /grade` |
+| `WEB_GRADE_STRAIGHTEN_PER_MIN` | 30 | `POST /grade/straighten` |
+| `WEB_CENTERING_PREVIEW_PER_MIN` | 120 | `POST /grade/centering-preview` |
+
+**Public API (`/v1`, API key)** — per-account limits use the same Postgres store (`API_RATE_PER_MIN`, `API_STRAIGHTEN_RATE_PER_MIN`, `API_DAILY_SOFT_CAP`, `API_GRADE_PER_MIN`, `API_CENTERING_PREVIEW_PER_MIN`).
+
 ## Human Pre-Grade rate limits
 
-Application rate limits for authenticated human-pregrade actions use `humanPregradeRateLimit()` with a pluggable store:
+Application rate limits for authenticated human-pregrade actions use `humanPregradeRateLimit()` with the shared store above:
 
 - `HUMAN_PREGRADE_RATE_LIMIT_STORE=memory` — default for local dev/CI
 - `HUMAN_PREGRADE_RATE_LIMIT_STORE=postgres` — shared buckets in `rate_limit_buckets` for production

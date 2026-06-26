@@ -44,6 +44,11 @@ import { buildHumanPregradePdfBuffer } from "../reports/pdf.js";
 import { signedGetUrl } from "../../lib/r2.js";
 import { HumanPregradeError } from "../domain/types.js";
 import { getStripe, isStripeConfigured } from "../../lib/stripe.js";
+import { verifyTurnstileToken } from "../../lib/turnstile.js";
+import {
+  assertOrderReadyForCheckout,
+  parseCustomerOrderDraft,
+} from "../domain/customerOrderInput.js";
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -66,6 +71,23 @@ async function getOrCreateStripeCustomer(userId: string, email?: string): Promis
 
 function publicOrigin(req: Request): string {
   return resolvePublicOrigin(req);
+}
+
+function clientIp(req: Request): string | undefined {
+  const forwarded = req.headers["x-forwarded-for"];
+  if (typeof forwarded === "string") return forwarded.split(",")[0]?.trim();
+  return req.socket.remoteAddress;
+}
+
+async function verifyHumanPregradeTurnstile(req: Request, res: Response): Promise<boolean> {
+  const token =
+    typeof req.body?.turnstileToken === "string" ? req.body.turnstileToken : undefined;
+  const result = await verifyTurnstileToken(token, clientIp(req));
+  if (result.ok === false) {
+    res.status(400).json({ error: result.message });
+    return false;
+  }
+  return true;
 }
 
 humanPregradeCustomerRoutes.get(
@@ -106,6 +128,7 @@ humanPregradeCustomerRoutes.post(
       const userId = req.user!.id;
       const settings = await getHumanPregradeSettings();
       const body = req.body ?? {};
+      const draft = parseCustomerOrderDraft(body);
       let aiSnapshot = validateAISnapshot(body.aiReportSnapshot);
       aiSnapshot = validateAISnapshotSize(aiSnapshot);
       let sourceAiReportId: number | null = null;
@@ -133,10 +156,10 @@ humanPregradeCustomerRoutes.post(
         ).toISOString(),
         source_ai_report_id: sourceAiReportId,
         ai_report_snapshot: aiSnapshot,
-        card_game: body.cardGame ?? null,
-        card_name: body.cardName ?? null,
-        set_name: body.setName ?? null,
-        card_number: body.cardNumber ?? null,
+        card_game: draft.cardGame,
+        card_name: draft.cardName,
+        set_name: draft.setName,
+        card_number: draft.cardNumber,
         release_year: body.releaseYear ?? null,
         language: body.language ?? null,
         variant: body.variant ?? null,
@@ -146,17 +169,20 @@ humanPregradeCustomerRoutes.post(
         previous_grade: body.previousGrade ?? null,
         known_damage: body.knownDamage ?? null,
         known_alteration: body.knownAlteration ?? null,
-        customer_notes: body.customerNotes ?? null,
-        main_concern: body.mainConcern ?? null,
+        customer_notes: draft.customerNotes,
+        main_concern: draft.mainConcern,
         submission_recommendation_requested: Boolean(body.submissionRecommendationRequested),
-        training_consent: Boolean(body.trainingConsent),
+        training_consent: draft.trainingConsent,
         primary_grader_id: null,
       });
 
       const graderIds = Array.isArray(body.selectedGraderIds)
         ? await validateGraderIds(body.selectedGraderIds.map(String))
         : [];
-      if (graderIds.length) await setOrderGraders(order.id, graderIds);
+      if (!graderIds.length) {
+        throw new HumanPregradeError("HUMAN_PREGRADE_INVALID_INPUT", "Select at least one grader", 400);
+      }
+      await setOrderGraders(order.id, graderIds);
 
       let primaryGraderId: string | null = null;
       if (body.primaryGraderId != null && body.primaryGraderId !== "") {
@@ -333,10 +359,12 @@ humanPregradeCustomerRoutes.post(
   humanPregradeRateLimit("checkout"),
   async (req, res) => {
     try {
+      if (!(await verifyHumanPregradeTurnstile(req, res))) return;
       if (rejectAdminBilling(req.user!.role, res)) return;
       if (!isStripeConfigured()) throw new HumanPregradeError("HUMAN_PREGRADE_PAYMENT_REQUIRED", "Billing unavailable", 503);
       const order = await loadOwnedOrder(req.user!.id, req.params.publicId!);
       const settings = await getHumanPregradeSettings();
+      await assertOrderReadyForCheckout(order, settings.mandatory_image_types);
       if (order.status === "draft") {
         await updateOrder(order.id, { status: "awaiting_payment", price_minor_units: settings.price_minor_units });
         order.status = "awaiting_payment";

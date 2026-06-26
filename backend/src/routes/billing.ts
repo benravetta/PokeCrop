@@ -25,10 +25,12 @@ import { rejectAdminBilling } from "../lib/adminAccess.js";
 const router = Router();
 
 function publicOrigin(req: Request): string {
-  return (
-    process.env.PUBLIC_ORIGIN ||
-    `${req.protocol}://${req.get("host") ?? "localhost:8080"}`
-  );
+  const configured = process.env.PUBLIC_ORIGIN?.trim().replace(/\/$/, "");
+  if (configured) return configured;
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("PUBLIC_ORIGIN must be set in production.");
+  }
+  return `${req.protocol}://${req.get("host") ?? "localhost:8080"}`;
 }
 
 async function checkoutSessionBelongsToUser(
@@ -403,8 +405,8 @@ export async function stripeWebhookHandler(req: Request, res: Response): Promise
       secret
     );
   } catch (err) {
-    const message = err instanceof Error ? err.message : "invalid signature";
-    res.status(400).send(`Webhook Error: ${message}`);
+    console.error("Stripe webhook signature verification failed:", err);
+    res.status(400).send("Webhook Error: invalid signature");
     return;
   }
 

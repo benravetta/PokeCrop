@@ -26,7 +26,8 @@ interface AuthState {
     email: string,
     password: string,
     displayName?: string,
-    captchaToken?: string
+    captchaToken?: string,
+    inviteToken?: string
   ) => Promise<{ needsConfirmation: boolean }>;
   signOut: () => Promise<void>;
   sendPasswordReset: (email: string, captchaToken?: string) => Promise<void>;
@@ -75,11 +76,11 @@ export const useAuth = create<AuthState>((set, get) => ({
     set({ user: data.user, session: data.user });
   },
 
-  signUp: async (email, password, displayName, captchaToken) => {
+  signUp: async (email, password, displayName, captchaToken, inviteToken) => {
     const res = await apiFetch("/api/auth/signup", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password, displayName, captchaToken }),
+      body: JSON.stringify({ email, password, displayName, captchaToken, inviteToken }),
     });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));

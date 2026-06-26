@@ -13,6 +13,12 @@ import { getHistory, logUsageEvent, type UsageKind } from "../lib/usageEvents.js
 import crypto from "crypto";
 import { archiveCropAsync } from "../lib/catalog.js";
 import { peekRateLimit, consumeRateLimit, rateLimitHeaders, DAILY_SOFT_CAP } from "../lib/rateLimit.js";
+import { validateGradeFileMap, validateMulterFile } from "../lib/uploadValidation.js";
+import { apiRateLimitPeek } from "../middleware/apiRateLimit.js";
+import {
+  consumeApiActionRateLimitSlot,
+  consumeApiRateLimit,
+} from "../lib/accountRateLimit.js";
 import { openApiSpec, API_SPEC_VERSION } from "../openapi.js";
 import {
   ALLOWED_EXT,
@@ -21,12 +27,15 @@ import {
   unlinkTemp,
 } from "../lib/imageInput.js";
 import { runCropJob, type MetadataLevel } from "../lib/cropPipeline.js";
+import { getPlan } from "../lib/usage.js";
+import { applyCropWatermark, shouldWatermarkCrop } from "../lib/cropWatermark.js";
 import {
   executeGrade,
   parseCentering,
   straightenGradeImage,
   type FileMap,
 } from "../lib/gradeService.js";
+import { previewCentering } from "../lib/centeringPreview.js";
 import { getGradeQuota } from "../lib/gradeQuota.js";
 import {
   claimGradeIdempotency,
@@ -116,33 +125,47 @@ function parseCropOptions(body: Record<string, unknown>): {
 }
 
 function rateLimitCrop(req: Request, res: Response, next: () => void): void {
-  const limit = peekRateLimit(req.apiUser!.userId, "crop");
-  res.set(rateLimitHeaders(limit));
-  if (!limit.allowed) {
-    sendApiError(
-      res,
-      "rate_limited",
-      limit.message ?? "Rate limit exceeded. Slow down.",
-      { "Retry-After": String(limit.retryAfterSec) }
-    );
-    return;
-  }
-  next();
+  void (async () => {
+    try {
+      const limit = await peekRateLimit(req.apiUser!.userId, "crop");
+      res.set(rateLimitHeaders(limit));
+      if (!limit.allowed) {
+        sendApiError(
+          res,
+          "rate_limited",
+          limit.message ?? "Rate limit exceeded. Slow down.",
+          { "Retry-After": String(limit.retryAfterSec) }
+        );
+        return;
+      }
+      next();
+    } catch (err) {
+      console.error("v1 crop rate limit error:", err);
+      sendApiError(res, "internal_error", "Service temporarily unavailable.");
+    }
+  })();
 }
 
 function rateLimitStraighten(req: Request, res: Response, next: () => void): void {
-  const limit = peekRateLimit(req.apiUser!.userId, "straighten");
-  res.set(rateLimitHeaders(limit));
-  if (!limit.allowed) {
-    sendApiError(
-      res,
-      "rate_limited",
-      limit.message ?? "Rate limit exceeded. Slow down.",
-      { "Retry-After": String(limit.retryAfterSec) }
-    );
-    return;
-  }
-  next();
+  void (async () => {
+    try {
+      const limit = await peekRateLimit(req.apiUser!.userId, "straighten");
+      res.set(rateLimitHeaders(limit));
+      if (!limit.allowed) {
+        sendApiError(
+          res,
+          "rate_limited",
+          limit.message ?? "Rate limit exceeded. Slow down.",
+          { "Retry-After": String(limit.retryAfterSec) }
+        );
+        return;
+      }
+      next();
+    } catch (err) {
+      console.error("v1 straighten rate limit error:", err);
+      sendApiError(res, "internal_error", "Service temporarily unavailable.");
+    }
+  })();
 }
 
 function mapGradeError(res: Response, out: Extract<Awaited<ReturnType<typeof executeGrade>>, { ok: false }>): void {
@@ -257,7 +280,9 @@ router.post(
         return;
       }
 
-      consumeRateLimit(req.apiUser!.userId, "crop");
+      consumeRateLimit(req.apiUser!.userId, "crop").catch((err) =>
+        console.error("v1 crop rate limit consume failed:", err)
+      );
 
       incrementApiUsage(req.apiUser!.keyId).catch((err) =>
         console.error("api usage increment failed:", err)
@@ -276,6 +301,21 @@ router.post(
 
       const contentHash = crypto.createHash("sha256").update(crop.pngBuffer).digest("hex");
       const wantsPng = req.accepts(["json", "image/png"]) === "image/png";
+
+      let outBuffer = crop.pngBuffer;
+      let outBase64 = crop.pngBase64;
+      const plan = await getPlan(req.apiUser!.userId);
+      if (
+        shouldWatermarkCrop({ role: req.apiUser!.role, plan, billing: plan === "free" ? "free" : "subscription" })
+      ) {
+        try {
+          outBuffer = await applyCropWatermark(outBuffer);
+          outBase64 = outBuffer.toString("base64");
+        } catch (err) {
+          console.error("v1 crop watermark failed:", err);
+        }
+      }
+
       logActivity({
         userId: req.apiUser!.userId,
         action: "crop.api",
@@ -304,14 +344,14 @@ router.post(
       if (wantsPng) {
         res.set({
           "Content-Type": "image/png",
-          "Content-Length": crop.pngBuffer.length.toString(),
+          "Content-Length": outBuffer.length.toString(),
         });
-        res.send(crop.pngBuffer);
+        res.send(outBuffer);
         return;
       }
 
       res.json({
-        image_base64: crop.pngBase64,
+        image_base64: outBase64,
         metadata: crop.metadata,
       });
     } catch (err) {
@@ -329,7 +369,7 @@ router.post(
 
 // GET /v1/crop/limits
 router.get("/crop/limits", requireApiKey, async (req: Request, res: Response) => {
-  const limit = peekRateLimit(req.apiUser!.userId);
+  const limit = await peekRateLimit(req.apiUser!.userId);
   res.set(rateLimitHeaders(limit));
   let usedToday = 0;
   try {
@@ -362,15 +402,45 @@ router.post(
       sendApiError(res, "invalid_request", "No image provided.");
       return;
     }
+    const sniff = await validateMulterFile(file);
+    if (!sniff.ok) {
+      sendApiError(res, "unsupported_media_type", sniff.error);
+      return;
+    }
     const out = await straightenGradeImage(file, tmpDir);
     if (!out.ok) {
       sendApiError(res, "unprocessable_image", out.error);
       return;
     }
-    consumeRateLimit(req.apiUser!.userId, "straighten");
+    await consumeApiRateLimit(req.apiUser!.userId, "straighten");
     res.json({ png: out.png });
   }
 );
+
+// POST /v1/grade/centering-preview
+router.post(
+  "/grade/centering-preview",
+  requireApiKey,
+  apiRateLimitPeek("api:centering_preview"),
+  async (req: Request, res: Response) => {
+  try {
+    const centering = parseCentering((req.body as Record<string, unknown>)?.centering);
+    if (!centering) {
+      sendApiError(
+        res,
+        "invalid_request",
+        "Valid centering JSON with at least one ratio is required."
+      );
+      return;
+    }
+    const preview = previewCentering(centering);
+    await consumeApiActionRateLimitSlot(req.apiUser!.userId, "api:centering_preview");
+    res.json({ preview });
+  } catch (err) {
+    console.error("v1 centering preview error:", err);
+    sendApiError(res, "internal_error", "Unexpected error during centering preview.");
+  }
+});
 
 // GET /v1/grade/quota
 router.get("/grade/quota", requireApiKey, async (req: Request, res: Response) => {
@@ -384,7 +454,18 @@ router.get("/grade/quota", requireApiKey, async (req: Request, res: Response) =>
 });
 
 // POST /v1/grade
-router.post("/grade", requireApiKey, gradeUpload, async (req: Request, res: Response) => {
+router.post(
+  "/grade",
+  requireApiKey,
+  apiRateLimitPeek("api:grade"),
+  gradeUpload,
+  async (req: Request, res: Response) => {
+  const uploadErr = await validateGradeFileMap(req.files as Record<string, Express.Multer.File[]>);
+  if (uploadErr) {
+    sendApiError(res, "unsupported_media_type", uploadErr);
+    return;
+  }
+
   const userId = req.apiUser!.userId;
   const idempotencyKey = normalizeIdempotencyKey(req.headers["idempotency-key"]);
   let claimedIdempotency = false;
@@ -442,6 +523,7 @@ router.post("/grade", requireApiKey, gradeUpload, async (req: Request, res: Resp
     if (idempotencyKey && claimedIdempotency) {
       await completeGradeIdempotency(userId, idempotencyKey, body);
     }
+    await consumeApiActionRateLimitSlot(userId, "api:grade");
     await respondGrade(req, res, body);
   } catch (err) {
     if (idempotencyKey && claimedIdempotency) {

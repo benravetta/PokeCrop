@@ -1,6 +1,8 @@
 // Server-side GemCheck pre-grade PDF (matches the web app's gradeReportPdf.ts).
 
+import fs from "fs";
 import { jsPDF } from "jspdf";
+import { resolveAsset } from "./assetsPath.js";
 import {
   cropSnapshot,
   loadReportImage,
@@ -56,6 +58,58 @@ function moneyRange(low: number, high: number, currency: string): string {
   return Math.round(low) === Math.round(high) ? m(low) : `${m(low)}–${m(high)}`;
 }
 
+function logoDataUrl(): string | null {
+  try {
+    return `data:image/png;base64,${fs.readFileSync(resolveAsset("gemcheck-logo.png")).toString("base64")}`;
+  } catch {
+    return null;
+  }
+}
+
+function drawReportHeader(
+  doc: jsPDF,
+  PAGE_W: number,
+  M: number,
+  setColor: (c: readonly [number, number, number]) => void,
+  rule: () => void
+): number {
+  doc.setFillColor(ACCENT[0], ACCENT[1], ACCENT[2]);
+  doc.rect(0, 0, PAGE_W, 2.5, "F");
+  let y = M + 1;
+  const logo = logoDataUrl();
+  if (logo) {
+    const logoW = 32;
+    const logoH = 10;
+    doc.addImage(logo, "PNG", M, y, logoW, logoH);
+    setColor(INK);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(14);
+    doc.text("Pre-Grade Report", M + logoW + 4, y + 4);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8.5);
+    setColor(MUTE);
+    doc.text(
+      new Date().toLocaleDateString("en-GB", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      }),
+      M + logoW + 4,
+      y + 9
+    );
+    y += logoH + 2;
+  } else {
+    setColor(INK);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(16);
+    doc.text("Card Condition Pre-Grade Report", M, y + 4);
+    y += 8;
+  }
+  y += 1;
+  rule();
+  return y + 2;
+}
+
 export interface GradeReportImages {
   front?: Buffer;
   back?: Buffer;
@@ -75,7 +129,7 @@ export async function buildGradeReportPdfBuffer(
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const PAGE_W = doc.internal.pageSize.getWidth();
   const PAGE_H = doc.internal.pageSize.getHeight();
-  const M = 14;
+  const M = 12;
   const CONTENT_W = PAGE_W - M * 2;
   let y = M;
 
@@ -92,15 +146,15 @@ export async function buildGradeReportPdfBuffer(
     doc.line(M, y, PAGE_W - M, y);
   };
   const heading = (text: string) => {
-    ensure(12);
-    y += 4;
+    ensure(10);
+    y += 3;
     setColor(INK);
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(12);
+    doc.setFontSize(11);
     doc.text(text, M, y);
-    y += 2.5;
+    y += 2;
     rule();
-    y += 4;
+    y += 3;
   };
   const para = (
     text: string,
@@ -122,37 +176,15 @@ export async function buildGradeReportPdfBuffer(
     y += opts.gap ?? 1;
   };
 
-  doc.setFillColor(ACCENT[0], ACCENT[1], ACCENT[2]);
-  doc.rect(0, 0, PAGE_W, 3, "F");
-  setColor(INK);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(18);
-  y = M + 4;
-  doc.text("Card Condition Pre-Grade Report", M, y);
-  y += 6;
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(9);
-  setColor(MUTE);
-  doc.text(
-    `GemCheck AI Pre-Grader · ${new Date().toLocaleDateString("en-GB", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    })}`,
-    M,
-    y
-  );
-  y += 4;
-  rule();
-  y += 2;
+  y = drawReportHeader(doc, PAGE_W, M, setColor, rule);
 
   const ident = asObj(result.card_identification);
   const imgFront = frontJimp ? await toPngDataUrl(frontJimp) : null;
   const imgBack = backJimp ? await toPngDataUrl(backJimp) : null;
 
-  const topY = y + 4;
-  const imgBoxW = 34;
-  const imgH = 44;
+  const topY = y + 2;
+  const imgBoxW = 30;
+  const imgH = 40;
   let imgX = PAGE_W - M - imgBoxW;
   const shots = [imgBack, imgFront].filter(Boolean) as { url: string; w: number; h: number }[];
   for (const s of shots) {

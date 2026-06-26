@@ -68,6 +68,7 @@ RUN mkdir -p /app/models \
 WORKDIR /app
 COPY python-service/ /app/python-service/
 COPY --from=backend /be/dist/server.cjs /app/backend/server.cjs
+COPY backend/assets /app/backend/assets
 COPY --from=frontend /fe/dist /usr/share/nginx/html
 
 # nginx serves the SPA on 8080 and proxies /api to the local backend.

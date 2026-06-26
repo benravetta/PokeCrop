@@ -161,10 +161,17 @@ export async function uploadHumanPregradeImage(
   return res.json();
 }
 
-export async function startHumanPregradeCheckout(publicId: string): Promise<{ url: string }> {
+export async function startHumanPregradeCheckout(
+  publicId: string,
+  turnstileToken?: string
+): Promise<{ url: string }> {
   const res = await apiFetch(`${BASE}/human-pregrades/${publicId}/checkout`, {
     method: "POST",
-      });
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(
+      turnstileToken ? { turnstileToken } : {}
+    ),
+  });
   if (!res.ok) await fail(res);
   return res.json();
 }

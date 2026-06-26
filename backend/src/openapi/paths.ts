@@ -342,6 +342,53 @@ open("report.pdf", "wb").write(r.content)`
       ],
     },
   },
+  "/grade/centering-preview": {
+    post: {
+      tags: ["Grade"],
+      summary: "Preview centering against grader thresholds",
+      description:
+        "Runs the deterministic centering engine on user-measured ratios. **Not** metered against grade quota and does not invoke the LLM.",
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: {
+              type: "object",
+              properties: {
+                centering: { $ref: "#/components/schemas/MeasuredCentering" },
+              },
+              required: ["centering"],
+            },
+          },
+        },
+      },
+      responses: {
+        "200": {
+          description: "Collector-safe centering preview.",
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: { preview: { $ref: "#/components/schemas/CenteringPreview" } },
+              },
+            },
+          },
+        },
+        "400": errorResponse("Valid centering JSON with at least one ratio is required."),
+        "401": errorResponse("Missing or invalid API key."),
+        "403": errorResponse("Requires active API plan."),
+      },
+      "x-codeSamples": [
+        curl(
+          "cURL",
+          `curl -X POST ${BASE}/grade/centering-preview \\
+  -H "Authorization: Bearer ${SAMPLE_KEY}" \\
+  -H "Content-Type: application/json" \\
+  -d '{"centering":{"front":{"leftRight":"55/45","topBottom":"50/50"}}}'`
+        ),
+      ],
+    },
+  },
   "/account": {
     get: {
       tags: ["Account"],

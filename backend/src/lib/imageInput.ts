@@ -75,6 +75,24 @@ export async function resolveImageInput(opts: {
   const { file, imageUrl, imageBase64, tmpDir } = opts;
 
   if (file) {
+    const head = file.buffer
+      ? file.buffer.subarray(0, Math.min(file.buffer.length, 16))
+      : await (async () => {
+          const fs = await import("fs");
+          const fd = await fs.promises.open(file.path, "r");
+          try {
+            const head = Buffer.alloc(16);
+            const { bytesRead } = await fd.read(head, 0, 16, 0);
+            return head.subarray(0, bytesRead);
+          } finally {
+            await fd.close().catch(() => {});
+          }
+        })();
+    const { validateImageBuffer } = await import("./uploadValidation.js");
+    const sniff = validateImageBuffer(head, { allowPdf: true });
+    if (!sniff.ok) {
+      return { error: sniff.error, code: "unsupported_media_type" };
+    }
     return {
       tempPath: file.path,
       filename: file.originalname || path.basename(file.path),

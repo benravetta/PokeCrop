@@ -164,7 +164,12 @@ function rowPasses(
       axisStatus(axes.backH, row.back_horizontal_max, tolerance),
       axisStatus(axes.backV, row.back_vertical_max, tolerance),
     ].filter((s) => s !== "missing");
-    const backOk = backStatuses.every((s) => s === "pass");
+    const backHPresent = axes.backH != null;
+    const backVPresent = axes.backV != null;
+    if (backHPresent !== backVPresent) {
+      return { pass: false, worstBorderline: false, worstFail: true };
+    }
+    const backOk = backStatuses.length === 0 || backStatuses.every((s) => s === "pass");
     const backBorderline = backStatuses.some((s) => s === "fail") &&
       backBorderlineStatuses.every((s) => s !== "fail");
     const backFail = backBorderlineStatuses.some((s) => s === "fail");

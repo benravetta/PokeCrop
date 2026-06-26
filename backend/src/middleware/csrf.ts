@@ -2,7 +2,12 @@ import type { Request, Response, NextFunction } from "express";
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { CSRF_COOKIE } from "../lib/sessionCookies.js";
 
-const CSRF_SECRET = process.env.CSRF_SECRET || "dev-csrf-secret-change-in-production";
+const DEFAULT_CSRF = "dev-csrf-secret-change-in-production";
+const CSRF_SECRET = process.env.CSRF_SECRET || DEFAULT_CSRF;
+
+if (process.env.NODE_ENV === "production" && CSRF_SECRET === DEFAULT_CSRF) {
+  throw new Error("CSRF_SECRET must be set to a strong random value in production.");
+}
 
 function signToken(raw: string): string {
   return createHmac("sha256", CSRF_SECRET).update(raw).digest("hex");
@@ -41,7 +46,8 @@ export function csrfProtection(req: Request, res: Response, next: NextFunction):
     req.path.startsWith("/auth/login") ||
     req.path.startsWith("/auth/signup") ||
     req.path.startsWith("/auth/password-reset") ||
-    req.path.startsWith("/auth/exchange")
+    req.path.startsWith("/auth/exchange") ||
+    req.path.startsWith("/auth/invite/validate")
   ) {
     next();
     return;

@@ -1,4 +1,5 @@
 import { analyzeCentering, centeringSubgradeFor } from "./centeringEngine.js";
+import { parseCentering } from "./gradeService.js";
 import type { GraderCenteringKey } from "./centeringRules.js";
 import type { CenteringRatios } from "./centeringRatios.js";
 
@@ -16,10 +17,12 @@ export interface CentringPayload {
 }
 
 export function buildCentringPayload(front: MeasuredCentringFront | undefined): CentringPayload | null {
-  if (!front?.leftRight && !front?.topBottom) return null;
+  const parsed = parseCentering({ front });
+  if (!parsed?.front) return null;
+  const safeFront = parsed.front;
   const ratios: CenteringRatios = {
-    frontLR: front.leftRight?.trim() || undefined,
-    frontTB: front.topBottom?.trim() || undefined,
+    frontLR: safeFront.leftRight,
+    frontTB: safeFront.topBottom,
     measured: true,
   };
   const analysis = analyzeCentering(ratios, { measured: true }, "PSA");
@@ -31,7 +34,7 @@ export function buildCentringPayload(front: MeasuredCentringFront | undefined): 
   }
   return {
     measured: true,
-    front,
+    front: safeFront,
     scores,
     explanation: analysis.explanation,
     raw_centering_quality: analysis.raw_centering_quality,

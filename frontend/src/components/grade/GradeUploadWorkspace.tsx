@@ -14,7 +14,7 @@ import {
   X,
 } from "lucide-react";
 import { CenteringTool } from "./CenteringTool";
-import type { CaptureIssue } from "../../lib/api";
+import type { CaptureIssue, CenteringPreview } from "../../lib/api";
 import type { Box } from "../../lib/centering";
 import { GRADE_UPLOAD } from "../../lib/gradeUploadCopy";
 
@@ -341,6 +341,48 @@ function GuideGraders() {
   );
 }
 
+function CenteringPreviewPanel({ preview }: { preview: CenteringPreview }) {
+  const capLabel =
+    preview.grade_cap !== "none" && preview.grade_cap_value != null
+      ? `${preview.grade_cap === "hard" ? "Hard" : "Soft"} cap ~${preview.grade_cap_value}`
+      : null;
+
+  return (
+    <div className="rounded-xl border border-border-subtle bg-surface-overlay/40 overflow-hidden">
+      <div className="px-4 py-3 border-b border-border-subtle/80 bg-surface-overlay/50">
+        <h3 className="text-sm font-medium text-text-primary">Centering preview (PSA baseline)</h3>
+        <p className="mt-1 text-xs text-text-secondary leading-relaxed">{preview.explanation}</p>
+      </div>
+      <div className="p-4 space-y-3">
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <span className="rounded-full bg-surface-overlay px-2.5 py-1 text-text-secondary">
+            Confidence {Math.round(preview.measurement_confidence * 100)}%
+          </span>
+          {capLabel && (
+            <span className="rounded-full bg-amber-500/15 px-2.5 py-1 text-amber-200/90">
+              {capLabel}
+            </span>
+          )}
+        </div>
+        <ul className="grid gap-2 sm:grid-cols-2">
+          {preview.hints
+            .filter((h) => h.label)
+            .map((h) => (
+              <li
+                key={h.grader}
+                className="rounded-lg border border-border-subtle/80 bg-surface-overlay/30 px-3 py-2 text-xs text-text-secondary"
+              >
+                <span className="font-medium text-text-primary">{h.grader}</span>
+                <span className="mx-1.5 text-text-muted">·</span>
+                {h.label}
+              </li>
+            ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
 function CenteringPanel({
   side,
   label,
@@ -352,6 +394,7 @@ function CenteringPanel({
   onInner,
   skip,
   onSkip,
+  onAutoDetect,
 }: {
   side: CardSlot;
   label: string;
@@ -363,6 +406,7 @@ function CenteringPanel({
   onInner: (b: Box) => void;
   skip: boolean;
   onSkip: (v: boolean) => void;
+  onAutoDetect?: (side: CardSlot, outer: Box, inner: Box) => void;
 }) {
   if (!displaySrc && !proc.loading) return null;
   return (
@@ -401,6 +445,9 @@ function CenteringPanel({
               onInner={onInner}
               skipped={skip}
               onSkip={onSkip}
+              onAutoDetect={
+                onAutoDetect ? (o, i) => onAutoDetect(side, o, i) : undefined
+              }
             />
           </>
         ) : null}
@@ -428,6 +475,8 @@ export interface GradeUploadWorkspaceProps {
   setOuters: React.Dispatch<React.SetStateAction<Record<CardSlot, Box | null>>>;
   setInners: React.Dispatch<React.SetStateAction<Record<CardSlot, Box | null>>>;
   setSkip: React.Dispatch<React.SetStateAction<Record<CardSlot, boolean>>>;
+  onCenteringAutoDetect?: (side: CardSlot, outer: Box, inner: Box) => void;
+  centeringPreview?: CenteringPreview | null;
   localCaptureHints: CaptureIssue[];
   centeringMeasured: boolean;
   error: string | null;
@@ -458,6 +507,8 @@ export function GradeUploadWorkspace({
   setOuters,
   setInners,
   setSkip,
+  onCenteringAutoDetect,
+  centeringPreview,
   localCaptureHints,
   centeringMeasured,
   error,
@@ -599,6 +650,7 @@ export function GradeUploadWorkspace({
                   onInner={(b) => setInners((prev) => ({ ...prev, front: b }))}
                   skip={skip.front}
                   onSkip={(v) => setSkip((s) => ({ ...s, front: v }))}
+                  onAutoDetect={onCenteringAutoDetect}
                 />
                 {hasBack && (
                   <CenteringPanel
@@ -612,9 +664,11 @@ export function GradeUploadWorkspace({
                     onInner={(b) => setInners((prev) => ({ ...prev, back: b }))}
                     skip={skip.back}
                     onSkip={(v) => setSkip((s) => ({ ...s, back: v }))}
+                    onAutoDetect={onCenteringAutoDetect}
                   />
                 )}
               </div>
+              {centeringPreview && <CenteringPreviewPanel preview={centeringPreview} />}
             </Panel>
           )}
 

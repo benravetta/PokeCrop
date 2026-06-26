@@ -148,16 +148,25 @@ export function sideMeasurementMeta(
     autoDetectOk?: boolean;
     imageLongEdge?: number;
     userAdjustmentDelta?: number;
+    autoOuter?: Box | null;
+    autoInner?: Box | null;
     heuristics?: MeasurementHeuristics;
   } = {}
 ): SideMeasurementMeta {
+  const inferred = inferMeasurementHeuristics(outer, inner, opts.autoOuter, opts.autoInner);
+  const heuristics = { ...inferred, ...opts.heuristics };
+  const adjustmentDelta =
+    opts.userAdjustmentDelta ??
+    (opts.autoOuter && opts.autoInner
+      ? boxAdjustmentDelta(opts.autoOuter, opts.autoInner, outer, inner)
+      : undefined);
   const confidence = computeMeasurementConfidence({
     autoDetectOk: opts.autoDetectOk ?? true,
     outer,
     inner,
     imageLongEdge: opts.imageLongEdge,
-    userAdjustmentDelta: opts.userAdjustmentDelta,
-    heuristics: opts.heuristics,
+    userAdjustmentDelta: adjustmentDelta,
+    heuristics,
   });
   let detectionQuality: "good" | "fair" | "poor" = "good";
   if (confidence < 0.55) detectionQuality = "poor";
@@ -166,9 +175,78 @@ export function sideMeasurementMeta(
     borderWidths: borderWidthsWithMm(outer, inner),
     measurement_confidence: Math.round(confidence * 100) / 100,
     detectionQuality,
-    ...opts.heuristics,
-    userAdjustmentDelta: opts.userAdjustmentDelta,
+    ...heuristics,
+    userAdjustmentDelta: adjustmentDelta,
   };
+}
+
+/** Mean edge delta between auto-detected and user-adjusted boxes (0..1 scale). */
+export function boxAdjustmentDelta(
+  autoOuter: Box,
+  autoInner: Box,
+  outer: Box,
+  inner: Box
+): number {
+  const d =
+    (Math.abs(autoOuter.x0 - outer.x0) +
+      Math.abs(autoOuter.x1 - outer.x1) +
+      Math.abs(autoOuter.y0 - outer.y0) +
+      Math.abs(autoOuter.y1 - outer.y1) +
+      Math.abs(autoInner.x0 - inner.x0) +
+      Math.abs(autoInner.x1 - inner.x1) +
+      Math.abs(autoInner.y0 - inner.y0) +
+      Math.abs(autoInner.y1 - inner.y1)) /
+    8;
+  return Math.round(d * 1000) / 1000;
+}
+
+/** Heuristic flags from border geometry (no image ML). */
+export function inferMeasurementHeuristics(
+  outer: Box,
+  inner: Box,
+  autoOuter?: Box | null,
+  autoInner?: Box | null
+): MeasurementHeuristics {
+  const w = borderWidths(outer, inner);
+  const minBorder = Math.min(w.left, w.right, w.top, w.bottom);
+  const maxBorder = Math.max(w.left, w.right, w.top, w.bottom);
+  const sumLR = w.left + w.right;
+  const sumTB = w.top + w.bottom;
+  const lrImbalance =
+    sumLR > 0 ? Math.abs(w.left - w.right) / sumLR : 0;
+
+  const heuristics: MeasurementHeuristics = {};
+
+  if (minBorder < 0.008 && maxBorder < 0.028) {
+    heuristics.borderlessDesign = true;
+  }
+
+  if (minBorder < 0.012 && maxBorder > minBorder * 3.5) {
+    heuristics.lowContrastBorder = true;
+  }
+
+  if (lrImbalance > 0.38 && sumLR > sumTB * 1.6) {
+    heuristics.sleeveSuspected = true;
+  }
+
+  if (outer.x0 > 0.035 && outer.x1 < 0.965 && lrImbalance > 0.3) {
+    heuristics.sleeveSuspected = true;
+  }
+
+  const outerAspect = (outer.x1 - outer.x0) / Math.max(0.001, outer.y1 - outer.y0);
+  const innerAspect = (inner.x1 - inner.x0) / Math.max(0.001, inner.y1 - inner.y0);
+  if (Math.abs(outerAspect - innerAspect) > 0.07) {
+    heuristics.perspectiveWarning = true;
+  }
+
+  if (autoOuter && autoInner) {
+    const outerShift = boxAdjustmentDelta(autoOuter, autoInner, outer, inner);
+    if (outerShift > 0.12 && lrImbalance > 0.25) {
+      heuristics.perspectiveWarning = true;
+    }
+  }
+
+  return heuristics;
 }
 
 function colourDist(a: number[], b: number[]): number {

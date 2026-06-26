@@ -27,6 +27,8 @@ import {
   type GradeResult,
   type GradeImages,
   type MeasuredCentering,
+  type CenteringPreview,
+  previewCentering,
   type Preparation,
   type PrepItem,
   type CardPricing,
@@ -104,6 +106,7 @@ export function GradePage() {
   const [error, setError] = useState<string | null>(null);
   const [captureBlockers, setCaptureBlockers] = useState<CaptureIssue[]>([]);
   const [frontLongEdge, setFrontLongEdge] = useState<number | null>(null);
+  const [backLongEdge, setBackLongEdge] = useState<number | null>(null);
   const [pdfBusy, setPdfBusy] = useState(false);
   const [buyBusy, setBuyBusy] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
@@ -146,6 +149,15 @@ export function GradePage() {
     front: false,
     back: false,
   });
+  const [autoOuters, setAutoOuters] = useState<Record<CardSlot, Box | null>>({
+    front: null,
+    back: null,
+  });
+  const [autoInners, setAutoInners] = useState<Record<CardSlot, Box | null>>({
+    front: null,
+    back: null,
+  });
+  const [centeringPreview, setCenteringPreview] = useState<CenteringPreview | null>(null);
 
   useEffect(() => {
     getGradeQuota()
@@ -166,6 +178,20 @@ export function GradePage() {
       })
       .catch(() => setFrontLongEdge(null));
   }, [files.front]);
+
+  useEffect(() => {
+    const f = files.back;
+    if (!f) {
+      setBackLongEdge(null);
+      return;
+    }
+    void createImageBitmap(f)
+      .then((bitmap) => {
+        setBackLongEdge(Math.max(bitmap.width, bitmap.height));
+        bitmap.close();
+      })
+      .catch(() => setBackLongEdge(null));
+  }, [files.back]);
 
   // Returning from a single-grade Checkout: poll until webhook credit lands.
   useEffect(() => {
@@ -300,35 +326,58 @@ export function GradePage() {
     const out: MeasuredCentering = {};
     let frontConf: number | undefined;
     let backConf: number | undefined;
+    let frontMeta: ReturnType<typeof sideMeasurementMeta> | undefined;
+    let backMeta: ReturnType<typeof sideMeasurementMeta> | undefined;
     if (!skip.front && outers.front && inners.front) {
       const r = borderRatios(outers.front, inners.front);
       out.front = { leftRight: r.leftRight.ratio, topBottom: r.topBottom.ratio };
-      const meta = sideMeasurementMeta(outers.front, inners.front, {
+      frontMeta = sideMeasurementMeta(outers.front, inners.front, {
         autoDetectOk: !proc.front.failed,
         imageLongEdge: frontLongEdge ?? undefined,
+        autoOuter: autoOuters.front,
+        autoInner: autoInners.front,
       });
-      frontConf = meta.measurement_confidence;
+      frontConf = frontMeta.measurement_confidence;
       out.borderWidths = {
         ...out.borderWidths,
-        front: meta.borderWidths,
+        front: frontMeta.borderWidths,
       };
-      if (meta.detectionQuality) out.detectionQuality = meta.detectionQuality;
-      if (meta.sleeveSuspected) out.sleeveSuspected = true;
-      if (meta.lowContrastBorder) out.lowContrastBorder = true;
-      if (meta.borderlessDesign) out.borderlessDesign = true;
     }
     if (files.back && !skip.back && outers.back && inners.back) {
       const r = borderRatios(outers.back, inners.back);
       out.back = { leftRight: r.leftRight.ratio, topBottom: r.topBottom.ratio };
-      const meta = sideMeasurementMeta(outers.back, inners.back, {
+      backMeta = sideMeasurementMeta(outers.back, inners.back, {
         autoDetectOk: !proc.back.failed,
+        imageLongEdge: backLongEdge ?? undefined,
+        autoOuter: autoOuters.back,
+        autoInner: autoInners.back,
       });
-      backConf = meta.measurement_confidence;
+      backConf = backMeta.measurement_confidence;
       out.borderWidths = {
         ...out.borderWidths,
-        back: meta.borderWidths,
+        back: backMeta.borderWidths,
       };
     }
+    const qualityRank = { poor: 0, fair: 1, good: 2 } as const;
+    const worstQuality = (
+      a?: "good" | "fair" | "poor",
+      b?: "good" | "fair" | "poor"
+    ): "good" | "fair" | "poor" | undefined => {
+      if (!a) return b;
+      if (!b) return a;
+      return qualityRank[a] <= qualityRank[b] ? a : b;
+    };
+    const mergedQuality = worstQuality(frontMeta?.detectionQuality, backMeta?.detectionQuality);
+    if (mergedQuality) out.detectionQuality = mergedQuality;
+    if (frontMeta?.sleeveSuspected || backMeta?.sleeveSuspected) out.sleeveSuspected = true;
+    if (frontMeta?.lowContrastBorder || backMeta?.lowContrastBorder) out.lowContrastBorder = true;
+    if (frontMeta?.borderlessDesign || backMeta?.borderlessDesign) out.borderlessDesign = true;
+    if (frontMeta?.perspectiveWarning || backMeta?.perspectiveWarning) out.perspectiveWarning = true;
+    const adjustmentDelta = Math.max(
+      frontMeta?.userAdjustmentDelta ?? 0,
+      backMeta?.userAdjustmentDelta ?? 0
+    );
+    if (adjustmentDelta > 0) out.userAdjustmentDelta = adjustmentDelta;
     if (frontConf != null) out.front_centering_confidence = frontConf;
     if (backConf != null) out.back_centering_confidence = backConf;
     if (frontConf != null || backConf != null) {
@@ -339,7 +388,50 @@ export function GradePage() {
     }
     if (frontLongEdge != null) out.imageResolution = frontLongEdge;
     return out.front || out.back ? out : undefined;
-  }, [outers, inners, skip, files.back, proc, frontLongEdge]);
+  }, [
+    outers,
+    inners,
+    skip,
+    files.back,
+    proc,
+    frontLongEdge,
+    backLongEdge,
+    autoOuters,
+    autoInners,
+  ]);
+
+  const onCenteringAutoDetect = useCallback((side: CardSlot, outer: Box, inner: Box) => {
+    setAutoOuters((prev) => ({ ...prev, [side]: outer }));
+    setAutoInners((prev) => ({ ...prev, [side]: inner }));
+  }, []);
+
+  useEffect(() => {
+    const payload = buildCentering();
+    if (!payload) {
+      setCenteringPreview(null);
+      return;
+    }
+    if (files.back && !skip.back && (!outers.back || !inners.back)) {
+      setCenteringPreview(null);
+      return;
+    }
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      previewCentering(payload)
+        .then((r) => {
+          if (!cancelled) setCenteringPreview(r.preview);
+        })
+        .catch((err) => {
+          if (cancelled) return;
+          if (err instanceof ApiError && err.status === 429) return;
+          setCenteringPreview(null);
+        });
+    }, 1000);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [buildCentering, files.back, skip.back, outers.back, inners.back]);
 
   // The image we send for inspection: the straightened card when available
   // (cleaner read), otherwise the downscaled original.
@@ -482,6 +574,8 @@ export function GradePage() {
           setOuters={setOuters}
           setInners={setInners}
           setSkip={setSkip}
+          onCenteringAutoDetect={onCenteringAutoDetect}
+          centeringPreview={centeringPreview}
           localCaptureHints={localCaptureHints}
           centeringMeasured={centeringMeasured}
           error={error}

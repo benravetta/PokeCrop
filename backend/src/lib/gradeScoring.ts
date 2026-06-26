@@ -463,7 +463,8 @@ export function scoreGrades(findings: Json): ScoreResult {
   {
     const { likelyNum, sub } = computeLikely("Beckett (BGS)", findings, axes, meta, true, centeringAnalysis);
     const capped = applyStructuralCap(likelyNum);
-    const bgsTier = detectBgsTier(sub.subs, capped);
+    const bgsRatios = ratiosFromFindings(asObj(findings.centering));
+    const bgsTier = detectBgsTier(sub.subs, capped, bgsRatios);
     estimates.push(
       build(
         "Beckett (BGS)",

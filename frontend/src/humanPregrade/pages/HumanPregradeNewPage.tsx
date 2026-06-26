@@ -1,159 +1,40 @@
-import { useEffect, useState } from "react";
-import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import {
-  createHumanPregradeOrder,
-  patchHumanPregradeDraft,
-  uploadHumanPregradeImage,
-  startHumanPregradeCheckout,
-  submitHumanPregradeOrder,
-} from "../api";
-import { useHumanPregradeConfig, formatMinorUnits } from "../hooks/useHumanPregradeConfig";
-import { safeStripeCheckoutUrl } from "../../lib/safeUrl";
+import { Link } from "react-router-dom";
+import { ArrowLeft, Loader2 } from "lucide-react";
+import { useHumanPregradeConfig } from "../hooks/useHumanPregradeConfig";
+import { HumanPregradeNewForm } from "../components/HumanPregradeNewForm";
 
 export function HumanPregradeNewPage() {
-  const { config, enabled } = useHumanPregradeConfig();
-  const [params] = useSearchParams();
-  const location = useLocation();
-  const navigate = useNavigate();
-  const aiReportSnapshot = (location.state as { aiReportSnapshot?: Record<string, unknown> } | null)
-    ?.aiReportSnapshot;
-  const [step, setStep] = useState(0);
-  const [publicId, setPublicId] = useState<string | null>(null);
-  const [form, setForm] = useState({
-    cardGame: "Pokemon",
-    cardName: "",
-    setName: "",
-    cardNumber: "",
-    mainConcern: "",
-    customerNotes: "",
-    trainingConsent: false,
-    termsAccepted: false,
-    selectedGraderIds: [] as string[],
-  });
-  const [frontFile, setFrontFile] = useState<File | null>(null);
-  const [backFile, setBackFile] = useState<File | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const { config, loading, enabled } = useHumanPregradeConfig();
 
-  useEffect(() => {
-    if (!config?.graders?.length) return;
-    setForm((f) => ({
-      ...f,
-      selectedGraderIds: f.selectedGraderIds.length
-        ? f.selectedGraderIds
-        : [config.graders[0]!.id],
-    }));
-  }, [config]);
+  if (loading) {
+    return (
+      <div className="flex flex-1 min-h-0 items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-sky-400" aria-label="Loading" />
+      </div>
+    );
+  }
 
-  if (!enabled || !config) return <p className="p-8 text-text-muted">Unavailable.</p>;
-
-  const createOrder = async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      const body: Record<string, unknown> = { ...form };
-      if (params.get("aiReportId")) body.sourceAiReportId = params.get("aiReportId");
-      if (aiReportSnapshot) body.aiReportSnapshot = aiReportSnapshot;
-      const { order } = await createHumanPregradeOrder(body);
-      setPublicId(order.publicId);
-      return order.publicId as string;
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed");
-      return null;
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleCheckout = async () => {
-    let id = publicId;
-    if (!id) id = await createOrder();
-    if (!id) return;
-    await patchHumanPregradeDraft(id, form);
-    if (frontFile) await uploadHumanPregradeImage(id, frontFile, "front");
-    if (backFile) await uploadHumanPregradeImage(id, backFile, "back");
-    const { url } = await startHumanPregradeCheckout(id);
-    const safe = safeStripeCheckoutUrl(url);
-    if (!safe) {
-      setError("Invalid checkout URL. Please try again or contact support.");
-      return;
-    }
-    window.location.href = safe;
-  };
-
-  const handleSubmitAfterPayment = async () => {
-    if (!publicId) return;
-    setBusy(true);
-    try {
-      await submitHumanPregradeOrder(publicId);
-      navigate(`/human-pregrade/orders/${publicId}`);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Submit failed");
-    } finally {
-      setBusy(false);
-    }
-  };
+  if (!enabled || !config) {
+    return (
+      <div className="flex flex-1 min-h-0 overflow-y-auto">
+        <div className="mx-auto flex max-w-lg flex-col items-center justify-center px-6 py-16 text-center">
+          <p className="text-text-muted">Expert review is not currently available.</p>
+          <p className="mt-2 text-sm text-text-muted">Check back soon or contact support.</p>
+          <Link
+            to="/human-pregrade"
+            className="mt-6 inline-flex items-center gap-1.5 text-sm text-sky-300 hover:text-sky-200"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to expert review
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="max-w-2xl mx-auto p-6 space-y-6">
-      <h1 className="text-xl font-semibold">New {config.productName}</h1>
-      {error ? <p className="text-error text-sm">{error}</p> : null}
-
-      {step === 0 ? (
-        <div className="space-y-4">
-          <label className="block text-sm">
-            Card name
-            <input className="mt-1 w-full rounded-lg border border-border-subtle bg-surface px-3 py-2" value={form.cardName} onChange={(e) => setForm({ ...form, cardName: e.target.value })} />
-          </label>
-          <label className="block text-sm">
-            Set
-            <input className="mt-1 w-full rounded-lg border border-border-subtle bg-surface px-3 py-2" value={form.setName} onChange={(e) => setForm({ ...form, setName: e.target.value })} />
-          </label>
-          <label className="block text-sm">
-            Card number
-            <input className="mt-1 w-full rounded-lg border border-border-subtle bg-surface px-3 py-2" value={form.cardNumber} onChange={(e) => setForm({ ...form, cardNumber: e.target.value })} />
-          </label>
-          <button type="button" className="rounded-lg bg-accent text-white px-4 py-2 text-sm" onClick={() => setStep(1)}>
-            Continue
-          </button>
-        </div>
-      ) : null}
-
-      {step === 1 ? (
-        <div className="space-y-4">
-          <label className="block text-sm">Front image (required)
-            <input type="file" accept="image/*" className="mt-1 block" onChange={(e) => setFrontFile(e.target.files?.[0] ?? null)} />
-          </label>
-          <label className="block text-sm">Back image (required)
-            <input type="file" accept="image/*" className="mt-1 block" onChange={(e) => setBackFile(e.target.files?.[0] ?? null)} />
-          </label>
-          <button type="button" className="rounded-lg bg-accent text-white px-4 py-2 text-sm" onClick={() => setStep(2)}>
-            Continue
-          </button>
-        </div>
-      ) : null}
-
-      {step === 2 ? (
-        <div className="space-y-4">
-          <p className="text-sm text-text-secondary">
-            {formatMinorUnits(config.priceMinorUnits, config.currency)} · {config.customerDisclaimer.slice(0, 120)}…
-          </p>
-          <label className="flex items-start gap-2 text-sm">
-            <input type="checkbox" checked={form.termsAccepted} onChange={(e) => setForm({ ...form, termsAccepted: e.target.checked })} />
-            I understand this is a human pre-grading opinion, not official certification.
-          </label>
-          <button type="button" disabled={!form.termsAccepted || busy} className="rounded-lg bg-accent text-white px-4 py-2 text-sm disabled:opacity-50" onClick={handleCheckout}>
-            Pay & continue
-          </button>
-          {publicId ? (
-            <button type="button" className="block text-sm text-accent" onClick={handleSubmitAfterPayment}>
-              Already paid? Submit order
-            </button>
-          ) : null}
-        </div>
-      ) : null}
-
-      <Link to="/human-pregrade" className="text-sm text-text-muted hover:text-text-primary">← Back</Link>
+    <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
+      <HumanPregradeNewForm config={config} />
     </div>
   );
 }

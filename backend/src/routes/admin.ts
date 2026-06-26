@@ -27,6 +27,9 @@ import {
 import { listUsageEvents, exportUsageEventsCsv, listUserUsageEvents } from "../lib/adminUsage.js";
 import { listFormSubmissions, listStripeEvents, listUserPurchases } from "../lib/adminOps.js";
 import { listAdminUsers } from "../lib/adminUsers.js";
+import { createInvite, listInvites, resendInvite, normalizeInviteEmail } from "../lib/invites.js";
+import { isSmtpConfigured, sendMail } from "../lib/mail.js";
+import { buildInviteEmailHtml } from "../lib/inviteEmail.js";
 import {
   parsePlan,
   parseSubStatus,
@@ -797,6 +800,77 @@ router.get("/admin/stripe/events", requireAdmin, async (req: Request, res: Respo
   } catch (err) {
     console.error("admin stripe events failed:", err);
     res.status(500).json({ error: "Failed to load Stripe events." });
+  }
+});
+
+function inviteRegisterUrl(token: string): string {
+  const origin = (process.env.PUBLIC_ORIGIN || "http://localhost:8080").replace(/\/$/, "");
+  return `${origin}/register?invite=${encodeURIComponent(token)}`;
+}
+
+router.get("/admin/invites", requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const page = Math.max(1, parseInt(String(req.query.page ?? "1"), 10) || 1);
+    const pageSize = Math.min(100, Math.max(1, parseInt(String(req.query.pageSize ?? "25"), 10) || 25));
+    const result = await listInvites({ page, pageSize });
+    res.json(result);
+  } catch (err) {
+    console.error("admin list invites failed:", err);
+    res.status(500).json({ error: "Failed to load invites." });
+  }
+});
+
+router.post("/admin/invites", requireAdminMutating, async (req: Request, res: Response) => {
+  const emailRaw = String(req.body?.email ?? "").trim();
+  const email = normalizeInviteEmail(emailRaw);
+  const role = req.body?.role === "admin" ? "admin" : "user";
+  if (!email) {
+    res.status(400).json({ error: "Valid email required." });
+    return;
+  }
+  if (!isSmtpConfigured()) {
+    res.status(503).json({ error: "SMTP is not configured. Set SMTP_* secrets on the server." });
+    return;
+  }
+  try {
+    const { token, inviteId } = await createInvite({
+      email,
+      role,
+      invitedBy: req.user!.id,
+    });
+    const registerUrl = inviteRegisterUrl(token);
+    await sendMail({
+      to: email,
+      subject: "You're invited to GemCheck",
+      html: buildInviteEmailHtml({ registerUrl, role }),
+    });
+    audit(req, "invite.sent", undefined, { email, role, inviteId });
+    res.status(201).json({ ok: true, inviteId });
+  } catch (err) {
+    console.error("admin send invite failed:", err);
+    res.status(500).json({ error: "Failed to send invitation." });
+  }
+});
+
+router.post("/admin/invites/:id/resend", requireAdminMutating, async (req: Request, res: Response) => {
+  if (!isSmtpConfigured()) {
+    res.status(503).json({ error: "SMTP is not configured. Set SMTP_* secrets on the server." });
+    return;
+  }
+  try {
+    const { token, email, role } = await resendInvite(req.params.id);
+    const registerUrl = inviteRegisterUrl(token);
+    await sendMail({
+      to: email,
+      subject: "You're invited to GemCheck",
+      html: buildInviteEmailHtml({ registerUrl, role }),
+    });
+    audit(req, "invite.resent", undefined, { email, role, inviteId: req.params.id });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("admin resend invite failed:", err);
+    const msg = err instanceof Error ? err.message : "Failed to resend invitation.";
+    res.status(err instanceof Error && msg.includes("not found") ? 404 : 500).json({ error: msg });
   }
 });
 

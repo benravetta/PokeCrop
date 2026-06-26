@@ -10,7 +10,11 @@ import {
   straightenGradeImage,
   type FileMap,
 } from "../lib/gradeService.js";
+import { previewCentering } from "../lib/centeringPreview.js";
 import { getGradeQuota } from "../lib/gradeQuota.js";
+import { webRateLimitPeek } from "../middleware/webRateLimit.js";
+import { consumeWebRateLimitSlot } from "../lib/accountRateLimit.js";
+import { validateGradeFileMap, validateMulterFile } from "../lib/uploadValidation.js";
 
 const router = Router();
 
@@ -54,10 +58,16 @@ router.post(
   "/grade/straighten",
   requireActiveAuth,
   upload.single("image"),
+  webRateLimitPeek("web:grade_straighten"),
   async (req: Request, res: Response) => {
     const file = req.file;
     if (!file) {
       res.status(400).json({ error: "No image provided." });
+      return;
+    }
+    const sniff = await validateMulterFile(file);
+    if (!sniff.ok) {
+      res.status(415).json({ error: sniff.error });
       return;
     }
     const out = await straightenGradeImage(file, tmpDir);
@@ -65,6 +75,7 @@ router.post(
       res.status(422).json({ error: out.error });
       return;
     }
+    await consumeWebRateLimitSlot(req.user!.id, "web:grade_straighten");
     res.json({ png: out.png });
   }
 );
@@ -79,8 +90,38 @@ router.get("/grade/quota", requireActiveAuth, async (req: Request, res: Response
   }
 });
 
-router.post("/grade", requireActiveAuth, gradeUpload, async (req: Request, res: Response) => {
+router.post(
+  "/grade/centering-preview",
+  requireActiveAuth,
+  webRateLimitPeek("web:centering_preview"),
+  async (req: Request, res: Response) => {
   try {
+    const centering = parseCentering((req.body as Record<string, unknown>)?.centering);
+    if (!centering) {
+      res.status(400).json({ error: "Valid centering JSON with at least one ratio is required." });
+      return;
+    }
+    const preview = previewCentering(centering);
+    await consumeWebRateLimitSlot(req.user!.id, "web:centering_preview");
+    res.json({ preview });
+  } catch (err) {
+    console.error("centering preview error:", err);
+    res.status(500).json({ error: "Unexpected error during centering preview." });
+  }
+});
+
+router.post(
+  "/grade",
+  requireActiveAuth,
+  gradeUpload,
+  webRateLimitPeek("web:grade"),
+  async (req: Request, res: Response) => {
+  try {
+    const uploadErr = await validateGradeFileMap(req.files as Record<string, Express.Multer.File[]>);
+    if (uploadErr) {
+      res.status(415).json({ error: uploadErr });
+      return;
+    }
     const centering = parseCentering((req.body as Record<string, unknown>)?.centering);
     const out = await executeGrade({
       userId: req.user!.id,
@@ -99,6 +140,7 @@ router.post("/grade", requireActiveAuth, gradeUpload, async (req: Request, res: 
       return;
     }
 
+    await consumeWebRateLimitSlot(req.user!.id, "web:grade");
     res.json({
       result: out.result,
       quota: out.quota,

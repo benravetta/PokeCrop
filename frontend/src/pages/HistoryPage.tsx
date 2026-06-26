@@ -8,8 +8,10 @@ import {
   Crop as CropIcon,
   ShieldCheck,
   ImageOff,
+  Download,
+  FileArchive,
 } from "lucide-react";
-import { getHistory, type UsageEvent } from "../lib/api";
+import { downloadGradeArtifact, getHistory, type UsageEvent } from "../lib/api";
 import { centringLabel } from "../lib/centringDisplay";
 
 type KindFilter = "all" | "crop" | "grade";
@@ -73,6 +75,13 @@ function cropDims(e: UsageEvent): string | null {
   return null;
 }
 
+function hasGradeDownloads(e: UsageEvent): boolean {
+  const artifacts = e.detail?.artifacts;
+  if (!artifacts || typeof artifacts !== "object") return false;
+  const pdfKey = (artifacts as Record<string, unknown>).pdfKey;
+  return typeof pdfKey === "string" && pdfKey.length > 0;
+}
+
 const PAGE_SIZE = 25;
 
 export function HistoryPage() {
@@ -86,6 +95,29 @@ export function HistoryPage() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const [downloadBusy, setDownloadBusy] = useState<number | null>(null);
+
+  const [downloadError, setDownloadError] = useState<string | null>(null);
+
+  const handleDownload = async (eventId: number, type: "pdf" | "zip") => {
+    setDownloadBusy(eventId);
+    setDownloadError(null);
+    try {
+      const url = await downloadGradeArtifact(eventId, type);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.rel = "noopener noreferrer";
+      anchor.target = "_blank";
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+    } catch (err) {
+      setDownloadError(err instanceof Error ? err.message : "Download failed.");
+    } finally {
+      setDownloadBusy(null);
+    }
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -203,6 +235,11 @@ export function HistoryPage() {
             {error}
           </div>
         )}
+        {downloadError && (
+          <div className="mb-4 rounded-lg bg-error/10 border border-error/20 px-3 py-2 text-[13px] text-error">
+            {downloadError}
+          </div>
+        )}
 
         {loading ? (
           <div className="flex justify-center py-16">
@@ -287,6 +324,28 @@ export function HistoryPage() {
                         )}
                       </>
                     )}
+                    {e.kind === "grade" && hasGradeDownloads(e) ? (
+                      <div className="flex flex-wrap justify-end gap-1.5 pt-1">
+                        <button
+                          type="button"
+                          disabled={downloadBusy === e.id}
+                          onClick={() => handleDownload(e.id, "pdf")}
+                          className="inline-flex items-center gap-1 px-2 py-1 text-[11px] rounded border border-border-subtle text-text-secondary hover:text-text-primary hover:border-accent/40 disabled:opacity-50"
+                        >
+                          <Download className="w-3 h-3" />
+                          PDF
+                        </button>
+                        <button
+                          type="button"
+                          disabled={downloadBusy === e.id}
+                          onClick={() => handleDownload(e.id, "zip")}
+                          className="inline-flex items-center gap-1 px-2 py-1 text-[11px] rounded border border-border-subtle text-text-secondary hover:text-text-primary hover:border-accent/40 disabled:opacity-50"
+                        >
+                          <FileArchive className="w-3 h-3" />
+                          ZIP
+                        </button>
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               </li>

@@ -1,4 +1,5 @@
 import { getServiceClient } from "./supabase.js";
+import { sanitizePostgrestSearch } from "./postgrestSearch.js";
 
 // Per-user history of every crop and grade, kept indefinitely (unlike the
 // 2-day activity_log). Distinguishes how the action was paid for and snapshots
@@ -114,8 +115,7 @@ export async function getHistory(query: HistoryQuery): Promise<HistoryResult> {
   if (query.kind) q = q.eq("kind", query.kind);
   if (query.source) q = q.eq("source", query.source);
   if (query.q && query.q.trim()) {
-    // Escape PostgREST ilike wildcards/commas in user input.
-    const safe = query.q.trim().replace(/[%,]/g, " ");
+    const safe = sanitizePostgrestSearch(query.q);
     q = q.ilike("summary", `%${safe}%`);
   }
   if (query.from) q = q.gte("created_at", query.from);

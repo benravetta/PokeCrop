@@ -170,6 +170,31 @@ export const components = {
         },
       },
     },
+    CenteringPreviewHint: {
+      type: "object",
+      properties: {
+        grader: { type: "string", enum: ["PSA", "BGS", "ACE", "CGC", "TAG"] },
+        centering_equivalent: { type: "number", nullable: true },
+        grade_cap: { type: "string", enum: ["hard", "soft", "none"] },
+        grade_cap_value: { type: "number", nullable: true },
+        label: { type: "string", nullable: true },
+      },
+    },
+    CenteringPreview: {
+      type: "object",
+      description: "Collector-safe centering preview — no quota burn, no LLM.",
+      properties: {
+        explanation: { type: "string" },
+        measurement_confidence: { type: "number", minimum: 0, maximum: 1 },
+        grade_cap: { type: "string", enum: ["hard", "soft", "none"] },
+        grade_cap_value: { type: "number", nullable: true },
+        raw_centering_quality: { type: "number" },
+        hints: {
+          type: "array",
+          items: { $ref: "#/components/schemas/CenteringPreviewHint" },
+        },
+      },
+    },
     GradeQuota: {
       type: "object",
       properties: {

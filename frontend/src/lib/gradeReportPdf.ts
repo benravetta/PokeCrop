@@ -60,6 +60,66 @@ async function toPngDataUrl(src?: string): Promise<{ url: string; w: number; h: 
   }
 }
 
+async function loadLogoDataUrl(): Promise<string | null> {
+  try {
+    const img = await loadImage("/gemcheck-logo.png");
+    if (!img.naturalWidth) return null;
+    const canvas = document.createElement("canvas");
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+    ctx.drawImage(img, 0, 0);
+    return canvas.toDataURL("image/png");
+  } catch {
+    return null;
+  }
+}
+
+function drawReportHeader(
+  doc: jsPDF,
+  PAGE_W: number,
+  M: number,
+  logo: string | null,
+  setColor: (c: readonly [number, number, number]) => void,
+  rule: () => void
+): number {
+  doc.setFillColor(ACCENT[0], ACCENT[1], ACCENT[2]);
+  doc.rect(0, 0, PAGE_W, 2.5, "F");
+  let y = M + 1;
+  if (logo) {
+    const logoW = 32;
+    const logoH = 10;
+    doc.addImage(logo, "PNG", M, y, logoW, logoH);
+    setColor(INK);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(14);
+    doc.text("Pre-Grade Report", M + logoW + 4, y + 4);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8.5);
+    setColor(MUTE);
+    doc.text(
+      new Date().toLocaleDateString(undefined, {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      }),
+      M + logoW + 4,
+      y + 9
+    );
+    y += logoH + 2;
+  } else {
+    setColor(INK);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(16);
+    doc.text("Card Condition Pre-Grade Report", M, y + 4);
+    y += 8;
+  }
+  y += 1;
+  rule();
+  return y + 2;
+}
+
 export async function buildGradeReportPdf(
   result: GradeResult,
   images: { front?: string; back?: string }
@@ -67,9 +127,10 @@ export async function buildGradeReportPdf(
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const PAGE_W = doc.internal.pageSize.getWidth();
   const PAGE_H = doc.internal.pageSize.getHeight();
-  const M = 14;
+  const M = 12;
   const CONTENT_W = PAGE_W - M * 2;
   let y = M;
+  const logo = await loadLogoDataUrl();
 
   const setColor = (c: readonly [number, number, number]) => doc.setTextColor(c[0], c[1], c[2]);
   const ensure = (h: number) => {
@@ -84,15 +145,15 @@ export async function buildGradeReportPdf(
     doc.line(M, y, PAGE_W - M, y);
   };
   const heading = (text: string) => {
-    ensure(12);
-    y += 4;
+    ensure(10);
+    y += 3;
     setColor(INK);
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(12);
+    doc.setFontSize(11);
     doc.text(text, M, y);
-    y += 2.5;
+    y += 2;
     rule();
-    y += 4;
+    y += 3;
   };
   // Wrapped paragraph. Returns nothing; advances y.
   const para = (
@@ -115,40 +176,17 @@ export async function buildGradeReportPdf(
     y += opts.gap ?? 1;
   };
 
-  // ---------------------------------------------------------------- header
-  doc.setFillColor(ACCENT[0], ACCENT[1], ACCENT[2]);
-  doc.rect(0, 0, PAGE_W, 3, "F");
-  setColor(INK);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(18);
-  y = M + 4;
-  doc.text("Card Condition Pre-Grade Report", M, y);
-  y += 6;
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(9);
-  setColor(MUTE);
-  doc.text(
-    `GemCheck AI Pre-Grader · ${new Date().toLocaleDateString(undefined, {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    })}`,
-    M,
-    y
-  );
-  y += 4;
-  rule();
-  y += 2;
+  y = drawReportHeader(doc, PAGE_W, M, logo, setColor, rule);
 
   // ---------------------------------------------- card identity + images
   const ident = asObj(result.card_identification);
   const imgFront = await toPngDataUrl(images.front);
   const imgBack = await toPngDataUrl(images.back);
 
-  const topY = y + 4;
+  const topY = y + 2;
   // Images on the right.
-  const imgBoxW = 34;
-  const imgH = 44;
+  const imgBoxW = 30;
+  const imgH = 40;
   let imgX = PAGE_W - M - imgBoxW;
   const shots = [imgBack, imgFront].filter(Boolean) as { url: string; w: number; h: number }[];
   for (const s of shots) {

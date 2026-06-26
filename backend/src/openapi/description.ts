@@ -91,6 +91,7 @@ Also works with \`Accept: application/pdf\` or multipart field \`format=pdf\`.
 | POST | \`/grade\` | AI pre-grade → JSON or PDF |
 | GET | \`/grade/quota\` | Grading allowance remaining |
 | POST | \`/grade/straighten\` | Straighten one photo (centering helper) |
+| POST | \`/grade/centering-preview\` | Preview measured centering (no quota burn) |
 | GET | \`/account\` | Plan, quotas, key count |
 | GET | \`/usage\` | Paginated API usage history |
 | GET | \`/health\` | Health check (no auth) |

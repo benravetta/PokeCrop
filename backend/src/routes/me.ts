@@ -5,7 +5,10 @@ import { FREE_DAILY_LIMIT, getPlan, getUsageToday } from "../lib/usage.js";
 import { getGradeCredits } from "../lib/gradeQuota.js";
 import { getHistory, type UsageKind } from "../lib/usageEvents.js";
 import { enrichHistoryEvents, updateHistoryEventCentring } from "../lib/historyEnrich.js";
+import { parseCentering } from "../lib/gradeService.js";
 import { isAdminRole } from "../lib/adminAccess.js";
+import { signedGetUrl } from "../lib/r2.js";
+import { artifactKeyFromDetail, isOwnedArtifactKey } from "../lib/gradeArtifacts.js";
 
 const router = Router();
 
@@ -81,13 +84,15 @@ router.patch("/me/history/:id/centring", requireActiveAuth, async (req: Request,
     return;
   }
   const body = req.body as { front?: { leftRight?: string; topBottom?: string } };
-  const front = body?.front;
-  if (!front || (typeof front.leftRight !== "string" && typeof front.topBottom !== "string")) {
-    res.status(400).json({ error: "Provide front.leftRight and/or front.topBottom ratios." });
+  const parsed = parseCentering({ front: body?.front });
+  if (!parsed?.front) {
+    res.status(400).json({
+      error: "Provide valid front.leftRight and/or front.topBottom ratios (e.g. 55/45).",
+    });
     return;
   }
   try {
-    const centring = await updateHistoryEventCentring(userId, eventId, front);
+    const centring = await updateHistoryEventCentring(userId, eventId, parsed.front);
     if (!centring) {
       res.status(404).json({ error: "Crop history entry not found." });
       return;
@@ -96,6 +101,44 @@ router.patch("/me/history/:id/centring", requireActiveAuth, async (req: Request,
   } catch (err) {
     console.error("/me/history centring failed:", err);
     res.status(500).json({ error: "Failed to save centring." });
+  }
+});
+
+router.get("/me/history/:id/download", requireActiveAuth, async (req: Request, res: Response) => {
+  const userId = req.user!.id;
+  const eventId = parseInt(req.params.id, 10);
+  const type = req.query.type === "zip" ? "zip" : "pdf";
+  if (!Number.isFinite(eventId)) {
+    res.status(400).json({ error: "Invalid history id." });
+    return;
+  }
+  try {
+    const { data, error } = await getServiceClient()
+      .from("usage_events")
+      .select("id, kind, detail")
+      .eq("id", eventId)
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data || data.kind !== "grade") {
+      res.status(404).json({ error: "Grade not found." });
+      return;
+    }
+    const detail = (data.detail ?? {}) as Record<string, unknown>;
+    const key = artifactKeyFromDetail(detail, type);
+    if (!key || !isOwnedArtifactKey(key, userId)) {
+      res.status(404).json({ error: "Download not available for this grade." });
+      return;
+    }
+    const url = await signedGetUrl(key, 900);
+    if (!url) {
+      res.status(503).json({ error: "File storage is not available." });
+      return;
+    }
+    res.json({ url, expiresIn: 900, type });
+  } catch (err) {
+    console.error("/me/history download failed:", err);
+    res.status(500).json({ error: "Failed to create download link." });
   }
 });
 

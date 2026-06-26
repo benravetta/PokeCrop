@@ -5,8 +5,16 @@ import {
   Loader2,
   ChevronLeft,
   ChevronRight,
+  MailPlus,
 } from "lucide-react";
-import { adminListUsers, type AdminUser } from "../../lib/api";
+import {
+  adminListUsers,
+  adminListInvites,
+  adminSendInvite,
+  adminResendInvite,
+  type AdminUser,
+  type AdminInvite,
+} from "../../lib/api";
 import { AdminUserDrawer } from "../../components/AdminUserDrawer";
 import { PLAN_LABELS } from "../../lib/plans";
 
@@ -37,6 +45,43 @@ export function AdminUsersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<AdminUser | null>(null);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState<"user" | "admin">("user");
+  const [inviteSending, setInviteSending] = useState(false);
+  const [inviteMsg, setInviteMsg] = useState<string | null>(null);
+  const [invites, setInvites] = useState<AdminInvite[]>([]);
+  const [invitesLoading, setInvitesLoading] = useState(true);
+
+  const loadInvites = useCallback(async () => {
+    setInvitesLoading(true);
+    try {
+      const res = await adminListInvites({ page: 1, pageSize: 10 });
+      setInvites(res.invites);
+    } catch {
+      setInvites([]);
+    } finally {
+      setInvitesLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadInvites();
+  }, [loadInvites]);
+
+  const sendInvite = async () => {
+    setInviteMsg(null);
+    setInviteSending(true);
+    try {
+      await adminSendInvite(inviteEmail.trim(), inviteRole);
+      setInviteEmail("");
+      setInviteMsg("Invitation sent.");
+      await loadInvites();
+    } catch (err) {
+      setInviteMsg(err instanceof Error ? err.message : "Could not send invitation.");
+    } finally {
+      setInviteSending(false);
+    }
+  };
 
   const filter: Filter =
     searchParams.get("suspended") === "true"
@@ -87,8 +132,88 @@ export function AdminUsersPage() {
     <div className="max-w-5xl mx-auto px-5 py-8">
       <h1 className="text-xl font-semibold text-text-primary mb-1">Users</h1>
       <p className="text-[13px] text-text-secondary mb-5">
-        Manage roles, plans, API keys and account status.
+        Manage roles, plans, API keys, beta invites and account status.
       </p>
+
+      <div className="rounded-xl border border-border-subtle bg-surface-raised p-4 mb-5">
+        <h2 className="text-sm font-medium text-text-primary mb-2 flex items-center gap-2">
+          <MailPlus className="w-4 h-4 text-accent" />
+          Send beta invite
+        </h2>
+        <div className="flex flex-col sm:flex-row gap-2 mb-3">
+          <input
+            type="email"
+            value={inviteEmail}
+            onChange={(e) => setInviteEmail(e.target.value)}
+            placeholder="Email address"
+            className="flex-1 rounded-lg bg-surface-base border border-border-subtle px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent"
+          />
+          <select
+            value={inviteRole}
+            onChange={(e) => setInviteRole(e.target.value as "user" | "admin")}
+            className="rounded-lg bg-surface-base border border-border-subtle px-3 py-2 text-sm text-text-primary focus:outline-none focus:border-accent"
+          >
+            <option value="user">User</option>
+            <option value="admin">Admin</option>
+          </select>
+          <button
+            type="button"
+            disabled={inviteSending || !inviteEmail.trim()}
+            onClick={() => void sendInvite()}
+            className="rounded-lg bg-accent text-white px-4 py-2 text-sm font-medium hover:bg-accent-hover disabled:opacity-50"
+          >
+            {inviteSending ? "Sending…" : "Send invite"}
+          </button>
+        </div>
+        {inviteMsg ? (
+          <p className="text-[12px] text-text-secondary mb-2">{inviteMsg}</p>
+        ) : null}
+        {invitesLoading ? (
+          <div className="flex items-center gap-2 text-[12px] text-text-muted">
+            <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading invites…
+          </div>
+        ) : invites.length ? (
+          <ul className="divide-y divide-border-subtle text-[12px]">
+            {invites.map((inv) => (
+              <li key={inv.id} className="flex items-center justify-between gap-2 py-2">
+                <div className="min-w-0">
+                  <div className="text-text-primary truncate">{inv.email}</div>
+                  <div className="text-text-muted">
+                    {inv.role}
+                    {inv.accepted_at
+                      ? " · accepted"
+                      : new Date(inv.expires_at) < new Date()
+                        ? " · expired"
+                        : " · pending"}
+                  </div>
+                </div>
+                {!inv.accepted_at ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void adminResendInvite(inv.id)
+                        .then(() => {
+                          setInviteMsg("Invitation resent.");
+                          return loadInvites();
+                        })
+                        .catch((err) =>
+                          setInviteMsg(
+                            err instanceof Error ? err.message : "Could not resend invitation."
+                          )
+                        );
+                    }}
+                    className="shrink-0 text-accent hover:text-accent-hover"
+                  >
+                    Resend
+                  </button>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-[12px] text-text-muted">No invites sent yet.</p>
+        )}
+      </div>
 
       <div className="relative mb-3">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />

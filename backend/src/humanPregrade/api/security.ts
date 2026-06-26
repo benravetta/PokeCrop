@@ -6,14 +6,11 @@ import { HumanPregradeError } from "../domain/types.js";
 import { hasHumanPregradePermission } from "../permissions/index.js";
 import { getStaffPermissions } from "../infrastructure/auditRepo.js";
 
+import { sanitizePostgrestSearch } from "../../lib/postgrestSearch.js";
+
 /** Strip PostgREST filter metacharacters and ILIKE wildcards from customer search input. */
 export function sanitizeOrderSearchQuery(raw: string): string {
-  return raw
-    .trim()
-    .slice(0, 100)
-    .replace(/[,().\\%_]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+  return sanitizePostgrestSearch(raw, 100);
 }
 
 export function resolvePublicOrigin(req: Request): string {

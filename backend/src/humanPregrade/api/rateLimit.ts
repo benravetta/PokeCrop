@@ -36,7 +36,7 @@ export function humanPregradeRateLimit(action: keyof typeof LIMITS) {
       next();
     } catch (err) {
       console.error("[humanPregrade] rate limit error:", err);
-      next();
+      res.status(503).json({ error: "Service temporarily unavailable. Please try again shortly." });
     }
   };
 }
@@ -61,7 +61,7 @@ export function humanPregradeIpRateLimit(action: keyof typeof LIMITS) {
       next();
     } catch (err) {
       console.error("[humanPregrade] rate limit error:", err);
-      next();
+      res.status(503).json({ error: "Service temporarily unavailable. Please try again shortly." });
     }
   };
 }

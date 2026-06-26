@@ -19,6 +19,9 @@ import {
 } from "./humanPregrade/index.js";
 import { sendApiError } from "./lib/apiError.js";
 import { csrfProtection } from "./middleware/csrf.js";
+import { assertProductionEnv } from "./lib/envGuard.js";
+
+assertProductionEnv();
 
 const app = express();
 const PORT = parseInt(process.env.PORT || "3001", 10);

@@ -1,6 +1,6 @@
-import { useState, type FormEvent } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { MailCheck } from "lucide-react";
+import { useState, useEffect, type FormEvent } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { MailCheck, Loader2 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { useTurnstileToken } from "../hooks/useTurnstile";
 import { TurnstileField } from "../components/TurnstileWidget";
@@ -12,11 +12,14 @@ import {
 } from "../components/auth/AuthLayout";
 import { AUTH } from "../lib/marketingCopy";
 import { RegisterBenefitsPanel } from "../components/auth/RegisterBenefitsPanel";
+import { validateInviteToken, getAuthConfig } from "../lib/api";
 
 export function RegisterPage() {
   const { signUp } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const turnstile = useTurnstileToken();
+  const inviteParam = searchParams.get("invite")?.trim() ?? "";
 
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
@@ -25,10 +28,45 @@ export function RegisterPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [sentTo, setSentTo] = useState<string | null>(null);
+  const [inviteRequired, setInviteRequired] = useState<boolean | null>(null);
+  const [inviteValid, setInviteValid] = useState<boolean | null>(
+    inviteParam ? null : true
+  );
+  const [inviteMasked, setInviteMasked] = useState<string | null>(null);
+
+  useEffect(() => {
+    getAuthConfig()
+      .then((cfg) => setInviteRequired(cfg.inviteRequired))
+      .catch(() => setInviteRequired(true));
+  }, []);
+
+  useEffect(() => {
+    if (!inviteParam) {
+      setInviteValid(true);
+      return;
+    }
+    let cancelled = false;
+    validateInviteToken(inviteParam)
+      .then((data) => {
+        if (cancelled) return;
+        setInviteValid(data.valid);
+        if (data.valid && data.emailMasked) setInviteMasked(data.emailMasked);
+      })
+      .catch(() => {
+        if (!cancelled) setInviteValid(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [inviteParam]);
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
+    if (inviteRequired === true && (!inviteParam || inviteValid !== true)) {
+      setError("Registration requires a valid invitation link.");
+      return;
+    }
     if (!turnstile.ready) {
       setError("Complete the security check.");
       return;
@@ -47,7 +85,8 @@ export function RegisterPage() {
         email,
         password,
         displayName.trim() || undefined,
-        turnstile.token ?? undefined
+        turnstile.token ?? undefined,
+        inviteParam || undefined
       );
       if (needsConfirmation) {
         setSentTo(email);
@@ -86,10 +125,46 @@ export function RegisterPage() {
     );
   }
 
+  if (inviteRequired === null || (inviteParam && inviteValid === null)) {
+    return (
+      <AuthLayout title="Create your account" subtitle="Loading…">
+        <div className="flex justify-center py-8">
+          <Loader2 className="w-6 h-6 text-accent animate-spin" />
+        </div>
+      </AuthLayout>
+    );
+  }
+
+  if (inviteRequired === true && (!inviteParam || inviteValid === false)) {
+    return (
+      <AuthLayout
+        title="Invitation required"
+        subtitle="GemCheck is in invite-only beta."
+        footer={
+          <>
+            Already have an account?{" "}
+            <Link to="/login" className="text-accent hover:text-accent-hover font-medium">
+              Sign in
+            </Link>
+          </>
+        }
+      >
+        <p className="text-[13px] text-text-secondary leading-relaxed">
+          You need a valid invitation link to create an account. If you were invited,
+          open the link from your email or ask an admin to resend your invitation.
+        </p>
+      </AuthLayout>
+    );
+  }
+
   return (
     <AuthLayout
       title="Create your account"
-      subtitle={AUTH.registerSubtitle}
+      subtitle={
+        inviteMasked
+          ? `Invited as ${inviteMasked}. Use that email address to register.`
+          : AUTH.registerSubtitle
+      }
       aside={<RegisterBenefitsPanel />}
       footer={
         <>

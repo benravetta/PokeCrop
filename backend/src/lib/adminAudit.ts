@@ -9,7 +9,9 @@ export type AdminAuditAction =
   | "key.created"
   | "key.revoked"
   | "usage.exported"
-  | "activity.exported";
+  | "activity.exported"
+  | "invite.sent"
+  | "invite.resent";
 
 export function logAdminAudit(input: {
   actorId: string;
