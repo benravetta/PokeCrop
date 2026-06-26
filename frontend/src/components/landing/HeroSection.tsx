@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { ArrowRight, CheckCircle2, Upload, UserCheck } from "lucide-react";
 import { HERO_CARD_IMG, SINGLE_GRADE } from "./data";
 import { AppWindow } from "./shared";
@@ -7,6 +7,7 @@ import { EXPERT_REVIEW } from "../../humanPregrade/landing/expertReviewCopy";
 import { STAFF_ACCOUNT } from "../../lib/adminAccess";
 import { PLAN_LABELS, type Plan } from "../../lib/plans";
 import { guestPrimaryCtaLabel, guestSignupPath, useInviteRequired } from "../../hooks/useInviteRequired";
+import { scrollToSection } from "../../lib/scrollToSection";
 
 export function HeroSection({
   loggedIn,
@@ -17,6 +18,7 @@ export function HeroSection({
   plan: Plan | null;
   isAdmin?: boolean;
 }) {
+  const navigate = useNavigate();
   const { inviteRequired } = useInviteRequired();
   const primary = loggedIn
     ? { to: "/grade", label: HERO.primaryCtaLoggedIn }
@@ -66,14 +68,22 @@ export function HeroSection({
               </Link>
             </div>
 
-            <Link
-              to="#expert-review"
+            <a
+              href="#expert-review"
+              onClick={(e) => {
+                if (scrollToSection("expert-review")) {
+                  e.preventDefault();
+                  return;
+                }
+                e.preventDefault();
+                void navigate("/human-pregrade");
+              }}
               className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-sky-300/90 transition hover:text-sky-200"
             >
               <UserCheck className="h-4 w-4 shrink-0" />
               {EXPERT_REVIEW.home.heroTeaser}
               <ArrowRight className="h-3.5 w-3.5" />
-            </Link>
+            </a>
 
             <p className="mt-4 text-sm text-text-muted">{supportLine}</p>
 

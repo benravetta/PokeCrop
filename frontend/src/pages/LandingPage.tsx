@@ -4,6 +4,7 @@ import { useMe } from "../hooks/useMe";
 import { startCheckout, startGradeCheckout } from "../lib/api";
 import type { Plan, SubscriptionPlan } from "../lib/plans";
 import { SEO } from "../lib/marketingCopy";
+import { scrollToSection } from "../lib/scrollToSection";
 import {
   faqJsonLd,
   howToJsonLd,
@@ -71,6 +72,12 @@ export function LandingPage() {
       []
     )
   );
+
+  useEffect(() => {
+    if (window.location.hash !== "#expert-review") return;
+    const timer = window.setTimeout(() => scrollToSection("expert-review"), 150);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   return (
     <div className="min-h-[100dvh] bg-surface text-text-primary">

@@ -174,54 +174,49 @@ export const NAV = {
 export const WAITLIST = {
   path: "/request-access",
   joinLabel: "Join waitlist",
-  heroEyebrow: "GemCheck beta",
-  heroTitle: "Know before you grade — join the waitlist",
+  heroEyebrow: "Beta access",
+  heroTitle: "Request an invite to GemCheck",
   heroBody:
-    "We're opening GemCheck in small waves while we polish the experience. Request access and we'll email you a personal invite when you're approved.",
+    "Registration is invite-only while we're in beta. Leave your details below — if approved, we'll email you a link to create your account.",
   steps: [
     {
-      title: "Join the waitlist",
-      body: "Tell us who you are and what you collect. Takes about a minute.",
+      title: "Submit the form",
+      body: "Email plus an optional note about what you collect. We read every request.",
     },
     {
-      title: "We review your request",
-      body: "The team reads every submission — collectors, sellers and shops welcome.",
+      title: "We review it",
+      body: "Usually within a few days. Collectors, sellers and shops are all welcome.",
     },
     {
-      title: "Get your invite email",
-      body: "Approved requests receive a private link to create an account.",
-    },
-    {
-      title: "Start checking cards",
-      body: "Upload front and back photos for pre-grade estimates across five graders.",
+      title: "Get your invite",
+      body: "Approved requests receive a private registration link by email.",
     },
   ],
   perks: [
-    "Your card stays with you",
-    "Five grader estimates",
-    "1 free check every month",
-    "No subscription to start",
+    "1 free card check every month on the free plan",
+    "Pre-grade estimates across PSA, Beckett, CGC, ACE and TAG",
+    "Your photos stay in your account — cards never leave your hands",
   ],
   faq: [
     {
       q: "How long does approval take?",
-      a: "Most requests are reviewed within a few days. You'll get an email either way once we've looked at your request.",
+      a: "Most requests are reviewed within a few days. We'll email you either way.",
     },
     {
-      q: "I already received an invite email",
-      a: "Use the link in that email to register, or sign in if you've already created your account.",
+      q: "I already have an invite link",
+      a: "Open the link from your email to register, or sign in if you've already joined.",
     },
     {
-      q: "Is GemCheck an official grader?",
-      a: "No — GemCheck gives pre-grade estimates from photos so you can decide before paying submission fees.",
+      q: "Is this an official grade?",
+      a: "No. GemCheck is a pre-grade estimate from photos — not a submission to PSA or anyone else.",
     },
   ],
-  formTitle: "Request your spot",
-  formSubtitle: "We'll only use your email to respond to this request.",
-  submitLabel: "Join waitlist",
-  successTitle: "You're on the list",
+  formTitle: "Request access",
+  formSubtitle: "We'll only use your email to reply about this request.",
+  submitLabel: "Submit request",
+  successTitle: "Request received",
   successBody:
-    "Thanks for your interest in GemCheck. We'll review your request and email you an invitation if approved.",
+    "Thanks — we'll review your details and email you a registration link if you're approved.",
 } as const;
 
 export const SITE_FAQ = [

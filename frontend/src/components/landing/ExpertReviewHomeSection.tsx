@@ -6,10 +6,8 @@ import { formatMinorUnits, useHumanPregradeConfig } from "../../humanPregrade/ho
 import { guestSignupPath, useInviteRequired } from "../../hooks/useInviteRequired";
 
 export function ExpertReviewHomeSection({ loggedIn }: { loggedIn: boolean }) {
-  const { enabled, config, loading } = useHumanPregradeConfig();
+  const { config, loading, enabled } = useHumanPregradeConfig();
   const { inviteRequired } = useInviteRequired();
-
-  if (loggedIn && !loading && !enabled) return null;
 
   const home = EXPERT_REVIEW.home;
   const price = config
@@ -18,12 +16,17 @@ export function ExpertReviewHomeSection({ loggedIn }: { loggedIn: boolean }) {
   const turnaround = config?.expectedTurnaroundHours ?? 48;
   const productName = config?.productName ?? "Expert Review";
 
-  const primaryHref = loggedIn ? "/human-pregrade" : guestSignupPath(inviteRequired);
+  const primaryHref = loggedIn
+    ? "/human-pregrade"
+    : guestSignupPath(inviteRequired);
   const primaryLabel = loggedIn
     ? home.ctaLoggedIn
     : inviteRequired
       ? "Join waitlist"
       : home.ctaGuest;
+  const secondaryHref = "/human-pregrade";
+  const secondaryLabel = loggedIn ? "Start a review" : home.ctaSecondary;
+  const showUnavailableNote = loggedIn && !loading && !enabled;
 
   return (
     <section
@@ -78,13 +81,18 @@ export function ExpertReviewHomeSection({ loggedIn }: { loggedIn: boolean }) {
                 <ArrowRight className="h-4 w-4" />
               </Link>
               <Link
-                to={loggedIn ? "/human-pregrade" : "/login"}
-                state={loggedIn ? undefined : { from: "/human-pregrade" }}
+                to={secondaryHref}
                 className="inline-flex items-center justify-center gap-2 rounded-xl border border-border-strong bg-surface-raised/60 px-6 py-3.5 text-sm font-semibold text-text-primary transition hover:bg-surface-overlay"
               >
-                {loggedIn ? "Start a review" : home.ctaSecondary}
+                {secondaryLabel}
               </Link>
             </div>
+
+            {showUnavailableNote ? (
+              <p className="mt-4 text-xs text-amber-200/90">
+                Expert review is temporarily unavailable — you can still browse how it works below.
+              </p>
+            ) : null}
 
             {!loggedIn ? (
               <p className="mt-4 text-xs text-text-muted">
