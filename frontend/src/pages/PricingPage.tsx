@@ -18,6 +18,7 @@ import {
   type PlanColumn,
   type SubscriptionPlanId,
 } from "../components/pricing/pricingCompare";
+import { GuestPrimaryCtaLink } from "../components/marketing/GuestPrimaryCtaLink";
 import { SEO } from "../lib/marketingCopy";
 import { usePageSeo } from "../lib/seo";
 
@@ -187,12 +188,11 @@ export function PricingPage() {
                         Included
                       </button>
                     ) : (
-                      <Link
-                        to="/register"
+                      <GuestPrimaryCtaLink
+                        registerLabel="Start free"
+                        waitlistLabel="Join waitlist"
                         className="block w-full text-center px-4 py-2.5 text-sm font-semibold rounded-xl bg-surface-overlay text-text-primary border border-border-subtle hover:bg-border-subtle transition-colors"
-                      >
-                        Start free
-                      </Link>
+                      />
                     )
                   ) : (
                     <button
@@ -273,9 +273,10 @@ export function PricingPage() {
           {!loggedIn && (
             <>
               {" "}
-              <Link to="/register" className="text-accent hover:text-accent-hover">
-                Check a card free
-              </Link>{" "}
+              <GuestPrimaryCtaLink
+                registerLabel="Check a card free"
+                className="text-accent hover:text-accent-hover"
+              />{" "}
               to get started.
             </>
           )}

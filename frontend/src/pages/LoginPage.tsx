@@ -10,6 +10,7 @@ import {
   SubmitButton,
 } from "../components/auth/AuthLayout";
 import { AUTH } from "../lib/marketingCopy";
+import { GuestPrimaryCtaLink } from "../components/marketing/GuestPrimaryCtaLink";
 
 export function LoginPage() {
   const { signIn } = useAuth();
@@ -49,9 +50,10 @@ export function LoginPage() {
       footer={
         <>
           {AUTH.noAccount}{" "}
-          <Link to="/register" className="text-accent hover:text-accent-hover font-medium">
-            Create an account
-          </Link>
+          <GuestPrimaryCtaLink
+            registerLabel="Create an account"
+            className="text-accent hover:text-accent-hover font-medium"
+          />
         </>
       }
     >

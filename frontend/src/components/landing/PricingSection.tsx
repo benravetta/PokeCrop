@@ -4,6 +4,7 @@ import { PRICING_TIERS, SINGLE_GRADE } from "./data";
 import { isProLaunchPromoActive, PRO_LAUNCH_PROMO } from "../pricing/pricingCompare";
 import type { Plan, SubscriptionPlan } from "../../lib/plans";
 import { PRICING, NAV } from "../../lib/marketingCopy";
+import { guestPrimaryCtaLabel, guestSignupPath, useInviteRequired } from "../../hooks/useInviteRequired";
 import { SectionHeading } from "./shared";
 import { STAFF_ACCOUNT } from "../../lib/adminAccess";
 import { StaffIncludedLabel } from "../staff/StaffIncludedLabel";
@@ -15,6 +16,8 @@ export function SingleGradeOffer({
   loggedIn: boolean;
   onBuyGrade: () => void;
 }) {
+  const { inviteRequired } = useInviteRequired();
+
   return (
     <div className="rounded-2xl border border-border-subtle bg-surface-raised p-6 sm:p-8">
       <div className="flex flex-col lg:flex-row lg:items-center gap-6 lg:gap-10">
@@ -55,17 +58,19 @@ export function SingleGradeOffer({
             </button>
           ) : (
             <Link
-              to="/register"
+              to={guestSignupPath(inviteRequired)}
               className="inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-6 py-3 text-sm font-semibold text-white hover:bg-accent-hover transition-colors shadow-lg shadow-accent/20"
             >
-              Sign up to buy
+              {inviteRequired ? NAV.joinWaitlist : "Sign up to buy"}
               <ArrowRight className="w-4 h-4" />
             </Link>
           )}
           <p className="text-[11px] text-text-muted text-center lg:text-right">
             {loggedIn
               ? "Credit added instantly after checkout."
-              : "Free account required — takes 30 seconds."}
+              : inviteRequired
+                ? "Join the waitlist — we'll email you when approved."
+                : "Free account required — takes 30 seconds."}
           </p>
         </div>
       </div>
@@ -219,6 +224,7 @@ export function PlanCta({
   onUpgrade: (plan: SubscriptionPlan) => void;
   onBuyGrade: () => void;
 }) {
+  const { inviteRequired } = useInviteRequired();
   let title: string;
   let copy: string;
   let primary: { label: string; onClick?: () => void; to?: string };
@@ -233,9 +239,16 @@ export function PlanCta({
     primary = { label: STAFF_ACCOUNT.planCta.primary, to: "/crop" };
     secondary = { label: STAFF_ACCOUNT.planCta.secondary, to: "/admin" };
   } else if (!loggedIn) {
-    title = "Check a card before you ever pay to grade.";
-    copy = `Free to start — or buy a single report for ${SINGLE_GRADE.price} with no subscription.`;
-    primary = { label: NAV.checkCardFree, to: "/register" };
+    title = inviteRequired
+      ? "Join the waitlist for early access."
+      : "Check a card before you ever pay to grade.";
+    copy = inviteRequired
+      ? "GemCheck is invite-only during beta. Request access and we'll email you a registration link if approved."
+      : `Free to start — or buy a single report for ${SINGLE_GRADE.price} with no subscription.`;
+    primary = {
+      label: guestPrimaryCtaLabel(inviteRequired),
+      to: guestSignupPath(inviteRequired),
+    };
     secondary = { label: "See pricing", to: "/pricing" };
   } else if (plan === "free") {
     title = "Need more than one grade a month?";

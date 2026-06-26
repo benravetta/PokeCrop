@@ -1,8 +1,7 @@
 import { useMemo } from "react";
-import { Link } from "react-router-dom";
-import { ArrowRight } from "lucide-react";
 import { MarketingPageShell } from "../components/marketing/MarketingPageShell";
-import { ESTIMATE_DISCLAIMER, GRADER_INDEPENDENCE, HERO, SEO } from "../lib/marketingCopy";
+import { GuestPrimaryCtaLink } from "../components/marketing/GuestPrimaryCtaLink";
+import { ESTIMATE_DISCLAIMER, GRADER_INDEPENDENCE, SEO } from "../lib/marketingCopy";
 import { usePageSeo } from "../lib/seo";
 
 export function AboutPage() {
@@ -45,13 +44,10 @@ export function AboutPage() {
 
       <p className="mt-8 text-sm text-text-muted">{ESTIMATE_DISCLAIMER}</p>
 
-      <Link
-        to="/register"
-        className="mt-8 inline-flex items-center gap-2 rounded-xl bg-accent px-6 py-3 text-sm font-semibold text-white hover:bg-accent-hover transition-colors"
-      >
-        {HERO.primaryCtaGuest}
-        <ArrowRight className="w-4 h-4" />
-      </Link>
+      <GuestPrimaryCtaLink
+        showArrow
+        className="mt-8 rounded-xl bg-accent px-6 py-3 text-sm font-semibold text-white hover:bg-accent-hover transition-colors"
+      />
     </MarketingPageShell>
   );
 }

@@ -41,6 +41,12 @@ export function RegisterPage() {
   }, []);
 
   useEffect(() => {
+    if (inviteRequired === true && !inviteParam) {
+      navigate("/request-access", { replace: true });
+    }
+  }, [inviteRequired, inviteParam, navigate]);
+
+  useEffect(() => {
     if (!inviteParam) {
       setInviteValid(true);
       return;
@@ -156,7 +162,7 @@ export function RegisterPage() {
         <p className="text-[13px] text-text-secondary mt-4">
           Don&apos;t have an invite?{" "}
           <Link to="/request-access" className="text-accent hover:text-accent-hover font-medium">
-            Request beta access
+            Join waitlist
           </Link>
         </p>
       </AuthLayout>

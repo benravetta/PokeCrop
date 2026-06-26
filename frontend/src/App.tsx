@@ -108,6 +108,7 @@ export default function App() {
       <Route path="/about" element={<AboutPage />} />
       <Route path="/contact" element={<ContactPage />} />
       <Route path="/request-access" element={<RequestAccessPage />} />
+      <Route path="/join-waitlist" element={<Navigate to="/request-access" replace />} />
       <Route path="/trade" element={<TradePage />} />
       <Route path="/privacy" element={<PrivacyPage />} />
       <Route path="/terms" element={<TermsPage />} />

@@ -9,6 +9,7 @@ import {
 } from "../../lib/siteNav";
 import { headerGhostBtn, headerPrimaryBtn, mobileMenuSection } from "./styles";
 import { NAV } from "../../lib/marketingCopy";
+import { guestSignupPath, useInviteRequired } from "../../hooks/useInviteRequired";
 
 type Props = {
   links?: readonly SiteNavItem[];
@@ -146,12 +147,23 @@ export function SiteNavMenu({
 }
 
 export function GuestHeaderActions({ onNavigate }: { onNavigate?: () => void }) {
+  const { inviteRequired } = useInviteRequired();
+  const waitlistMode = inviteRequired === true;
+
+  if (waitlistMode) {
+    return (
+      <Link to={guestSignupPath(true)} className={headerPrimaryBtn} onClick={onNavigate}>
+        {NAV.joinWaitlist}
+      </Link>
+    );
+  }
+
   return (
     <>
       <Link to="/login" className={headerGhostBtn} onClick={onNavigate}>
         {NAV.signIn}
       </Link>
-      <Link to="/register" className={headerPrimaryBtn} onClick={onNavigate}>
+      <Link to={guestSignupPath(false)} className={headerPrimaryBtn} onClick={onNavigate}>
         {NAV.checkCardFree}
       </Link>
     </>

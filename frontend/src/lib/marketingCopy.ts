@@ -168,6 +168,60 @@ export const NAV = {
   signIn: "Sign in",
   checkCardFree: "Check a card free",
   checkCard: "Check a card",
+  joinWaitlist: "Join waitlist",
+} as const;
+
+export const WAITLIST = {
+  path: "/request-access",
+  joinLabel: "Join waitlist",
+  heroEyebrow: "GemCheck beta",
+  heroTitle: "Know before you grade — join the waitlist",
+  heroBody:
+    "We're opening GemCheck in small waves while we polish the experience. Request access and we'll email you a personal invite when you're approved.",
+  steps: [
+    {
+      title: "Join the waitlist",
+      body: "Tell us who you are and what you collect. Takes about a minute.",
+    },
+    {
+      title: "We review your request",
+      body: "The team reads every submission — collectors, sellers and shops welcome.",
+    },
+    {
+      title: "Get your invite email",
+      body: "Approved requests receive a private link to create an account.",
+    },
+    {
+      title: "Start checking cards",
+      body: "Upload front and back photos for pre-grade estimates across five graders.",
+    },
+  ],
+  perks: [
+    "Your card stays with you",
+    "Five grader estimates",
+    "1 free check every month",
+    "No subscription to start",
+  ],
+  faq: [
+    {
+      q: "How long does approval take?",
+      a: "Most requests are reviewed within a few days. You'll get an email either way once we've looked at your request.",
+    },
+    {
+      q: "I already received an invite email",
+      a: "Use the link in that email to register, or sign in if you've already created your account.",
+    },
+    {
+      q: "Is GemCheck an official grader?",
+      a: "No — GemCheck gives pre-grade estimates from photos so you can decide before paying submission fees.",
+    },
+  ],
+  formTitle: "Request your spot",
+  formSubtitle: "We'll only use your email to respond to this request.",
+  submitLabel: "Join waitlist",
+  successTitle: "You're on the list",
+  successBody:
+    "Thanks for your interest in GemCheck. We'll review your request and email you an invitation if approved.",
 } as const;
 
 export const SITE_FAQ = [
@@ -283,8 +337,9 @@ export const SEO = {
     path: "/contact",
   },
   requestAccess: {
-    title: "Request GemCheck Beta Access",
-    description: "Request an invitation to join GemCheck during invite-only beta.",
+    title: "Join the GemCheck Waitlist",
+    description:
+      "Request beta access to GemCheck — pre-grade estimates for Pokémon, sports and TCG cards before you submit.",
     path: "/request-access",
   },
   sampleReport: {

@@ -1,8 +1,7 @@
 import { useMemo } from "react";
-import { Link } from "react-router-dom";
-import { ArrowRight } from "lucide-react";
 import { MarketingPageShell } from "../components/marketing/MarketingPageShell";
-import { ESTIMATE_DISCLAIMER, HERO, HOW_IT_WORKS, SEO, WHAT_WE_CHECK } from "../lib/marketingCopy";
+import { GuestPrimaryCtaLink } from "../components/marketing/GuestPrimaryCtaLink";
+import { ESTIMATE_DISCLAIMER, HOW_IT_WORKS, SEO, WHAT_WE_CHECK } from "../lib/marketingCopy";
 import { howToJsonLd, usePageSeo } from "../lib/seo";
 
 export function HowItWorksPage() {
@@ -54,13 +53,10 @@ export function HowItWorksPage() {
 
       <p className="mt-8 text-sm text-text-muted leading-relaxed">{ESTIMATE_DISCLAIMER}</p>
 
-      <Link
-        to="/register"
-        className="mt-8 inline-flex items-center gap-2 rounded-xl bg-accent px-6 py-3 text-sm font-semibold text-white hover:bg-accent-hover transition-colors"
-      >
-        {HERO.primaryCtaGuest}
-        <ArrowRight className="w-4 h-4" />
-      </Link>
+      <GuestPrimaryCtaLink
+        showArrow
+        className="mt-8 rounded-xl bg-accent px-6 py-3 text-sm font-semibold text-white hover:bg-accent-hover transition-colors"
+      />
     </MarketingPageShell>
   );
 }

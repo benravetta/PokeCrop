@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { Upload, HelpCircle } from "lucide-react";
 import { PLAN_LABELS, type Plan, type SubscriptionPlan } from "../../lib/plans";
 import { NAV } from "../../lib/marketingCopy";
+import { guestSignupPath, useInviteRequired } from "../../hooks/useInviteRequired";
 import { CropsBadge } from "../CropsBadge";
 import { UserMenu } from "../UserMenu";
 import {
@@ -135,6 +136,18 @@ export function LoggedInMarketingActions({
 
 export function GuestMobileMenuActions() {
   const onNavigate = useMenuNavigate();
+  const { inviteRequired } = useInviteRequired();
+  const waitlistMode = inviteRequired === true;
+
+  if (waitlistMode) {
+    return (
+      <MobileMenuSection>
+        <Link to={guestSignupPath(true)} className={mobilePrimaryBtn} onClick={onNavigate}>
+          {NAV.joinWaitlist}
+        </Link>
+      </MobileMenuSection>
+    );
+  }
 
   return (
     <MobileMenuSection>
@@ -142,7 +155,7 @@ export function GuestMobileMenuActions() {
         <Link to="/login" className={mobileOutlineBtn} onClick={onNavigate}>
           {NAV.signIn}
         </Link>
-        <Link to="/register" className={`${mobilePrimaryBtn} text-xs leading-snug`} onClick={onNavigate}>
+        <Link to={guestSignupPath(false)} className={`${mobilePrimaryBtn} text-xs leading-snug`} onClick={onNavigate}>
           {NAV.checkCardFree}
         </Link>
       </div>

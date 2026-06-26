@@ -1,8 +1,8 @@
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight } from "lucide-react";
 import { MarketingPageShell } from "../components/marketing/MarketingPageShell";
-import { HERO, SITE_FAQ, SEO } from "../lib/marketingCopy";
+import { GuestPrimaryCtaLink } from "../components/marketing/GuestPrimaryCtaLink";
+import { SITE_FAQ, SEO } from "../lib/marketingCopy";
 import { faqJsonLd, usePageSeo } from "../lib/seo";
 
 function FaqAnswer({ q, a }: { q: string; a: string }) {
@@ -69,13 +69,10 @@ export function FaqPage() {
         .
       </p>
 
-      <Link
-        to="/register"
-        className="mt-6 inline-flex items-center gap-2 rounded-xl bg-accent px-6 py-3 text-sm font-semibold text-white hover:bg-accent-hover transition-colors"
-      >
-        {HERO.primaryCtaGuest}
-        <ArrowRight className="w-4 h-4" />
-      </Link>
+      <GuestPrimaryCtaLink
+        showArrow
+        className="mt-6 rounded-xl bg-accent px-6 py-3 text-sm font-semibold text-white hover:bg-accent-hover transition-colors"
+      />
     </MarketingPageShell>
   );
 }

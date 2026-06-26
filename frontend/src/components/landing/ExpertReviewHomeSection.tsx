@@ -3,9 +3,11 @@ import { ArrowRight, Check, Clock, UserCheck } from "lucide-react";
 import { SectionHeading } from "../landing/shared";
 import { EXPERT_REVIEW } from "../../humanPregrade/landing/expertReviewCopy";
 import { formatMinorUnits, useHumanPregradeConfig } from "../../humanPregrade/hooks/useHumanPregradeConfig";
+import { guestSignupPath, useInviteRequired } from "../../hooks/useInviteRequired";
 
 export function ExpertReviewHomeSection({ loggedIn }: { loggedIn: boolean }) {
   const { enabled, config, loading } = useHumanPregradeConfig();
+  const { inviteRequired } = useInviteRequired();
 
   if (loggedIn && !loading && !enabled) return null;
 
@@ -16,8 +18,12 @@ export function ExpertReviewHomeSection({ loggedIn }: { loggedIn: boolean }) {
   const turnaround = config?.expectedTurnaroundHours ?? 48;
   const productName = config?.productName ?? "Expert Review";
 
-  const primaryHref = loggedIn ? "/human-pregrade" : "/register";
-  const primaryLabel = loggedIn ? home.ctaLoggedIn : home.ctaGuest;
+  const primaryHref = loggedIn ? "/human-pregrade" : guestSignupPath(inviteRequired);
+  const primaryLabel = loggedIn
+    ? home.ctaLoggedIn
+    : inviteRequired
+      ? "Join waitlist"
+      : home.ctaGuest;
 
   return (
     <section
@@ -82,11 +88,23 @@ export function ExpertReviewHomeSection({ loggedIn }: { loggedIn: boolean }) {
 
             {!loggedIn ? (
               <p className="mt-4 text-xs text-text-muted">
-                Free account required.{" "}
-                <Link to="/login" state={{ from: "/human-pregrade" }} className="text-sky-400 hover:text-sky-300">
-                  Sign in
-                </Link>{" "}
-                if you already have one.
+                {inviteRequired ? (
+                  <>
+                    Invite-only during beta.{" "}
+                    <Link to="/login" state={{ from: "/human-pregrade" }} className="text-sky-400 hover:text-sky-300">
+                      Sign in
+                    </Link>{" "}
+                    if you already have access.
+                  </>
+                ) : (
+                  <>
+                    Free account required.{" "}
+                    <Link to="/login" state={{ from: "/human-pregrade" }} className="text-sky-400 hover:text-sky-300">
+                      Sign in
+                    </Link>{" "}
+                    if you already have one.
+                  </>
+                )}
               </p>
             ) : null}
           </div>

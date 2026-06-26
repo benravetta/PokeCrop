@@ -6,6 +6,7 @@ import { ESTIMATE_DISCLAIMER_SHORT, HERO, TRUST_STRIP } from "../../lib/marketin
 import { EXPERT_REVIEW } from "../../humanPregrade/landing/expertReviewCopy";
 import { STAFF_ACCOUNT } from "../../lib/adminAccess";
 import { PLAN_LABELS, type Plan } from "../../lib/plans";
+import { guestPrimaryCtaLabel, guestSignupPath, useInviteRequired } from "../../hooks/useInviteRequired";
 
 export function HeroSection({
   loggedIn,
@@ -16,9 +17,13 @@ export function HeroSection({
   plan: Plan | null;
   isAdmin?: boolean;
 }) {
+  const { inviteRequired } = useInviteRequired();
   const primary = loggedIn
     ? { to: "/grade", label: HERO.primaryCtaLoggedIn }
-    : { to: "/register", label: HERO.primaryCtaGuest };
+    : {
+        to: guestSignupPath(inviteRequired),
+        label: guestPrimaryCtaLabel(inviteRequired),
+      };
 
   const supportLine = isAdmin
     ? STAFF_ACCOUNT.heroSupport
