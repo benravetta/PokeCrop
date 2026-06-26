@@ -50,7 +50,7 @@ fly secrets set -a pokecrop SUPABASE_ACCESS_TOKEN='sbp_...'
 
 Without the token, the app gate still applies; only the Supabase-layer bypass remains open until the token is set and the toggle is flipped (or you disable signups manually in the dashboard).
 
-Public invite validation uses `POST /api/auth/invite/validate` (rate-limited, token in body — not URL). Login consumes pending invites on first sign-in after email confirmation.
+Public invite validation uses `POST /api/auth/invite/validate` (rate-limited, token in body — not URL). Login consumes pending invites on first sign-in after email confirmation. Accounts with `app_metadata.role = admin` (bootstrapped before beta) bypass the invite gate on login.
 
 ## Public REST API (`/v1`)
 

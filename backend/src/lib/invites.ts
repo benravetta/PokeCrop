@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { getUserRole, isAdminRole } from "./adminAccess.js";
 import { getServiceClient } from "./supabase.js";
 import { isInviteRequired } from "./appSettings.js";
 
@@ -211,6 +212,7 @@ export async function finalizeBetaAccess(opts: {
 }): Promise<{ ok: true; role?: InviteRole } | { ok: false; error: string }> {
   if (!(await isInviteRequired())) return { ok: true };
   if (await userHasBetaAccess(opts.userId)) return { ok: true };
+  if (isAdminRole(await getUserRole(opts.userId))) return { ok: true };
 
   if (opts.inviteToken) {
     const consumed = await consumeInvite(opts.inviteToken, opts.userId, opts.email);
