@@ -332,6 +332,87 @@ export async function adminResendInvite(id: string): Promise<void> {
   if (!res.ok) await fail(res, "Failed to resend invitation");
 }
 
+export async function getInviteRequestsEnabled(): Promise<{ enabled: boolean }> {
+  const res = await fetch(`${BASE}/invite-requests/enabled`);
+  if (!res.ok) throw new Error("Could not load access request settings.");
+  return res.json();
+}
+
+export async function submitInviteRequest(body: {
+  email: string;
+  name?: string;
+  message?: string;
+  turnstileToken?: string;
+}): Promise<void> {
+  const res = await fetch(`${BASE}/invite-requests`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(data.error ?? "Could not submit request.");
+  }
+}
+
+export interface AdminInviteRequest {
+  id: string;
+  email: string;
+  name: string | null;
+  message: string | null;
+  status: "pending" | "approved" | "rejected";
+  reviewedBy: string | null;
+  reviewedAt: string | null;
+  inviteId: string | null;
+  createdAt: string;
+}
+
+export async function adminGetBetaSettings(): Promise<{ inviteRequired: boolean }> {
+  const res = await apiFetch(`${BASE}/admin/beta/settings`);
+  if (!res.ok) await fail(res, "Failed to load beta settings");
+  return res.json();
+}
+
+export async function adminSetBetaSettings(
+  inviteRequired: boolean
+): Promise<{ inviteRequired: boolean; supabaseSignupSynced: boolean }> {
+  const res = await apiFetch(`${BASE}/admin/beta/settings`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ inviteRequired }),
+  });
+  if (!res.ok) await fail(res, "Failed to update beta settings");
+  return res.json();
+}
+
+export async function adminListInviteRequests(opts?: {
+  page?: number;
+  pageSize?: number;
+  status?: "pending" | "approved" | "rejected" | "all";
+}): Promise<{ requests: AdminInviteRequest[]; total: number; page: number; pageSize: number }> {
+  const q = new URLSearchParams();
+  if (opts?.page) q.set("page", String(opts.page));
+  if (opts?.pageSize) q.set("pageSize", String(opts.pageSize));
+  if (opts?.status) q.set("status", opts.status);
+  const res = await apiFetch(`${BASE}/admin/invite-requests?${q.toString()}`);
+  if (!res.ok) await fail(res, "Failed to load access requests");
+  return res.json();
+}
+
+export async function adminApproveInviteRequest(id: string): Promise<void> {
+  const res = await apiFetch(`${BASE}/admin/invite-requests/${id}/approve`, {
+    method: "POST",
+  });
+  if (!res.ok) await fail(res, "Failed to approve request");
+}
+
+export async function adminRejectInviteRequest(id: string): Promise<void> {
+  const res = await apiFetch(`${BASE}/admin/invite-requests/${id}/reject`, {
+    method: "POST",
+  });
+  if (!res.ok) await fail(res, "Failed to reject request");
+}
+
 // ---- API keys (self-serve, API plan) ----
 
 export interface ApiKeySummary {

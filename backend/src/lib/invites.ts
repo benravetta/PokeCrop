@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { getServiceClient } from "./supabase.js";
+import { isInviteRequired } from "./appSettings.js";
 
 export type InviteRole = "user" | "admin";
 
@@ -17,6 +18,9 @@ function generateToken(): string {
 export function isBetaInviteRequired(): boolean {
   return process.env.BETA_INVITE_REQUIRED === "true";
 }
+
+/** Re-export async check used by auth and public routes. */
+export { isInviteRequired } from "./appSettings.js";
 
 /** Normalize and validate invite / SMTP recipient addresses. */
 export function normalizeInviteEmail(raw: string): string | null {
@@ -122,7 +126,7 @@ export async function validateInviteToken(token: string): Promise<
 }
 
 export async function userHasBetaAccess(userId: string): Promise<boolean> {
-  if (!isBetaInviteRequired()) return true;
+  if (!(await isInviteRequired())) return true;
   const { data } = await getServiceClient()
     .from("invites")
     .select("id")
@@ -205,7 +209,7 @@ export async function finalizeBetaAccess(opts: {
   email: string;
   inviteToken?: string;
 }): Promise<{ ok: true; role?: InviteRole } | { ok: false; error: string }> {
-  if (!isBetaInviteRequired()) return { ok: true };
+  if (!(await isInviteRequired())) return { ok: true };
   if (await userHasBetaAccess(opts.userId)) return { ok: true };
 
   if (opts.inviteToken) {

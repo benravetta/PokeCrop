@@ -11,7 +11,10 @@ export type AdminAuditAction =
   | "usage.exported"
   | "activity.exported"
   | "invite.sent"
-  | "invite.resent";
+  | "invite.resent"
+  | "beta.invite_required.changed"
+  | "invite_request.approved"
+  | "invite_request.rejected";
 
 export function logAdminAudit(input: {
   actorId: string;

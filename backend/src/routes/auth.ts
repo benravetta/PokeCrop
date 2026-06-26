@@ -13,7 +13,7 @@ import { authIpRateLimit } from "../middleware/authRateLimit.js";
 import { safeAuthError } from "../lib/authErrors.js";
 import {
   finalizeBetaAccess,
-  isBetaInviteRequired,
+  isInviteRequired,
   validateInviteToken,
 } from "../lib/invites.js";
 import { getServiceClient } from "../lib/supabase.js";
@@ -81,8 +81,8 @@ function requireCaptchaToken(
   return { ok: true, token };
 }
 
-authRoutes.get("/auth/config", (_req, res) => {
-  res.json({ inviteRequired: isBetaInviteRequired() });
+authRoutes.get("/auth/config", async (_req, res) => {
+  res.json({ inviteRequired: await isInviteRequired() });
 });
 
 authRoutes.get("/auth/csrf", (_req, res) => {
@@ -212,7 +212,7 @@ authRoutes.post("/auth/signup", authIpRateLimit("signup"), async (req, res) => {
 
   const inviteToken =
     typeof req.body?.inviteToken === "string" ? req.body.inviteToken.trim() : "";
-  if (isBetaInviteRequired()) {
+  if (await isInviteRequired({ fresh: true })) {
     if (!inviteToken) {
       res.status(403).json({
         error: "Registration is invite-only. Use the link from your invitation email.",
@@ -248,7 +248,7 @@ authRoutes.post("/auth/signup", authIpRateLimit("signup"), async (req, res) => {
     return;
   }
 
-  if (data.user?.id && data.session && isBetaInviteRequired() && inviteToken) {
+  if (data.user?.id && data.session && (await isInviteRequired({ fresh: true })) && inviteToken) {
     const beta = await finalizeBetaAccess({
       userId: data.user.id,
       email,

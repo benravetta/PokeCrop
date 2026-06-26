@@ -6,6 +6,7 @@ import multer from "multer";
 import { processRoutes } from "./routes/process.js";
 import { meRoutes } from "./routes/me.js";
 import { authRoutes } from "./routes/auth.js";
+import { inviteRequestRoutes } from "./routes/inviteRequests.js";
 import { billingRoutes, stripeWebhookHandler } from "./routes/billing.js";
 import { adminRoutes } from "./routes/admin.js";
 import { keyRoutes } from "./routes/keys.js";
@@ -70,6 +71,7 @@ app.get("/api/health", (_req, res) => {
 });
 
 app.use("/api", authRoutes);
+app.use("/api", inviteRequestRoutes);
 app.use("/api", csrfProtection);
 app.use("/api", meRoutes);
 app.use("/api", billingRoutes);

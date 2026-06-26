@@ -28,6 +28,7 @@ import { SampleReportPage } from "./pages/SampleReportPage";
 import { FaqPage } from "./pages/FaqPage";
 import { AboutPage } from "./pages/AboutPage";
 import { ContactPage } from "./pages/ContactPage";
+import { RequestAccessPage } from "./pages/RequestAccessPage";
 import { TradePage } from "./pages/TradePage";
 import { PrivacyPage } from "./pages/PrivacyPage";
 import { TermsPage } from "./pages/TermsPage";
@@ -106,6 +107,7 @@ export default function App() {
       <Route path="/faq" element={<FaqPage />} />
       <Route path="/about" element={<AboutPage />} />
       <Route path="/contact" element={<ContactPage />} />
+      <Route path="/request-access" element={<RequestAccessPage />} />
       <Route path="/trade" element={<TradePage />} />
       <Route path="/privacy" element={<PrivacyPage />} />
       <Route path="/terms" element={<TermsPage />} />

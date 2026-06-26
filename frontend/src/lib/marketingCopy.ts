@@ -282,6 +282,11 @@ export const SEO = {
     description: "Contact GemCheck for account help, card checks, trade pricing or general questions.",
     path: "/contact",
   },
+  requestAccess: {
+    title: "Request GemCheck Beta Access",
+    description: "Request an invitation to join GemCheck during invite-only beta.",
+    path: "/request-access",
+  },
   sampleReport: {
     title: "Sample GemCheck Report | Pre-Grade Estimate Example",
     description:

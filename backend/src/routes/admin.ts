@@ -28,6 +28,14 @@ import { listUsageEvents, exportUsageEventsCsv, listUserUsageEvents } from "../l
 import { listFormSubmissions, listStripeEvents, listUserPurchases } from "../lib/adminOps.js";
 import { listAdminUsers } from "../lib/adminUsers.js";
 import { createInvite, listInvites, resendInvite, normalizeInviteEmail } from "../lib/invites.js";
+import { isInviteRequired, setInviteRequiredPolicy } from "../lib/appSettings.js";
+import {
+  claimInviteRequestApproval,
+  linkInviteToRequest,
+  listInviteRequests,
+  markInviteRequestReviewed,
+  revertInviteRequestApproval,
+} from "../lib/inviteRequests.js";
 import { isSmtpConfigured, sendMail } from "../lib/mail.js";
 import { buildInviteEmailHtml } from "../lib/inviteEmail.js";
 import {
@@ -808,6 +816,145 @@ function inviteRegisterUrl(token: string): string {
   return `${origin}/register?invite=${encodeURIComponent(token)}`;
 }
 
+async function mailInvite(opts: {
+  email: string;
+  role: "user" | "admin";
+  token: string;
+}): Promise<void> {
+  const registerUrl = inviteRegisterUrl(opts.token);
+  await sendMail({
+    to: opts.email,
+    subject: "You're invited to GemCheck",
+    html: buildInviteEmailHtml({ registerUrl, role: opts.role }),
+  });
+}
+
+router.get("/admin/beta/settings", requireAdmin, async (_req: Request, res: Response) => {
+  try {
+    res.json({ inviteRequired: await isInviteRequired() });
+  } catch (err) {
+    console.error("admin beta settings read failed:", err);
+    res.status(500).json({ error: "Failed to load beta settings." });
+  }
+});
+
+router.patch("/admin/beta/settings", requireAdminMutating, async (req: Request, res: Response) => {
+  if (typeof req.body?.inviteRequired !== "boolean") {
+    res.status(400).json({ error: "inviteRequired (boolean) is required." });
+    return;
+  }
+  try {
+    const { inviteRequired, supabaseSignupSynced } = await setInviteRequiredPolicy(
+      req.body.inviteRequired
+    );
+    audit(req, "beta.invite_required.changed", undefined, {
+      inviteRequired,
+      supabaseSignupSynced,
+    });
+    res.json({ inviteRequired, supabaseSignupSynced });
+  } catch (err) {
+    console.error("admin beta settings update failed:", err);
+    const message =
+      err instanceof Error ? err.message : "Failed to update beta settings.";
+    res.status(500).json({ error: message });
+  }
+});
+
+router.get("/admin/invite-requests", requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const page = Math.max(1, parseInt(String(req.query.page ?? "1"), 10) || 1);
+    const pageSize = Math.min(100, Math.max(1, parseInt(String(req.query.pageSize ?? "25"), 10) || 25));
+    const statusRaw = String(req.query.status ?? "pending");
+    const status =
+      statusRaw === "approved" || statusRaw === "rejected" || statusRaw === "all"
+        ? statusRaw
+        : "pending";
+    const result = await listInviteRequests({ page, pageSize, status });
+    res.json(result);
+  } catch (err) {
+    console.error("admin list invite requests failed:", err);
+    res.status(500).json({ error: "Failed to load access requests." });
+  }
+});
+
+router.post(
+  "/admin/invite-requests/:id/approve",
+  requireAdminMutating,
+  async (req: Request, res: Response) => {
+    const requestId = parseUuid(req.params.id);
+    if (!requestId) {
+      res.status(400).json({ error: "Invalid request id." });
+      return;
+    }
+    if (!isSmtpConfigured()) {
+      res.status(503).json({ error: "SMTP is not configured. Set SMTP_* secrets on the server." });
+      return;
+    }
+    let claimed: Awaited<ReturnType<typeof claimInviteRequestApproval>> = null;
+    try {
+      claimed = await claimInviteRequestApproval(requestId, req.user!.id);
+      if (!claimed) {
+        res.status(404).json({ error: "Pending access request not found." });
+        return;
+      }
+      const role = "user" as const;
+      const { token, inviteId } = await createInvite({
+        email: claimed.email,
+        role,
+        invitedBy: req.user!.id,
+      });
+      await mailInvite({ email: claimed.email, role, token });
+      await linkInviteToRequest(requestId, inviteId);
+      audit(req, "invite_request.approved", undefined, {
+        requestId,
+        email: claimed.email,
+        role,
+        inviteId,
+      });
+      res.json({ ok: true, inviteId });
+    } catch (err) {
+      if (claimed) {
+        await revertInviteRequestApproval(requestId).catch((revertErr) =>
+          console.error("revert invite request approval failed:", revertErr)
+        );
+      }
+      console.error("admin approve invite request failed:", err);
+      res.status(500).json({ error: "Failed to approve access request." });
+    }
+  }
+);
+
+router.post(
+  "/admin/invite-requests/:id/reject",
+  requireAdminMutating,
+  async (req: Request, res: Response) => {
+    const requestId = parseUuid(req.params.id);
+    if (!requestId) {
+      res.status(400).json({ error: "Invalid request id." });
+      return;
+    }
+    try {
+      const updated = await markInviteRequestReviewed(
+        requestId,
+        "rejected",
+        req.user!.id
+      );
+      if (!updated) {
+        res.status(404).json({ error: "Pending access request not found." });
+        return;
+      }
+      audit(req, "invite_request.rejected", undefined, {
+        requestId,
+        email: updated.email,
+      });
+      res.json({ ok: true });
+    } catch (err) {
+      console.error("admin reject invite request failed:", err);
+      res.status(500).json({ error: "Failed to reject access request." });
+    }
+  }
+);
+
 router.get("/admin/invites", requireAdmin, async (req: Request, res: Response) => {
   try {
     const page = Math.max(1, parseInt(String(req.query.page ?? "1"), 10) || 1);
@@ -838,12 +985,7 @@ router.post("/admin/invites", requireAdminMutating, async (req: Request, res: Re
       role,
       invitedBy: req.user!.id,
     });
-    const registerUrl = inviteRegisterUrl(token);
-    await sendMail({
-      to: email,
-      subject: "You're invited to GemCheck",
-      html: buildInviteEmailHtml({ registerUrl, role }),
-    });
+    await mailInvite({ email, role, token });
     audit(req, "invite.sent", undefined, { email, role, inviteId });
     res.status(201).json({ ok: true, inviteId });
   } catch (err) {
@@ -859,12 +1001,7 @@ router.post("/admin/invites/:id/resend", requireAdminMutating, async (req: Reque
   }
   try {
     const { token, email, role } = await resendInvite(req.params.id);
-    const registerUrl = inviteRegisterUrl(token);
-    await sendMail({
-      to: email,
-      subject: "You're invited to GemCheck",
-      html: buildInviteEmailHtml({ registerUrl, role }),
-    });
+    await mailInvite({ email, role, token });
     audit(req, "invite.resent", undefined, { email, role, inviteId: req.params.id });
     res.json({ ok: true });
   } catch (err) {

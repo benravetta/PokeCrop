@@ -153,6 +153,12 @@ export function RegisterPage() {
           You need a valid invitation link to create an account. If you were invited,
           open the link from your email or ask an admin to resend your invitation.
         </p>
+        <p className="text-[13px] text-text-secondary mt-4">
+          Don&apos;t have an invite?{" "}
+          <Link to="/request-access" className="text-accent hover:text-accent-hover font-medium">
+            Request beta access
+          </Link>
+        </p>
       </AuthLayout>
     );
   }

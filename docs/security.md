@@ -34,13 +34,21 @@ Environment:
 | `SESSION_COOKIE_SECURE` | Force `Secure` cookies in non-TLS dev |
 | `TRUST_PROXY_HOPS` | Express `trust proxy` hop count behind nginx |
 | `BETA_INVITE_REQUIRED` | When `true`, signup requires a valid invite token |
+| `SUPABASE_ACCESS_TOKEN` | Personal access token (`auth:write`) — Ops toggle syncs `disable_signup` to Supabase |
+| `SUPABASE_PROJECT_REF` | Optional; inferred from `SUPABASE_URL` if omitted |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` | Mailgun SMTP for admin beta invite emails (not API keys) |
 
 ## Beta invites
 
 When `BETA_INVITE_REQUIRED=true`, `POST /api/auth/signup` requires `inviteToken` matching a row in `public.invites`. Admins send invites via `POST /api/admin/invites` (SMTP must be configured). First admin is still bootstrapped manually; subsequent admins can be invited with `role=admin`.
 
-**Important:** Also disable public sign-ups in the Supabase dashboard (**Authentication → Providers → Email → “Enable sign ups”**) so callers cannot bypass the BFF by hitting Supabase Auth directly with the publishable key. Alternatively, add a Supabase `before-user-created` hook that validates an invite.
+**Supabase direct signups:** The admin Ops toggle (`PATCH /admin/beta/settings`) writes `app_settings.invite_required` and, when `SUPABASE_ACCESS_TOKEN` is set, PATCHes Supabase Auth `disable_signup` via the [Management API](https://supabase.com/docs/reference/api/introduction). That blocks callers from bypassing the BFF with the publishable key. Create a token at [Supabase account tokens](https://supabase.com/dashboard/account/tokens) with auth config write scope, then:
+
+```bash
+fly secrets set -a pokecrop SUPABASE_ACCESS_TOKEN='sbp_...'
+```
+
+Without the token, the app gate still applies; only the Supabase-layer bypass remains open until the token is set and the toggle is flipped (or you disable signups manually in the dashboard).
 
 Public invite validation uses `POST /api/auth/invite/validate` (rate-limited, token in body — not URL). Login consumes pending invites on first sign-in after email confirmation.
 
