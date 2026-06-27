@@ -1,5 +1,6 @@
 import { getServiceClient } from "../../lib/supabase.js";
 import { CollectorProfileError, generatePublicId } from "../domain/types.js";
+import { getCollectorProfileSettings } from "./settingsRepo.js";
 import { getObject } from "../../lib/r2.js";
 
 export interface CollectorCardRow {
@@ -217,6 +218,33 @@ export async function softDeleteCard(cardId: string): Promise<void> {
     .from("collector_cards")
     .update({ status: "deleted", updated_at: new Date().toISOString() })
     .eq("id", cardId);
+}
+
+export async function assertCardSectionLimits(
+  profileId: string,
+  cardId: string,
+  sections: { section: string }[]
+): Promise<void> {
+  if (!sections.some((s) => s.section === "wanted")) return;
+
+  const settings = await getCollectorProfileSettings();
+  const profileCards = await listCardsForProfile(profileId);
+  const otherCardIds = profileCards.map((c) => c.id).filter((id) => id !== cardId);
+  if (otherCardIds.length === 0) return;
+
+  const { data, error } = await getServiceClient()
+    .from("collector_card_sections")
+    .select("card_id")
+    .eq("section", "wanted")
+    .in("card_id", otherCardIds);
+  if (error) throw error;
+  if ((data ?? []).length >= settings.max_wanted_entries) {
+    throw new CollectorProfileError(
+      "COLLECTOR_INVALID_INPUT",
+      `You can list at most ${settings.max_wanted_entries} wanted cards.`,
+      400
+    );
+  }
 }
 
 export async function setCardSections(

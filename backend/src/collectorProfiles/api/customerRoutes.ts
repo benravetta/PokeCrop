@@ -26,12 +26,14 @@ import {
   listProfileInterests,
   listProfileLinks,
   resolveUsernameRedirect,
+  listDiscoverableProfiles,
 } from "../infrastructure/profileRepo.js";
 import { getCollectorProfileSettings } from "../infrastructure/settingsRepo.js";
 import { buildPublicProfileView, buildPublicCardView, assertCanInitiateGrade } from "../application/publicProfileService.js";
 import { createReport, getMessageById } from "../application/messagingService.js";
 import {
   assertCardOwner,
+  assertCardSectionLimits,
   createCard,
   getCardById,
   getCardByPublicId,
@@ -167,6 +169,7 @@ collectorProfilesCustomerRoutes.get(
         tradeEnquiriesEnabled: settings.collector_profile_trade_enquiries_enabled,
         supportedCardGames: settings.supported_card_games,
         allowViewerGradingDefault: settings.allow_viewer_grading_default,
+        reportReasons: settings.report_reasons.map(String),
       });
     } catch (err) {
       sendCollectorProfileError(res, err);
@@ -382,14 +385,13 @@ collectorProfilesCustomerRoutes.post(
         patch: req.body ?? {},
       });
       if (Array.isArray(req.body?.sections)) {
-        await setCardSections(
-          card.id,
-          req.body.sections.map((s: string | Record<string, unknown>, idx: number) =>
-            typeof s === "string"
-              ? { section: s, display_order: idx }
-              : { section: String(s.section), display_order: Number(s.display_order ?? idx) }
-          )
+        const sectionRows = req.body.sections.map((s: string | Record<string, unknown>, idx: number) =>
+          typeof s === "string"
+            ? { section: s, display_order: idx }
+            : { section: String(s.section), display_order: Number(s.display_order ?? idx) }
         );
+        await assertCardSectionLimits(profile.id, card.id, sectionRows);
+        await setCardSections(card.id, sectionRows);
       }
       res.status(201).json({ card });
     } catch (err) {
@@ -446,14 +448,13 @@ collectorProfilesCustomerRoutes.patch(
       assertCardOwner(card, req.user!.id);
       const updated = await updateCard(card.id, req.body ?? {});
       if (Array.isArray(req.body?.sections)) {
-        await setCardSections(
-          card.id,
-          req.body.sections.map((s: string | Record<string, unknown>, idx: number) =>
-            typeof s === "string"
-              ? { section: s, display_order: idx }
-              : { section: String(s.section), display_order: Number(s.display_order ?? idx) }
-          )
+        const sectionRows = req.body.sections.map((s: string | Record<string, unknown>, idx: number) =>
+          typeof s === "string"
+            ? { section: s, display_order: idx }
+            : { section: String(s.section), display_order: Number(s.display_order ?? idx) }
         );
+        await assertCardSectionLimits(card.profile_id, card.id, sectionRows);
+        await setCardSections(card.id, sectionRows);
       }
       res.json({ card: updated });
     } catch (err) {
@@ -798,6 +799,32 @@ collectorProfilesCustomerRoutes.post(
         description: req.body?.description,
       });
       res.status(201).json({ report });
+    } catch (err) {
+      sendCollectorProfileError(res, err);
+    }
+  }
+);
+
+collectorProfilesPublicRoutes.get(
+  "/collector/discover",
+  optionalAuth,
+  requireCollectorProfilesEnabled,
+  async (req, res) => {
+    try {
+      const settings = await getCollectorProfileSettings();
+      if (!settings.collector_profile_discovery_enabled) {
+        res.status(404).json({ error: "Not found." });
+        return;
+      }
+      const query = typeof req.query.q === "string" ? req.query.q : "";
+      const profiles = await listDiscoverableProfiles({ query, limit: 50 });
+      res.json({
+        profiles: profiles.map((p) => ({
+          username: p.username,
+          displayName: p.display_name,
+          locationRegion: p.location_region,
+        })),
+      });
     } catch (err) {
       sendCollectorProfileError(res, err);
     }

@@ -8,7 +8,7 @@ import {
   type CollectorProfileSectionOrderRow,
 } from "../domain/types.js";
 import { normalizeUsername, validateUsername } from "../domain/username.js";
-import { usernameRedirectDaysFromEnv } from "../domain/featureFlag.js";
+import { getCollectorProfileSettings } from "./settingsRepo.js";
 
 export async function getProfileByUserId(userId: string): Promise<CollectorProfileRow | null> {
   const { data, error } = await getServiceClient()
@@ -195,7 +195,8 @@ export async function changeUsername(
     }
   }
 
-  const redirectDays = usernameRedirectDaysFromEnv();
+  const settings = await getCollectorProfileSettings();
+  const redirectDays = settings.username_redirect_days;
   const redirectExpires = new Date(Date.now() + redirectDays * 86400000).toISOString();
 
   await getServiceClient().from("collector_profile_username_history").insert({
@@ -308,6 +309,27 @@ export async function replaceSectionOrder(
     sections.map((s) => ({ profile_id: profileId, ...s }))
   );
   if (error) throw error;
+}
+
+export async function listDiscoverableProfiles(opts: {
+  query?: string;
+  limit?: number;
+}): Promise<CollectorProfileRow[]> {
+  let q = getServiceClient()
+    .from("collector_profiles")
+    .select("*")
+    .eq("visibility", "public")
+    .eq("status", "active")
+    .eq("search_visible", true)
+    .order("published_at", { ascending: false });
+  if (opts.query?.trim()) {
+    const like = `%${opts.query.trim()}%`;
+    q = q.or(`username.ilike.${like},display_name.ilike.${like}`);
+  }
+  q = q.limit(opts.limit ?? 50);
+  const { data, error } = await q;
+  if (error) throw error;
+  return (data ?? []) as CollectorProfileRow[];
 }
 
 export async function listProfilesAdmin(opts: {

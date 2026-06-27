@@ -4,8 +4,10 @@ import { newConversationPublicId, newReportPublicId, newModerationCasePublicId }
 import { CollectorProfileError } from "../domain/types.js";
 import { isEitherBlocked } from "../infrastructure/blockRepo.js";
 import { getProfileByUserId } from "../infrastructure/profileRepo.js";
+import { getCollectorProfileSettings } from "../infrastructure/settingsRepo.js";
 
 const MAX_MESSAGE_LENGTH = 4000;
+import { REPORT_REASON_CODES } from "../domain/types.js";
 
 export async function createReport(opts: {
   reporterUserId: string;
@@ -17,6 +19,12 @@ export async function createReport(opts: {
   conversationId?: string;
   messageId?: string;
 }) {
+  const settings = await getCollectorProfileSettings();
+  const allowedReasons = settings.report_reasons.map(String);
+  if (!allowedReasons.includes(opts.reasonCode)) {
+    throw new CollectorProfileError("COLLECTOR_INVALID_INPUT", "Invalid report reason.", 400);
+  }
+
   const publicId = newReportPublicId();
   const { data, error } = await getServiceClient()
     .from("collector_reports")

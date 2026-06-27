@@ -26,6 +26,7 @@ primary_region = 'lhr'
   TRUST_PROXY_HOPS = '1'
   HUMAN_PREGRADE_RATE_LIMIT_STORE = 'postgres'
   BETA_INVITE_REQUIRED = 'true'
+  COLLECTOR_PROFILES_ENABLED = '1'
 
 [http_service]
   internal_port = 8080

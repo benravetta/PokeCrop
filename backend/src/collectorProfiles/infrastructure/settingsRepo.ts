@@ -1,5 +1,6 @@
 import { getServiceClient } from "../../lib/supabase.js";
 import type { CollectorProfileSettings } from "../domain/types.js";
+import { REPORT_REASON_CODES } from "../domain/types.js";
 import { isCollectorProfilesEnvEnabled } from "../domain/featureFlag.js";
 
 const SETTINGS_KEYS: (keyof CollectorProfileSettings)[] = [
@@ -51,7 +52,9 @@ function mapSettingsRow(row: Record<string, unknown>): CollectorProfileSettings 
       ? row.supported_card_games.map(String)
       : ["Pokemon"],
     external_link_policy: String(row.external_link_policy ?? "warn"),
-    report_reasons: Array.isArray(row.report_reasons) ? row.report_reasons : [],
+    report_reasons: Array.isArray(row.report_reasons) && row.report_reasons.length > 0
+      ? row.report_reasons
+      : [...REPORT_REASON_CODES],
     message_retention_days: Number(row.message_retention_days ?? 365),
     require_admin_access_reason: Boolean(row.require_admin_access_reason ?? true),
     notification_templates:

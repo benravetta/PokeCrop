@@ -11,7 +11,6 @@ import {
   UserCircle,
 } from "lucide-react";
 import { useHumanPregradeConfig } from "../../humanPregrade/hooks/useHumanPregradeConfig";
-import { useCollectorProfilesConfig } from "../../collectorProfiles/hooks/useCollectorProfilesConfig";
 
 const BASE_LINKS = [
   { to: "/admin", end: true, label: "Overview", icon: LayoutDashboard },
@@ -31,14 +30,11 @@ type AdminNavLink = {
 
 export function AdminNav({ horizontal }: { horizontal?: boolean }) {
   const { enabled: hpEnabled } = useHumanPregradeConfig();
-  const { enabled: collectorEnabled } = useCollectorProfilesConfig();
   const links: AdminNavLink[] = [...BASE_LINKS];
   if (hpEnabled) {
     links.push({ to: "/admin/human-pregrades", label: "Expert reviews", icon: UserCheck });
   }
-  if (collectorEnabled) {
-    links.push({ to: "/admin/collector/profiles", label: "Collector profiles", icon: UserCircle });
-  }
+  links.push({ to: "/admin/collector/settings", label: "Collector profiles", icon: UserCircle });
 
   return (
     <nav className={`flex ${horizontal ? "flex-row gap-1 min-w-max" : "flex-col gap-0.5"}`}>

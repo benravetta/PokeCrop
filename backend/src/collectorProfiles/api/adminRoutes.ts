@@ -7,6 +7,7 @@ import {
   requireCollectorPermission,
   sendCollectorProfileError,
 } from "./middleware.js";
+import { isCollectorProfilesEnvEnabled } from "../domain/featureFlag.js";
 import {
   getCollectorProfileSettings,
   updateCollectorProfileSettings,
@@ -462,12 +463,16 @@ collectorProfilesAdminRoutes.get(
 collectorProfilesAdminRoutes.get(
   "/admin/collector/settings",
   requireActiveAuth,
-  requireCollectorProfilesAdminEnv,
   requireCollectorPermission("collector.admin.manage_settings"),
   async (_req, res) => {
     try {
       const settings = await getCollectorProfileSettings();
-      res.json({ settings });
+      const envEnabled = isCollectorProfilesEnvEnabled();
+      res.json({
+        settings,
+        envEnabled,
+        effectiveEnabled: envEnabled && settings.collector_profiles_enabled,
+      });
     } catch (err) {
       sendCollectorProfileError(res, err);
     }
@@ -477,12 +482,16 @@ collectorProfilesAdminRoutes.get(
 collectorProfilesAdminRoutes.put(
   "/admin/collector/settings",
   requireActiveAuth,
-  requireCollectorProfilesAdminEnv,
   requireCollectorPermission("collector.admin.manage_settings"),
   async (req, res) => {
     try {
       const settings = await updateCollectorProfileSettings(req.body ?? {});
-      res.json({ settings });
+      const envEnabled = isCollectorProfilesEnvEnabled();
+      res.json({
+        settings,
+        envEnabled,
+        effectiveEnabled: envEnabled && settings.collector_profiles_enabled,
+      });
     } catch (err) {
       sendCollectorProfileError(res, err);
     }

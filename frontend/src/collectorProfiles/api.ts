@@ -1,4 +1,7 @@
 import { apiFetch } from "../lib/sessionFetch";
+import type { CollectorProfileSettings, CollectorSettingsResponse } from "./admin/collectorSettingsTypes";
+
+export type { CollectorProfileSettings, CollectorSettingsResponse } from "./admin/collectorSettingsTypes";
 
 const BASE = "/api";
 
@@ -20,6 +23,7 @@ export interface CollectorProfilesConfig {
   tradeEnquiriesEnabled: boolean;
   supportedCardGames: string[];
   allowViewerGradingDefault: boolean;
+  reportReasons?: string[];
 }
 
 export interface PublicProfileView {
@@ -126,6 +130,24 @@ export async function fetchPublicCard(username: string, publicCardId: string) {
     `${BASE}/collector/profiles/${encodeURIComponent(username)}/cards/${encodeURIComponent(publicCardId)}`,
     { credentials: "include" }
   );
+  if (!res.ok) await fail(res);
+  return res.json();
+}
+
+export async function fetchAdminCollectorSettings(): Promise<CollectorSettingsResponse> {
+  const res = await apiFetch(`${BASE}/admin/collector/settings`);
+  if (!res.ok) await fail(res);
+  return res.json();
+}
+
+export async function updateAdminCollectorSettings(
+  patch: Partial<CollectorProfileSettings>
+): Promise<CollectorSettingsResponse> {
+  const res = await apiFetch(`${BASE}/admin/collector/settings`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(patch),
+  });
   if (!res.ok) await fail(res);
   return res.json();
 }
