@@ -39,6 +39,7 @@ When disabled: customer/public API returns 404; data is retained; admin may stil
 
 - Customer: `/api/collector/*`
 - Admin: `/api/admin/collector/*`
+- Public discovery: `GET /api/collector/discover?q=` (optional auth; IP rate-limited; requires discovery sub-flag)
 
 ## Existing files modified (additive)
 
@@ -73,8 +74,28 @@ COLLECTOR_PROFILE_USERNAME_REDIRECT_DAYS=90
 ## Flows
 
 - **Profile**: create username → settings → publish → share `/u/username`
-- **Card**: upload front/back → auto crop → confirm crops → publish → assign sections
+- **Card (upload-first wizard)**: add card → upload front → GemCheck crop (shared daily quota on confirm) → rich autofill → edit metadata → upload/crop back → sections → publish
+- **Crop quota**: `POST .../process` is preview-only (no quota). `POST .../crop/:role` with confirm bills the same daily allowance as `POST /api/process` (`FREE_DAILY_LIMIT = 3` on free plan). Re-confirming the same side does not double-charge (`crop_usage_counted`).
+- **Identification**: `POST /api/collector/cards/:publicCardId/identify` runs after front crop confirm; back only fills gaps when front confidence &lt; 0.75.
+- **Display security**: public JSON returns HMAC proxy paths (`GET /api/collector/display/:publicCardId/:role?size=display|thumb&t=&exp=`). Set `COLLECTOR_DISPLAY_HMAC_SECRET` in production (required). Full-res processed PNGs are never presigned to browsers.
 - **Owner grading**: entitlement adapter → `executeGrade` → grade link (private until owner publishes)
 - **Viewer grading**: public derivatives only; result private to viewer; disclaimer shown
 - **Trade enquiry**: structured offer → conversation created
+
+## Card wizard API (customer)
+
+| Method | Path | Notes |
+|--------|------|-------|
+| POST | `/api/collector/cards` | Create draft (`ownership_type`, optional `sections`) |
+| POST | `/api/collector/cards/:id/images` | Upload original (`role=front\|back`) |
+| POST | `/api/collector/cards/:id/process` | Detect + preview only; returns `previewBase64`, `editImageJpeg`, `metadata` |
+| POST | `/api/collector/cards/:id/crop/front\|back` | Billable confirm; stores master PNG + display/thumb JPEG |
+| POST | `/api/collector/cards/:id/identify` | Rich vision autofill (`role`, optional `force`) |
+| PATCH | `/api/collector/cards/:id` | Partial metadata + sections |
+| POST | `/api/collector/cards/:id/publish` | Requires confirmed front+back for owned cards |
+
+## Migrations
+
+- [`20260628120000_collector_profiles_schema.sql`](../supabase/migrations/20260628120000_collector_profiles_schema.sql) — base schema
+- [`20260628200000_collector_card_identify_display.sql`](../supabase/migrations/20260628200000_collector_card_identify_display.sql) — identification columns, `display_storage_id`, `crop_usage_counted`
 - **Moderation**: report → case → audited admin conversation access → visible admin join

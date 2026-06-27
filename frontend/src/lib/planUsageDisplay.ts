@@ -65,9 +65,11 @@ export function cropUsageDetail(usage: CropUsageSnapshot): string {
 }
 
 export function gradeUsageHeadline(usage: GradeUsageSnapshot): string {
-  return `${usage.allowanceRemaining} of ${usage.limit} left ${
-    usage.window === "month" ? "this month" : "today"
-  }`;
+  const period = usage.window === "month" ? "this month" : "today";
+  if (usage.credits > 0 && usage.remaining !== usage.allowanceRemaining) {
+    return `${usage.remaining} left ${period}`;
+  }
+  return `${usage.allowanceRemaining} of ${usage.limit} left ${period}`;
 }
 
 export function gradeUsageDetail(usage: GradeUsageSnapshot): string {

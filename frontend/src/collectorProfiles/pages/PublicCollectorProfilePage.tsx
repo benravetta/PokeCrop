@@ -1,8 +1,13 @@
 import { Link } from "react-router-dom";
-import { Share2, MessageSquare, Flag } from "lucide-react";
+import { Copy, Flag, Link2, MapPin, MessageSquare, Share2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { MarketingPageShell } from "../../components/marketing/MarketingPageShell";
+import { PublicProfileShell } from "../components/PublicProfileShell";
+import {
+  CollectorCardGrid,
+  CollectorLoading,
+  type CollectorCardPreview,
+} from "../components/ui";
 import { fetchPublicProfile, type PublicProfileView } from "../api";
 import { usePageSeo } from "../../lib/seo";
 
@@ -11,6 +16,7 @@ export function PublicCollectorProfilePage() {
   const [view, setView] = useState<PublicProfileView | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [copied, setCopied] = useState(false);
 
   usePageSeo({
     title: view ? `${view.profile.displayName} (@${view.profile.username})` : "Collector profile",
@@ -27,75 +33,125 @@ export function PublicCollectorProfilePage() {
       .finally(() => setLoading(false));
   }, [username]);
 
+  const share = async () => {
+    const url = window.location.href;
+    if (navigator.share) {
+      await navigator.share({ url, title: view?.profile.displayName });
+      return;
+    }
+    await navigator.clipboard.writeText(url);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 2000);
+  };
+
   if (loading) {
     return (
-      <MarketingPageShell>
-        <div className="max-w-4xl mx-auto px-4 py-16 text-text-secondary">Loading profile…</div>
-      </MarketingPageShell>
+      <PublicProfileShell>
+        <CollectorLoading label="Loading profile…" />
+      </PublicProfileShell>
     );
   }
 
   if (error || !view) {
     return (
-      <MarketingPageShell>
-        <div className="max-w-4xl mx-auto px-4 py-16 text-center">
+      <PublicProfileShell>
+        <div className="py-16 text-center">
           <h1 className="text-xl font-semibold text-text-primary">Profile not found</h1>
           <p className="mt-2 text-text-secondary">{error ?? "This profile is unavailable."}</p>
-          <Link to="/" className="mt-6 inline-block text-accent hover:underline">
+          <Link to="/" className="mt-6 inline-block text-sm font-medium text-accent hover:underline">
             Back to GemCheck
           </Link>
         </div>
-      </MarketingPageShell>
+      </PublicProfileShell>
     );
   }
 
   const { profile } = view;
 
   return (
-    <MarketingPageShell>
-      <div className="max-w-4xl mx-auto px-4 py-8 sm:py-12">
-        <header className="rounded-2xl border border-border-subtle bg-surface-raised overflow-hidden">
-          <div className="h-32 sm:h-40 bg-gradient-to-r from-accent/20 to-accent/5" />
-          <div className="px-6 pb-6 -mt-10">
-            <div className="w-20 h-20 rounded-full bg-surface-overlay border-4 border-surface-raised" />
-            <div className="mt-4 flex flex-wrap items-start justify-between gap-4">
-              <div>
-                <h1 className="text-2xl font-semibold text-text-primary">{profile.displayName}</h1>
-                <p className="text-text-secondary">@{profile.username}</p>
-                {profile.bio && <p className="mt-3 text-text-primary max-w-xl">{profile.bio}</p>}
-                {profile.locationRegion && (
-                  <p className="mt-1 text-sm text-text-secondary">{profile.locationRegion}</p>
-                )}
+    <PublicProfileShell showFooter={false}>
+      <div className="space-y-8 anim-rise">
+        <header className="overflow-hidden rounded-3xl border border-border-subtle bg-surface-raised">
+          <div
+            className="h-36 sm:h-44 lg:h-52"
+            style={{
+              background:
+                "linear-gradient(135deg, rgba(124,108,246,0.28) 0%, rgba(14,165,233,0.12) 45%, transparent 100%)",
+            }}
+          />
+          <div className="px-5 pb-6 sm:px-8 sm:pb-8 lg:px-10">
+            <div className="-mt-12 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+              <div className="flex items-end gap-4">
+                <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl border-4 border-surface-raised bg-accent/15 text-2xl font-bold text-accent sm:h-24 sm:w-24">
+                  {profile.displayName.slice(0, 1).toUpperCase()}
+                </div>
+                <div className="min-w-0 pb-1">
+                  <h1 className="text-2xl font-semibold text-text-primary sm:text-3xl">
+                    {profile.displayName}
+                  </h1>
+                  <p className="text-text-secondary">@{profile.username}</p>
+                  {profile.locationRegion && (
+                    <p className="mt-1 flex items-center gap-1 text-sm text-text-muted">
+                      <MapPin className="h-3.5 w-3.5" />
+                      {profile.locationRegion}
+                    </p>
+                  )}
+                </div>
               </div>
-              <div className="flex gap-2">
+
+              <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
-                  className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-border-subtle text-sm text-text-secondary hover:bg-surface-overlay"
-                  onClick={() => navigator.share?.({ url: window.location.href, title: profile.displayName })}
+                  onClick={() => void share()}
+                  className="inline-flex items-center gap-2 rounded-xl border border-border-strong bg-surface px-4 py-2.5 text-sm font-medium text-text-primary hover:bg-surface-overlay"
                 >
-                  <Share2 className="w-4 h-4" /> Share
+                  {copied ? <Copy className="h-4 w-4" /> : <Share2 className="h-4 w-4" />}
+                  {copied ? "Link copied" : "Share"}
                 </button>
                 {profile.messagingEnabled !== false && (
                   <Link
                     to="/login"
-                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-accent text-white text-sm font-medium"
+                    state={{ from: `/u/${profile.username}` }}
+                    className="inline-flex items-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-white shadow-[0_4px_20px_-6px_var(--color-accent)] hover:bg-accent-hover"
                   >
-                    <MessageSquare className="w-4 h-4" /> Message
+                    <MessageSquare className="h-4 w-4" />
+                    Message
                   </Link>
                 )}
               </div>
             </div>
+
+            {profile.bio && (
+              <p className="mt-6 max-w-3xl text-base leading-relaxed text-text-primary">{profile.bio}</p>
+            )}
+
+            {view.links.length > 0 && (
+              <div className="mt-5 flex flex-wrap gap-2">
+                {view.links.map((link) => (
+                  <a
+                    key={link.url}
+                    href={link.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-border-subtle bg-surface px-3 py-1.5 text-sm text-text-secondary hover:border-accent/40 hover:text-text-primary"
+                  >
+                    <Link2 className="h-3.5 w-3.5" />
+                    {link.label}
+                  </a>
+                ))}
+              </div>
+            )}
           </div>
         </header>
 
         {view.interests.length > 0 && (
-          <section className="mt-8">
-            <h2 className="text-sm font-medium text-text-secondary uppercase tracking-wide">Collecting</h2>
+          <section>
+            <SectionLabel>Collecting interests</SectionLabel>
             <div className="mt-3 flex flex-wrap gap-2">
               {view.interests.map((i) => (
                 <span
                   key={`${i.interest_type}-${i.interest_value}`}
-                  className="px-3 py-1 rounded-full bg-surface-overlay text-sm text-text-primary"
+                  className="rounded-full border border-border-subtle bg-surface-raised px-3 py-1.5 text-sm text-text-primary"
                 >
                   {i.interest_value}
                 </span>
@@ -104,60 +160,75 @@ export function PublicCollectorProfilePage() {
           </section>
         )}
 
-        <ProfileSection title="Showcase" cards={view.showcase} username={profile.username} />
-        <ProfileSection title="For trade" cards={view.forTrade} username={profile.username} />
-        <ProfileSection title="Wanted" cards={view.wanted} username={profile.username} />
+        <ProfileSection
+          title="Showcase"
+          subtitle="Highlighted cards from this collection"
+          cards={view.showcase}
+          username={profile.username}
+        />
+        <ProfileSection
+          title="For trade"
+          subtitle="Available to swap or sell"
+          cards={view.forTrade}
+          username={profile.username}
+        />
+        <ProfileSection
+          title="Wanted"
+          subtitle="Cards this collector is looking for"
+          cards={view.wanted}
+          username={profile.username}
+        />
 
-        <p className="mt-12 text-xs text-text-secondary flex items-center gap-1">
-          <Flag className="w-3 h-3" />
+        <p className="flex items-center gap-2 border-t border-border-subtle pt-8 text-xs text-text-muted">
+          <Flag className="h-3.5 w-3.5" />
           See something wrong?{" "}
-          <Link to="/login" className="text-accent hover:underline">
+          <Link to="/login" className="font-medium text-accent hover:underline">
             Sign in to report
           </Link>
         </p>
       </div>
-    </MarketingPageShell>
+    </PublicProfileShell>
+  );
+}
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <h2 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-text-muted">{children}</h2>
   );
 }
 
 function ProfileSection({
   title,
+  subtitle,
   cards,
   username,
 }: {
   title: string;
+  subtitle: string;
   cards: unknown[];
   username: string;
 }) {
   if (!cards.length) return null;
+
+  const mapped: CollectorCardPreview[] = (
+    cards as { publicId: string; cardName: string; setName?: string; thumbnailUrl?: string }[]
+  ).map((c) => ({
+    publicId: c.publicId,
+    cardName: c.cardName,
+    setName: c.setName,
+    thumbnailUrl: c.thumbnailUrl,
+  }));
+
   return (
-    <section className="mt-10">
-      <h2 className="text-lg font-semibold text-text-primary">{title}</h2>
-      <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-4">
-        {(cards as { publicId: string; cardName: string; setName?: string; thumbnailUrl?: string }[]).map(
-          (card) => (
-            <Link
-              key={card.publicId}
-              to={`/u/${username}/cards/${card.publicId}`}
-              className="rounded-xl border border-border-subtle bg-surface-raised overflow-hidden hover:border-accent/40 transition-colors"
-            >
-              <div className="aspect-[3/4] bg-surface-overlay flex items-center justify-center">
-                {card.thumbnailUrl ? (
-                  <img src={card.thumbnailUrl} alt="" className="w-full h-full object-contain" />
-                ) : (
-                  <span className="text-text-secondary text-sm">No image</span>
-                )}
-              </div>
-              <div className="p-3">
-                <p className="font-medium text-sm text-text-primary truncate">{card.cardName}</p>
-                {card.setName && (
-                  <p className="text-xs text-text-secondary truncate">{card.setName}</p>
-                )}
-              </div>
-            </Link>
-          )
-        )}
+    <section className="space-y-4">
+      <div>
+        <h2 className="text-xl font-semibold text-text-primary">{title}</h2>
+        <p className="mt-1 text-sm text-text-secondary">{subtitle}</p>
       </div>
+      <CollectorCardGrid
+        cards={mapped}
+        linkTo={(c) => `/u/${username}/cards/${c.publicId}`}
+      />
     </section>
   );
 }

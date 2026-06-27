@@ -113,6 +113,77 @@ export async function createCollectorCard(body: Record<string, unknown>) {
   return res.json();
 }
 
+export async function fetchCollectorCard(publicCardId: string) {
+  const res = await apiFetch(`${BASE}/collector/cards/${encodeURIComponent(publicCardId)}`);
+  if (!res.ok) await fail(res);
+  return res.json();
+}
+
+export async function patchCollectorCard(publicCardId: string, body: Record<string, unknown>) {
+  const res = await apiFetch(`${BASE}/collector/cards/${encodeURIComponent(publicCardId)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) await fail(res);
+  return res.json();
+}
+
+export async function identifyCollectorCard(publicCardId: string, role: "front" | "back", force?: boolean) {
+  const res = await apiFetch(`${BASE}/collector/cards/${encodeURIComponent(publicCardId)}/identify`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ role, force }),
+  });
+  if (!res.ok) await fail(res);
+  return res.json();
+}
+
+export async function publishCollectorCard(publicCardId: string) {
+  const res = await apiFetch(`${BASE}/collector/cards/${encodeURIComponent(publicCardId)}/publish`, {
+    method: "POST",
+  });
+  if (!res.ok) await fail(res);
+  return res.json();
+}
+
+export interface PublicCardView {
+  profile: { username: string; displayName: string };
+  card: {
+    publicId: string;
+    cardName: string;
+    cardGame?: string | null;
+    setName?: string | null;
+    setCode?: string | null;
+    cardNumber?: string | null;
+    releaseYear?: number | null;
+    language?: string | null;
+    variant?: string | null;
+    rarity?: string | null;
+    finishType?: string | null;
+    edition?: string | null;
+    condition?: string | null;
+    tradeStatus?: string | null;
+    cardState?: string | null;
+    officialGrade?: string | null;
+    gradingCompany?: string | null;
+    certificationNumber?: string | null;
+    publicDescription?: string | null;
+    tradeValueMinorUnits?: number | null;
+    tradeValueCurrency?: string | null;
+    identifiers?: string[];
+    identificationConfidence?: number | null;
+  };
+  images: {
+    frontDisplayUrl?: string | null;
+    backDisplayUrl?: string | null;
+    frontThumbUrl?: string | null;
+    backThumbUrl?: string | null;
+  };
+  viewerGradingAllowed?: boolean;
+  seo: { noIndex: boolean };
+}
+
 export async function listCollectorConversations() {
   const res = await apiFetch(`${BASE}/collector/conversations`);
   if (!res.ok) await fail(res);

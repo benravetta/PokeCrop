@@ -13,13 +13,16 @@ export interface CropProcessResult {
   pngBuffer: Buffer;
   metadata: Record<string, unknown>;
   needsManual: boolean;
+  editImageJpeg?: string;
+  previewBase64?: string;
 }
 
-export async function processCardImageCrop(opts: {
+async function runCrop(opts: {
   buffer: Buffer;
   filename: string;
   userId: string;
   params?: Record<string, unknown>;
+  fullResolution: boolean;
 }): Promise<CropProcessResult> {
   const filePath = path.join(tmpDir, `${uuid()}-${opts.filename}`);
   await fs.promises.writeFile(filePath, opts.buffer);
@@ -30,7 +33,7 @@ export async function processCardImageCrop(opts: {
       filename: opts.filename,
       params,
       userId: opts.userId,
-      fullResolution: true,
+      fullResolution: opts.fullResolution,
       identify: true,
       includeSuitability: true,
       metadataLevel: "full",
@@ -47,10 +50,31 @@ export async function processCardImageCrop(opts: {
       pngBuffer: result.pngBuffer,
       metadata: meta,
       needsManual,
+      editImageJpeg: result.editImageJpeg,
+      previewBase64: result.resultWebPng ?? result.pngBase64,
     };
   } finally {
     fs.unlink(filePath, () => {});
   }
+}
+
+export async function processCardImageCrop(opts: {
+  buffer: Buffer;
+  filename: string;
+  userId: string;
+  params?: Record<string, unknown>;
+}): Promise<CropProcessResult> {
+  return runCrop({ ...opts, fullResolution: true });
+}
+
+/** Preview-only detect (no quota, no R2 write). */
+export async function previewCardImageCrop(opts: {
+  buffer: Buffer;
+  filename: string;
+  userId: string;
+  params?: Record<string, unknown>;
+}): Promise<CropProcessResult> {
+  return runCrop({ ...opts, fullResolution: false });
 }
 
 export async function detectCardBoundary(opts: {
@@ -58,5 +82,5 @@ export async function detectCardBoundary(opts: {
   filename: string;
   userId: string;
 }): Promise<CropProcessResult> {
-  return processCardImageCrop({ ...opts, params: {} });
+  return previewCardImageCrop({ ...opts, params: {} });
 }

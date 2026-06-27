@@ -1,15 +1,6 @@
-import { Link } from "react-router-dom";
-import { CollectorProfilePage } from "./CollectorProfilePage";
+import { Navigate } from "react-router-dom";
 
+/** Legacy route — settings live on the overview page. */
 export function CollectorSettingsPage() {
-  return (
-    <div>
-      <CollectorProfilePage />
-      <div className="max-w-2xl mx-auto px-4 pb-8">
-        <Link to="/collector/setup" className="text-sm text-text-secondary hover:text-accent">
-          Profile setup
-        </Link>
-      </div>
-    </div>
-  );
+  return <Navigate to="/collector/profile" replace />;
 }

@@ -28,6 +28,46 @@ import { CollectorProfileError } from "../domain/types.js";
 
 export const collectorProfilesAdminRoutes = Router();
 
+async function conversationIdForModerationCase(caseId: string): Promise<string | null> {
+  const { data: caseRow, error: caseErr } = await getServiceClient()
+    .from("collector_moderation_cases")
+    .select("source_report_id")
+    .eq("id", caseId)
+    .maybeSingle();
+  if (caseErr) throw caseErr;
+  if (!caseRow?.source_report_id) return null;
+  const { data: report, error: reportErr } = await getServiceClient()
+    .from("collector_reports")
+    .select("conversation_id")
+    .eq("id", caseRow.source_report_id)
+    .maybeSingle();
+  if (reportErr) throw reportErr;
+  return typeof report?.conversation_id === "string" ? report.conversation_id : null;
+}
+
+async function resolveCaseConversationId(
+  caseId: string,
+  requestedId: string
+): Promise<string> {
+  const boundId = await conversationIdForModerationCase(caseId);
+  const conversationId = requestedId.trim() || boundId || "";
+  if (!conversationId) {
+    throw new CollectorProfileError(
+      "COLLECTOR_INVALID_INPUT",
+      "No conversation linked to this case.",
+      400
+    );
+  }
+  if (boundId && conversationId !== boundId) {
+    throw new CollectorProfileError(
+      "COLLECTOR_FORBIDDEN",
+      "Conversation does not belong to this moderation case.",
+      403
+    );
+  }
+  return conversationId;
+}
+
 const viewProfiles = [
   requireActiveAuth,
   requireCollectorProfilesAdminEnv,
@@ -298,7 +338,10 @@ collectorProfilesAdminRoutes.post(
       if (settings.require_admin_access_reason && !reason) {
         throw new CollectorProfileError("COLLECTOR_INVALID_INPUT", "Access reason required.", 400);
       }
-      const conversationId = String(req.body?.conversationId ?? req.body?.conversation_id ?? "");
+      const conversationId = await resolveCaseConversationId(
+        req.params.caseId!,
+        String(req.body?.conversationId ?? req.body?.conversation_id ?? "")
+      );
       await logAdminConversationAccess({
         caseId: req.params.caseId!,
         adminUserId: req.user!.id,
@@ -323,7 +366,10 @@ collectorProfilesAdminRoutes.post(
   requireCollectorPermission("collector.admin.join_conversations"),
   async (req, res) => {
     try {
-      const conversationId = String(req.body?.conversationId ?? req.body?.conversation_id ?? "");
+      const conversationId = await resolveCaseConversationId(
+        req.params.caseId!,
+        String(req.body?.conversationId ?? req.body?.conversation_id ?? "")
+      );
       await logAdminConversationAccess({
         caseId: req.params.caseId!,
         adminUserId: req.user!.id,

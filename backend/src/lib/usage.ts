@@ -56,6 +56,29 @@ export async function getUsageToday(userId: string): Promise<number> {
   return data?.crop_count ?? 0;
 }
 
+export async function decrementUsage(userId: string): Promise<number> {
+  const day = utcDay();
+  const { data: row, error: readErr } = await getServiceClient()
+    .from("usage_days")
+    .select("crop_count")
+    .eq("user_id", userId)
+    .eq("day", day)
+    .maybeSingle();
+  if (readErr) throw readErr;
+  const current = row?.crop_count ?? 0;
+  if (current <= 0) return 0;
+  const next = current - 1;
+  const { data, error } = await getServiceClient()
+    .from("usage_days")
+    .update({ crop_count: next })
+    .eq("user_id", userId)
+    .eq("day", day)
+    .select("crop_count")
+    .single();
+  if (error) throw error;
+  return data?.crop_count ?? next;
+}
+
 export async function incrementUsage(userId: string): Promise<number> {
   const { data, error } = await getServiceClient().rpc("increment_daily_crop", {
     p_user: userId,

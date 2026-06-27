@@ -1,5 +1,5 @@
 import { getServiceClient } from "../../lib/supabase.js";
-import { getGradeQuota, incrementGrade, consumeGradeCredit } from "../../lib/gradeQuota.js";
+import { getGradeQuota } from "../../lib/gradeQuota.js";
 import type { UserRole } from "../../lib/adminAccess.js";
 import { CollectorProfileError, generatePublicId } from "../domain/types.js";
 
@@ -86,28 +86,17 @@ export async function getValidatedReservation(
   return reservation;
 }
 
-export async function consumeReservedEntitlement(
+/** Mark a validated reservation consumed after grading has billed quota once. */
+export async function finalizeReservedEntitlement(
   reservationId: string,
   userId: string,
-  cardId: string,
-  gradingOrderId: number
+  cardId: string
 ): Promise<void> {
-  const reservation = await getValidatedReservation(reservationId, userId, cardId);
-
-  if (reservation.entitlement_type === "subscription") {
-    await incrementGrade(reservation.user_id);
-  } else if (reservation.entitlement_type === "credit") {
-    const left = await consumeGradeCredit(reservation.user_id);
-    if (left < 0) {
-      throw new CollectorProfileError("COLLECTOR_PAYMENT_REQUIRED", "No credits available.", 402);
-    }
-  }
-
+  await getValidatedReservation(reservationId, userId, cardId);
   await getServiceClient()
     .from("collector_entitlement_reservations")
     .update({ status: "consumed" })
     .eq("id", reservationId);
-  void gradingOrderId;
 }
 
 export async function releaseReservation(reservationId: string): Promise<void> {

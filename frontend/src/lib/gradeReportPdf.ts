@@ -497,11 +497,11 @@ export async function buildGradeReportPdf(
     para(prep.summary);
     y += 1;
 
-    // Cache the loaded source images for cropping snapshots.
+    // Use the same watermarked sources as the main report images for prep snapshots.
     const cache: Partial<Record<"front" | "back", HTMLImageElement | null>> = {};
     const srcImg = async (side: "front" | "back") => {
       if (!(side in cache)) {
-        const src = side === "back" ? images.back : images.front;
+        const src = side === "back" ? backSrc : frontSrc;
         cache[side] = src ? await loadImage(src).catch(() => null) : null;
       }
       return cache[side] ?? null;

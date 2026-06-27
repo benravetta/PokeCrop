@@ -1,11 +1,32 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Loader2, ExternalLink } from "lucide-react";
+import type { ReactNode } from "react";
+import {
+  ExternalLink,
+  Globe,
+  LayoutGrid,
+  MessageSquare,
+  Repeat2,
+  Sparkles,
+  UserCircle,
+} from "lucide-react";
 import {
   fetchMyCollectorProfile,
   publishCollectorProfile,
   updateCollectorProfile,
 } from "../api";
+import { COLLECTOR_COPY, formatStatus } from "../copy";
+import {
+  CollectorButton,
+  CollectorField,
+  CollectorLinkButton,
+  CollectorLoading,
+  CollectorPageHeader,
+  CollectorSection,
+  CollectorSelect,
+  CollectorStatusBadge,
+  CollectorTextarea,
+} from "../components/ui";
 
 export function CollectorProfilePage() {
   const navigate = useNavigate();
@@ -26,16 +47,11 @@ export function CollectorProfilePage() {
       .finally(() => setLoading(false));
   }, [navigate]);
 
-  if (loading) {
-    return (
-      <div className="flex justify-center py-16">
-        <Loader2 className="w-6 h-6 animate-spin text-accent" />
-      </div>
-    );
-  }
+  if (loading) return <CollectorLoading label="Loading your profile…" />;
   if (!data) return null;
 
   const { profile } = data;
+  const isLive = profile.status === "active";
 
   const save = async () => {
     setSaving(true);
@@ -58,76 +74,162 @@ export function CollectorProfilePage() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold text-text-primary">{profile.display_name}</h1>
-          <p className="text-text-secondary">@{profile.username}</p>
-        </div>
-        <Link
-          to={`/u/${profile.username}`}
-          target="_blank"
-          className="inline-flex items-center gap-1 text-sm text-accent hover:underline"
-        >
-          View public page <ExternalLink className="w-3.5 h-3.5" />
-        </Link>
-      </div>
+    <div className="space-y-6">
+      <CollectorPageHeader
+        title={profile.display_name}
+        description={`@${profile.username} · ${COLLECTOR_COPY.tagline}`}
+        actions={
+          isLive ? (
+            <a
+              href={`/u/${profile.username}`}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-2 rounded-xl border border-border-strong bg-surface-raised px-4 py-2.5 text-sm font-semibold text-text-primary hover:bg-surface-overlay"
+            >
+              View public page
+              <ExternalLink className="h-4 w-4" />
+            </a>
+          ) : (
+            <CollectorStatusBadge tone="warning">
+              {formatStatus(COLLECTOR_COPY.profileStatus, profile.status)}
+            </CollectorStatusBadge>
+          )
+        }
+      />
 
-      <label className="block">
-        <span className="text-sm text-text-secondary">Bio</span>
-        <textarea
-          className="mt-1 w-full rounded-lg border border-border-subtle bg-surface-raised px-3 py-2 min-h-[100px]"
-          value={bio}
-          onChange={(e) => setBio(e.target.value)}
-          maxLength={500}
+      <div className="grid gap-4 sm:grid-cols-3">
+        <QuickLink
+          to="/collector/cards"
+          icon={<LayoutGrid className="h-5 w-5" />}
+          label={COLLECTOR_COPY.nav.cards}
+          hint="Manage listings and photos"
         />
-      </label>
-
-      <label className="block">
-        <span className="text-sm text-text-secondary">Visibility</span>
-        <select
-          className="mt-1 w-full rounded-lg border border-border-subtle bg-surface-raised px-3 py-2"
-          value={visibility}
-          onChange={(e) => setVisibility(e.target.value)}
-        >
-          <option value="private">Private — only you</option>
-          <option value="unlisted">Unlisted — direct link only</option>
-          <option value="public">Public — discoverable</option>
-        </select>
-      </label>
-
-      <div className="flex flex-wrap gap-3">
-        <button
-          type="button"
-          onClick={save}
-          disabled={saving}
-          className="px-4 py-2 rounded-lg border border-border-subtle hover:bg-surface-overlay"
-        >
-          Save
-        </button>
-        {profile.status !== "active" && (
-          <button
-            type="button"
-            onClick={publish}
-            disabled={saving}
-            className="px-4 py-2 rounded-lg bg-accent text-white font-medium"
-          >
-            Publish profile
-          </button>
-        )}
+        <QuickLink
+          to="/collector/trades"
+          icon={<Repeat2 className="h-5 w-5" />}
+          label={COLLECTOR_COPY.nav.trades}
+          hint="Review trade enquiries"
+        />
+        <QuickLink
+          to="/collector/messages"
+          icon={<MessageSquare className="h-5 w-5" />}
+          label={COLLECTOR_COPY.nav.messages}
+          hint="Chat with collectors"
+        />
       </div>
 
-      <nav className="grid sm:grid-cols-3 gap-3 pt-4 border-t border-border-subtle">
-        <Link to="/collector/cards" className="p-4 rounded-xl border border-border-subtle hover:border-accent/40">
-          Cards
-        </Link>
-        <Link to="/collector/trades" className="p-4 rounded-xl border border-border-subtle hover:border-accent/40">
-          Trades
-        </Link>
-        <Link to="/collector/messages" className="p-4 rounded-xl border border-border-subtle hover:border-accent/40">
-          Messages
-        </Link>
-      </nav>
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
+        <CollectorSection
+          icon={<UserCircle className="h-4 w-4" />}
+          title="Profile details"
+          description="What visitors see on your public page"
+        >
+          <div className="space-y-4">
+            <CollectorField label="Bio" hint="Up to 500 characters">
+              <CollectorTextarea
+                value={bio}
+                onChange={(e) => setBio(e.target.value)}
+                maxLength={500}
+                placeholder="Tell collectors what you collect and what you are looking for…"
+              />
+            </CollectorField>
+
+            <CollectorField
+              label="Visibility"
+              hint={COLLECTOR_COPY.visibility[visibility]?.hint}
+            >
+              <CollectorSelect value={visibility} onChange={(e) => setVisibility(e.target.value)}>
+                {Object.entries(COLLECTOR_COPY.visibility).map(([value, { label }]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </CollectorSelect>
+            </CollectorField>
+
+            <div className="flex flex-wrap gap-3 pt-1">
+              <CollectorButton onClick={save} loading={saving} variant="secondary">
+                Save changes
+              </CollectorButton>
+              {!isLive && (
+                <CollectorButton onClick={publish} loading={saving}>
+                  Publish profile
+                </CollectorButton>
+              )}
+            </div>
+          </div>
+        </CollectorSection>
+
+        <div className="space-y-6">
+          <CollectorSection
+            icon={<Globe className="h-4 w-4" />}
+            title="Public link"
+            description="Share this URL on socials or in your bio"
+          >
+            <div className="rounded-xl border border-border-subtle bg-surface px-3 py-2.5 text-sm text-text-secondary break-all">
+              gemcheck.co.uk/u/{profile.username}
+            </div>
+            {!isLive && (
+              <p className="mt-3 text-xs text-text-muted">
+                Publish your profile to make this link live for visitors.
+              </p>
+            )}
+          </CollectorSection>
+
+          <CollectorSection
+            icon={<Sparkles className="h-4 w-4" />}
+            title="Getting started"
+            description="Build out your collector presence"
+          >
+            <ol className="space-y-3 text-sm text-text-secondary">
+              <li className="flex gap-3">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent/15 text-xs font-semibold text-accent">
+                  1
+                </span>
+                <span>Add cards with front and back photos</span>
+              </li>
+              <li className="flex gap-3">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent/15 text-xs font-semibold text-accent">
+                  2
+                </span>
+                <span>Assign sections — showcase, for trade, or wanted</span>
+              </li>
+              <li className="flex gap-3">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent/15 text-xs font-semibold text-accent">
+                  3
+                </span>
+                <span>Publish cards, then publish your profile</span>
+              </li>
+            </ol>
+            <div className="mt-5">
+              <CollectorLinkButton to="/collector/cards/new">Add your first card</CollectorLinkButton>
+            </div>
+          </CollectorSection>
+        </div>
+      </div>
     </div>
+  );
+}
+
+function QuickLink({
+  to,
+  icon,
+  label,
+  hint,
+}: {
+  to: string;
+  icon: ReactNode;
+  label: string;
+  hint: string;
+}) {
+  return (
+    <Link
+      to={to}
+      className="rounded-2xl border border-border-subtle bg-surface-raised p-4 transition hover:border-accent/40 hover:bg-surface-overlay/40"
+    >
+      <div className="flex items-center gap-3 text-accent">{icon}</div>
+      <p className="mt-3 font-semibold text-text-primary">{label}</p>
+      <p className="mt-1 text-xs text-text-muted">{hint}</p>
+    </Link>
   );
 }

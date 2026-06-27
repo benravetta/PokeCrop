@@ -273,7 +273,7 @@ open("report.pdf", "wb").write(r.content)`
     get: {
       tags: ["Grade"],
       summary: "Grading allowance",
-      description: "Check remaining daily grade quota and purchased credits before submitting photos.",
+      description: "Check remaining monthly grade quota and purchased credits before submitting photos.",
       responses: {
         "200": {
           description: "Quota snapshot.",

@@ -39,9 +39,17 @@ export interface CollectorCardRow {
   owner_private_notes: string | null;
   wanted_notes: string | null;
   wanted_priority: string | null;
+  wanted_preferred_grader: string | null;
+  wanted_min_grade: string | null;
+  wanted_max_grade: string | null;
+  wanted_min_condition: string | null;
   visibility: string;
   allow_viewer_grading_override: string;
   status: string;
+  identification_extra: Record<string, unknown> | null;
+  identification_confidence: number | null;
+  identified_at: string | null;
+  identification_source: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -54,7 +62,9 @@ export interface CollectorCardImageRow {
   source_storage_id: string | null;
   original_storage_id: string | null;
   processed_storage_id: string | null;
+  display_storage_id: string | null;
   thumbnail_storage_id: string | null;
+  crop_usage_counted: boolean;
   width: number | null;
   height: number | null;
   mime_type: string | null;
@@ -195,9 +205,17 @@ export async function updateCard(cardId: string, patch: Record<string, unknown>)
     "owner_private_notes",
     "wanted_notes",
     "wanted_priority",
+    "wanted_preferred_grader",
+    "wanted_min_grade",
+    "wanted_max_grade",
+    "wanted_min_condition",
     "visibility",
     "allow_viewer_grading_override",
     "status",
+    "identification_extra",
+    "identification_confidence",
+    "identified_at",
+    "identification_source",
   ];
   const update: Record<string, unknown> = { updated_at: new Date().toISOString() };
   for (const k of allowed) {

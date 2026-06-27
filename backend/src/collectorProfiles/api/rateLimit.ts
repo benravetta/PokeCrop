@@ -35,3 +35,26 @@ export function collectorRateLimit(action: string, fallbackLimit = 30) {
     }
   };
 }
+
+/** Per-IP rate limit for unauthenticated public routes. */
+export function collectorIpRateLimit(action: string, limit = 30, windowMs = 60_000) {
+  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    const ip = req.ip || "unknown";
+    try {
+      const allowed = await getRateLimitStore().checkAndIncrement(
+        `ip:${ip}`,
+        `collector:${action}`,
+        windowMs,
+        limit
+      );
+      if (!allowed) {
+        res.status(429).json({ error: "Too many requests.", error_code: "COLLECTOR_RATE_LIMIT" });
+        return;
+      }
+      next();
+    } catch (err) {
+      console.error("[collectorProfiles] IP rate limit error:", err);
+      res.status(503).json({ error: "Rate limit unavailable.", error_code: "COLLECTOR_RATE_LIMIT" });
+    }
+  };
+}

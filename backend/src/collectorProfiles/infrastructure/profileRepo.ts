@@ -1,4 +1,5 @@
 import { getServiceClient } from "../../lib/supabase.js";
+import { sanitizePostgrestSearch } from "../../lib/postgrestSearch.js";
 import {
   CollectorProfileError,
   DEFAULT_SECTION_ORDER,
@@ -322,8 +323,9 @@ export async function listDiscoverableProfiles(opts: {
     .eq("status", "active")
     .eq("search_visible", true)
     .order("published_at", { ascending: false });
-  if (opts.query?.trim()) {
-    const like = `%${opts.query.trim()}%`;
+  const safeQuery = opts.query ? sanitizePostgrestSearch(opts.query) : "";
+  if (safeQuery) {
+    const like = `%${safeQuery}%`;
     q = q.or(`username.ilike.${like},display_name.ilike.${like}`);
   }
   q = q.limit(opts.limit ?? 50);

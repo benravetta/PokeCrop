@@ -218,6 +218,9 @@ customers only, until 1 Aug 2026. Create in Stripe with `allow_promotion_codes`
 A "crop" is the first successful extraction of an uploaded image — re-cropping
 and slider tweaks on the same upload are free.
 
+Free-plan crop PNGs and PDF pre-grade reports include a subtle GemCheck watermark.
+Paid plans, purchased one-off grades, and admin accounts receive clean exports.
+
 ### Architecture
 
 ```
@@ -297,6 +300,7 @@ For **local dev**, `frontend/.env` holds the public `VITE_SUPABASE_*` values
 fly secrets set \
   SUPABASE_URL=https://YOUR_REF.supabase.co \
   SUPABASE_SERVICE_ROLE_KEY=sb_secret_xxx \
+  COLLECTOR_DISPLAY_HMAC_SECRET="$(openssl rand -base64 32)" \
   STRIPE_SECRET_KEY=sk_live_xxx \
   STRIPE_WEBHOOK_SECRET=whsec_xxx \
   STRIPE_PRICE_UNLIMITED=price_1TldiFIXClJKdqLnZrYEHwrv \
@@ -339,7 +343,7 @@ Sign out and back in so a fresh token carries the role.
 
 | Endpoint | Auth | Purpose |
 |----------|------|---------|
-| `GET /api/me` | user | Plan, crops used/remaining today, admin flag |
+| `GET /api/me` | user | Plan, daily crop usage, monthly pre-grade quota (`gradeUsed`, `gradeLimit`, `gradeAllowanceRemaining`, `gradeRemaining`, `gradeWindow`), purchased credits, admin flag |
 | `POST /api/billing/checkout` | user | Start Stripe Checkout (`{ plan }`) |
 | `POST /api/billing/portal` | user | Open the Stripe Customer Portal |
 | `POST /api/webhooks/stripe` | Stripe sig | Subscription sync (raw body) |

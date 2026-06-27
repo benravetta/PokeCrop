@@ -1,4 +1,3 @@
-import { getSignedStorageUrl } from "../adapters/storageAdapter.js";
 import {
   canAnonymousViewCard,
   isProfilePubliclyAccessible,
@@ -23,6 +22,54 @@ import {
 } from "../infrastructure/cardRepo.js";
 import { getProfileById } from "../infrastructure/profileRepo.js";
 import { CollectorProfileError } from "../domain/types.js";
+import { displayPath } from "../lib/displayProxy.js";
+
+function imageDisplayUrls(publicCardId: string, role: string) {
+  return {
+    display: displayPath({ publicCardId, role, size: "display" }),
+    thumb: displayPath({ publicCardId, role, size: "thumb" }),
+  };
+}
+
+function serializePublicCardFields(card: CollectorCardRow, isOwner: boolean) {
+  const extra = card.identification_extra ?? {};
+  const identifiers = Array.isArray(extra.identifiers)
+    ? extra.identifiers.filter((x): x is string => typeof x === "string")
+    : [];
+  return {
+    publicId: card.public_id,
+    cardName: card.card_name,
+    cardGame: card.card_game,
+    setName: card.set_name,
+    setCode: card.set_code,
+    cardNumber: card.card_number,
+    releaseYear: card.release_year,
+    language: card.language,
+    variant: card.variant,
+    rarity: card.rarity,
+    finishType: card.finish_type,
+    edition: card.edition,
+    condition: card.condition,
+    tradeStatus: card.trade_status,
+    cardState: card.card_state,
+    officialGrade: card.official_grade,
+    gradingCompany: card.grading_company,
+    officialSubgrades: card.official_subgrades,
+    certificationNumber: card.certification_number,
+    publicDescription: card.public_description,
+    tradeNotes: isOwner ? card.trade_notes : undefined,
+    tradeValueMinorUnits: card.trade_value_minor_units,
+    tradeValueCurrency: card.trade_value_currency,
+    ownershipType: card.ownership_type,
+    wantedNotes: isOwner ? card.wanted_notes : undefined,
+    wantedPriority: isOwner ? card.wanted_priority : undefined,
+    identificationConfidence: card.identification_confidence,
+    identifiers,
+    setTotal: typeof extra.set_total === "string" ? extra.set_total : null,
+    illustrator: typeof extra.illustrator === "string" ? extra.illustrator : null,
+    regulationMark: typeof extra.regulation_mark === "string" ? extra.regulation_mark : null,
+  };
+}
 
 export async function buildPublicProfileView(opts: {
   username: string;
@@ -70,16 +117,18 @@ export async function buildPublicProfileView(opts: {
     }
     const images = await listCardImages(card.id);
     const front = images.find((i) => i.image_role === "front");
-    const thumbKey = front?.thumbnail_storage_id ?? front?.processed_storage_id;
+    const hasDisplay = Boolean(front?.display_storage_id || front?.thumbnail_storage_id || front?.processed_storage_id);
+    const thumb = hasDisplay ? imageDisplayUrls(card.public_id, "front").thumb : null;
     return {
       publicId: card.public_id,
       cardName: card.card_name,
       setName: card.set_name,
       cardNumber: card.card_number,
+      rarity: card.rarity,
       tradeStatus: card.trade_status,
       cardState: card.card_state,
       officialGrade: card.official_grade,
-      thumbnailUrl: await getSignedStorageUrl(thumbKey),
+      thumbnailUrl: thumb,
     };
   };
 
@@ -161,31 +210,21 @@ export async function buildPublicCardView(opts: {
   const front = images.find((i) => i.image_role === "front");
   const back = images.find((i) => i.image_role === "back");
 
+  const frontUrls = front?.processed_storage_id || front?.display_storage_id
+    ? imageDisplayUrls(card.public_id, "front")
+    : null;
+  const backUrls = back?.processed_storage_id || back?.display_storage_id
+    ? imageDisplayUrls(card.public_id, "back")
+    : null;
+
   return {
     profile: { username: profile.username, displayName: profile.display_name },
-    card: {
-      publicId: card.public_id,
-      cardName: card.card_name,
-      setName: card.set_name,
-      setCode: card.set_code,
-      cardNumber: card.card_number,
-      language: card.language,
-      variant: card.variant,
-      condition: card.condition,
-      tradeStatus: card.trade_status,
-      cardState: card.card_state,
-      officialGrade: card.official_grade,
-      gradingCompany: card.grading_company,
-      publicDescription: card.public_description,
-      tradeNotes: isOwner ? card.trade_notes : undefined,
-      tradeValueMinorUnits: card.trade_value_minor_units,
-      tradeValueCurrency: card.trade_value_currency,
-    },
+    card: serializePublicCardFields(card, isOwner),
     images: {
-      frontUrl: await getSignedStorageUrl(
-        front?.processed_storage_id ?? front?.thumbnail_storage_id
-      ),
-      backUrl: await getSignedStorageUrl(back?.processed_storage_id ?? back?.thumbnail_storage_id),
+      frontDisplayUrl: frontUrls?.display ?? null,
+      backDisplayUrl: backUrls?.display ?? null,
+      frontThumbUrl: frontUrls?.thumb ?? null,
+      backThumbUrl: backUrls?.thumb ?? null,
     },
     viewerGradingAllowed: resolveViewerGrading(profile, card),
     seo: { noIndex: shouldNoIndex(profile.visibility, profile.search_engine_indexing) },
@@ -241,4 +280,8 @@ export async function assertCanInitiateGrade(opts: {
   }
 
   return { isOwner: false };
+}
+
+export function ownerImageDisplayPaths(publicCardId: string, role: string) {
+  return imageDisplayUrls(publicCardId, role);
 }

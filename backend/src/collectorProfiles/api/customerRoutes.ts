@@ -10,7 +10,7 @@ import {
   requireCollectorTradeEnabled,
   sendCollectorProfileError,
 } from "./middleware.js";
-import { collectorRateLimit } from "./rateLimit.js";
+import { collectorRateLimit, collectorIpRateLimit } from "./rateLimit.js";
 import { sanitizeBio, sanitizeExternalUrl } from "./security.js";
 import {
   createProfile,
@@ -53,17 +53,23 @@ import {
 import {
   uploadCardOriginal,
   uploadProfileImage,
-  getSignedStorageUrl,
-  putPublicDerivative,
 } from "../adapters/storageAdapter.js";
-import { getPlan } from "../../lib/usage.js";
-import { applyCropWatermark, shouldWatermarkCrop } from "../../lib/cropWatermark.js";
-import { detectCardBoundary, processCardImageCrop } from "../adapters/cardProcessor.js";
+import {
+  handleCollectorProcess,
+  handleCropConfirm,
+  sendCropQuotaError,
+} from "../application/collectorCropService.js";
+import { identifyCollectorCardByPublicId } from "../application/cardIdentificationService.js";
+import { streamCollectorDisplayImage } from "../application/displayProxyService.js";
+import { ownerImageDisplayPaths } from "../application/publicProfileService.js";
+import { sanitizeOwnerImageView } from "../lib/cardImageView.js";
+import { CropQuotaExceededError } from "../../lib/cropQuota.js";
 import {
   getAvailableEntitlements,
   reserveEntitlement,
   releaseReservation,
-  consumeReservedEntitlement,
+  getValidatedReservation,
+  finalizeReservedEntitlement,
   getLatestUsageEventId,
 } from "../adapters/entitlementAdapter.js";
 import { gradeFromBuffers } from "../adapters/gradingAdapter.js";
@@ -122,23 +128,31 @@ function publicOrigin(req: Request): string {
   return `${proto}://${host}`.replace(/\/$/, "");
 }
 
-async function maybeWatermarkCollectorCrop(
-  userId: string,
-  role: "user" | "admin",
-  buffer: Buffer
-): Promise<Buffer> {
-  const plan = await getPlan(userId);
-  if (
-    !shouldWatermarkCrop({
-      role,
-      plan,
-      billing: plan === "free" ? "free" : "subscription",
-    })
-  ) {
-    return buffer;
+collectorProfilesPublicRoutes.get(
+  "/collector/display/:publicCardId/:role",
+  optionalAuth,
+  requireCollectorProfilesEnabled,
+  collectorIpRateLimit("display", 120, 60_000),
+  async (req, res) => {
+    try {
+      const size = req.query.size === "thumb" ? "thumb" : "display";
+      const token = String(req.query.t ?? "");
+      const exp = Number(req.query.exp);
+      await streamCollectorDisplayImage({
+        publicCardId: req.params.publicCardId!,
+        role: req.params.role!,
+        size,
+        token,
+        exp,
+        viewerUserId: req.user?.id,
+        viewerRole: req.user?.role,
+        res,
+      });
+    } catch (err) {
+      sendCollectorProfileError(res, err);
+    }
   }
-  return applyCropWatermark(buffer);
-}
+);
 
 collectorProfilesPublicRoutes.get("/collector/config/public", async (_req, res) => {
   if (!isCollectorProfilesEnvEnabled()) {
@@ -429,7 +443,23 @@ collectorProfilesCustomerRoutes.get(
       const profile = await getProfileByUserId(req.user!.id);
       if (!profile) throw new CollectorProfileError("COLLECTOR_NOT_FOUND", "No profile yet.", 404);
       const cards = await listCardsForProfile(profile.id);
-      res.json({ cards });
+      const enriched = await Promise.all(
+        cards.map(async (card) => {
+          const images = await listCardImages(card.id);
+          const front = images.find((i) => i.image_role === "front");
+          const hasThumb =
+            front?.display_storage_id ||
+            front?.thumbnail_storage_id ||
+            front?.processed_storage_id;
+          return {
+            ...card,
+            thumbnail_url: hasThumb
+              ? ownerImageDisplayPaths(card.public_id, "front").thumb
+              : null,
+          };
+        })
+      );
+      res.json({ cards: enriched });
     } catch (err) {
       sendCollectorProfileError(res, err);
     }
@@ -450,7 +480,8 @@ collectorProfilesCustomerRoutes.get(
         listCardImages(card.id),
         getGradeLinks(card.id),
       ]);
-      res.json({ card, sections, images, gradeLinks });
+      const imageViews = images.map((img) => sanitizeOwnerImageView(img, card.public_id));
+      res.json({ card, sections, images: imageViews, gradeLinks });
     } catch (err) {
       sendCollectorProfileError(res, err);
     }
@@ -528,8 +559,13 @@ collectorProfilesCustomerRoutes.post(
         checksum: uploaded.checksum,
         processing_status: "uploaded",
         confirmed_by_user: false,
+        crop_usage_counted: false,
+        processed_storage_id: null,
+        display_storage_id: null,
+        thumbnail_storage_id: null,
+        crop_data: null,
       });
-      res.status(201).json({ image });
+      res.status(201).json({ image: sanitizeOwnerImageView(image, card.public_id) });
     } catch (err) {
       sendCollectorProfileError(res, err);
     }
@@ -540,69 +576,16 @@ collectorProfilesCustomerRoutes.post(
   "/collector/cards/:publicCardId/process",
   requireActiveAuth,
   requireCollectorProfilesEnabled,
+  collectorRateLimit("crop_process", 40),
   async (req, res) => {
     try {
-      const card = await getCardByPublicId(req.params.publicCardId!);
-      if (!card) throw new CollectorProfileError("COLLECTOR_CARD_NOT_FOUND", "Card not found.", 404);
-      assertCardOwner(card, req.user!.id);
-      const role = String(req.body?.role ?? "front");
-      const image = await upsertCardImage(card.id, role, { processing_status: "processing" });
-      const buf = await loadImageBuffer(image.original_storage_id);
-      if (!buf) throw new CollectorProfileError("COLLECTOR_INVALID_INPUT", "Original missing.", 400);
-      const crop = await detectCardBoundary({
-        buffer: buf,
-        filename: `${role}.jpg`,
-        userId: req.user!.id,
-      });
-      const processedKey = await putPublicDerivative({
-        profileId: card.profile_id,
-        cardId: card.id,
-        role: `processed-${role}`,
-        buffer: await maybeWatermarkCollectorCrop(req.user!.id, req.user!.role, crop.pngBuffer),
-        mime: "image/png",
-      });
-      const updated = await upsertCardImage(card.id, role, {
-        processed_storage_id: processedKey,
-        thumbnail_storage_id: processedKey,
-        crop_data: crop.metadata,
-        processing_status: crop.needsManual ? "requires_manual_crop" : "ready",
-      });
-      res.json({ image: updated, metadata: crop.metadata, needsManual: crop.needsManual });
+      const role = String(req.body?.role ?? "front") as "front" | "back";
+      await handleCollectorProcess(req, res, role);
     } catch (err) {
       sendCollectorProfileError(res, err);
     }
   }
 );
-
-async function handleCropConfirm(req: Request, res: Response, role: "front" | "back") {
-  const card = await getCardByPublicId(req.params.publicCardId!);
-  if (!card) throw new CollectorProfileError("COLLECTOR_CARD_NOT_FOUND", "Card not found.", 404);
-  assertCardOwner(card, req.user!.id);
-  const image = await upsertCardImage(card.id, role, { processing_status: "processing" });
-  const buf = await loadImageBuffer(image.original_storage_id);
-  if (!buf) throw new CollectorProfileError("COLLECTOR_INVALID_INPUT", "Original missing.", 400);
-  const crop = await processCardImageCrop({
-    buffer: buf,
-    filename: `${role}.jpg`,
-    userId: req.user!.id,
-    params: req.body?.crop ?? req.body?.params,
-  });
-  const processedKey = await putPublicDerivative({
-    profileId: card.profile_id,
-    cardId: card.id,
-    role: `processed-${role}`,
-    buffer: await maybeWatermarkCollectorCrop(req.user!.id, req.user!.role, crop.pngBuffer),
-    mime: "image/png",
-  });
-  const updated = await upsertCardImage(card.id, role, {
-    processed_storage_id: processedKey,
-    thumbnail_storage_id: processedKey,
-    crop_data: req.body?.crop ?? crop.metadata,
-    processing_status: "ready",
-    confirmed_by_user: Boolean(req.body?.confirm ?? true),
-  });
-  res.json({ image: updated });
-}
 
 collectorProfilesCustomerRoutes.post(
   "/collector/cards/:publicCardId/crop/front",
@@ -612,6 +595,10 @@ collectorProfilesCustomerRoutes.post(
     try {
       await handleCropConfirm(req, res, "front");
     } catch (err) {
+      if (err instanceof CropQuotaExceededError) {
+        sendCropQuotaError(res, err);
+        return;
+      }
       sendCollectorProfileError(res, err);
     }
   }
@@ -624,6 +611,32 @@ collectorProfilesCustomerRoutes.post(
   async (req, res) => {
     try {
       await handleCropConfirm(req, res, "back");
+    } catch (err) {
+      if (err instanceof CropQuotaExceededError) {
+        sendCropQuotaError(res, err);
+        return;
+      }
+      sendCollectorProfileError(res, err);
+    }
+  }
+);
+
+collectorProfilesCustomerRoutes.post(
+  "/collector/cards/:publicCardId/identify",
+  requireActiveAuth,
+  requireCollectorProfilesEnabled,
+  collectorRateLimit("identify", 20),
+  async (req, res) => {
+    try {
+      const role = String(req.body?.role ?? "front") as "front" | "back";
+      const force = Boolean(req.body?.force);
+      const result = await identifyCollectorCardByPublicId({
+        publicCardId: req.params.publicCardId!,
+        userId: req.user!.id,
+        role,
+        force,
+      });
+      res.json(result);
     } catch (err) {
       sendCollectorProfileError(res, err);
     }
@@ -756,7 +769,7 @@ collectorProfilesCustomerRoutes.post(
 
       const reservationId = req.body?.reservationId ?? req.body?.reservation_id;
       if (reservationId) {
-        await consumeReservedEntitlement(String(reservationId), req.user!.id, card.id, 0);
+        await getValidatedReservation(String(reservationId), req.user!.id, card.id);
       }
 
       const grade = await gradeFromBuffers({
@@ -767,6 +780,9 @@ collectorProfilesCustomerRoutes.post(
         back: backBuf ?? undefined,
       });
       const usageId = await getLatestUsageEventId(req.user!.id);
+      if (reservationId) {
+        await finalizeReservedEntitlement(String(reservationId), req.user!.id, card.id);
+      }
       const link = await insertGradeLink({
         cardId: card.id,
         initiatedByUserId: req.user!.id,
@@ -827,6 +843,7 @@ collectorProfilesCustomerRoutes.post(
 
 collectorProfilesPublicRoutes.get(
   "/collector/discover",
+  collectorIpRateLimit("discover", 30),
   optionalAuth,
   requireCollectorProfilesEnabled,
   async (req, res) => {

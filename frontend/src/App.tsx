@@ -46,6 +46,7 @@ import { AdminHumanPregradeReviewPage } from "./humanPregrade/admin/AdminHumanPr
 import { AdminHumanPregradeSettingsPage } from "./humanPregrade/admin/AdminHumanPregradeSettingsPage";
 import { PublicCollectorProfilePage } from "./collectorProfiles/pages/PublicCollectorProfilePage";
 import { PublicCollectorCardPage } from "./collectorProfiles/pages/PublicCollectorCardPage";
+import { CollectorLayout } from "./collectorProfiles/components/CollectorLayout";
 import { CollectorSetupPage } from "./collectorProfiles/pages/CollectorSetupPage";
 import { CollectorProfilePage } from "./collectorProfiles/pages/CollectorProfilePage";
 import { CollectorCardsPage } from "./collectorProfiles/pages/CollectorCardsPage";
@@ -163,15 +164,17 @@ export default function App() {
         <Route path="/human-pregrade/orders" element={<HumanPregradeOrdersPage />} />
         <Route path="/human-pregrade/orders/:publicId" element={<HumanPregradeOrderPage />} />
         <Route path="/human-pregrade/orders/:publicId/report" element={<HumanPregradeReportPage />} />
-        <Route path="/collector/setup" element={<CollectorSetupPage />} />
-        <Route path="/collector/profile" element={<CollectorProfilePage />} />
-        <Route path="/collector/cards" element={<CollectorCardsPage />} />
-        <Route path="/collector/cards/new" element={<CollectorNewCardPage />} />
-        <Route path="/collector/cards/:publicCardId/edit" element={<CollectorEditCardPage />} />
-        <Route path="/collector/trades" element={<CollectorTradesPage />} />
-        <Route path="/collector/messages" element={<CollectorMessagesPage />} />
-        <Route path="/collector/messages/:conversationId" element={<CollectorConversationPage />} />
-        <Route path="/collector/settings" element={<CollectorSettingsPage />} />
+        <Route path="/collector" element={<CollectorLayout />}>
+          <Route path="setup" element={<CollectorSetupPage />} />
+          <Route path="profile" element={<CollectorProfilePage />} />
+          <Route path="settings" element={<CollectorSettingsPage />} />
+          <Route path="cards" element={<CollectorCardsPage />} />
+          <Route path="cards/new" element={<CollectorNewCardPage />} />
+          <Route path="cards/:publicCardId/edit" element={<CollectorEditCardPage />} />
+          <Route path="trades" element={<CollectorTradesPage />} />
+          <Route path="messages" element={<CollectorMessagesPage />} />
+          <Route path="messages/:conversationId" element={<CollectorConversationPage />} />
+        </Route>
         <Route
           path="/admin"
           element={

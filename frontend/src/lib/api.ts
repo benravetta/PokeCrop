@@ -1051,7 +1051,12 @@ export async function straightenForGrade(file: File): Promise<string | null> {
 export async function gradeCard(
   images: GradeImages,
   centering?: MeasuredCentering
-): Promise<{ result: GradeResult; quota: GradeQuota; capture_quality?: CaptureQuality }> {
+): Promise<{
+  result: GradeResult;
+  quota: GradeQuota;
+  capture_quality?: CaptureQuality;
+  billing?: "free" | "subscription" | "one_off" | "admin";
+}> {
   const form = new FormData();
   form.append("front", images.front);
   if (images.back) form.append("back", images.back);

@@ -239,6 +239,7 @@ export type GradeExecuteSuccess = {
   quota: GradeQuota;
   capture_quality: unknown;
   billed: boolean;
+  billing?: "free" | "subscription" | "one_off" | "admin";
 };
 
 export type GradeExecuteResult = GradeExecuteSuccess | GradeExecuteError;
@@ -430,5 +431,6 @@ export async function executeGrade(opts: {
     quota: updated,
     capture_quality: captureQA,
     billed: true,
+    billing,
   };
 }

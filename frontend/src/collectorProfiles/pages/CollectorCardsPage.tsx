@@ -1,38 +1,74 @@
-import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
+import { Plus } from "lucide-react";
 import { listCollectorCards } from "../api";
+import { COLLECTOR_COPY } from "../copy";
+import {
+  CollectorCardGrid,
+  CollectorEmptyState,
+  CollectorLinkButton,
+  CollectorLoading,
+  CollectorPageHeader,
+  type CollectorCardPreview,
+} from "../components/ui";
 
 export function CollectorCardsPage() {
-  const [cards, setCards] = useState<{ public_id: string; card_name: string; status: string }[]>([]);
+  const [cards, setCards] = useState<CollectorCardPreview[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    listCollectorCards().then((d) => setCards(d.cards ?? []));
+    listCollectorCards()
+      .then((d) =>
+        setCards(
+          (d.cards ?? []).map(
+            (c: {
+              public_id: string;
+              card_name: string;
+              set_name?: string;
+              status: string;
+              thumbnail_url?: string;
+            }) => ({
+              publicId: c.public_id,
+              cardName: c.card_name,
+              setName: c.set_name,
+              status: c.status,
+              thumbnailUrl: c.thumbnail_url,
+            })
+          )
+        )
+      )
+      .finally(() => setLoading(false));
   }, []);
 
+  if (loading) return <CollectorLoading label="Loading cards…" />;
+
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-text-primary">Your cards</h1>
-        <Link to="/collector/cards/new" className="px-4 py-2 rounded-lg bg-accent text-white text-sm font-medium">
-          Add card
-        </Link>
-      </div>
-      <ul className="mt-6 space-y-2">
-        {cards.map((c) => (
-          <li key={c.public_id}>
-            <Link
-              to={`/collector/cards/${c.public_id}/edit`}
-              className="flex justify-between p-4 rounded-xl border border-border-subtle hover:border-accent/40"
-            >
-              <span className="font-medium text-text-primary">{c.card_name}</span>
-              <span className="text-sm text-text-secondary">{c.status}</span>
-            </Link>
-          </li>
-        ))}
-        {cards.length === 0 && (
-          <p className="text-text-secondary text-center py-12">No cards yet.</p>
-        )}
-      </ul>
+    <div className="space-y-6">
+      <CollectorPageHeader
+        title="Your cards"
+        description="Upload photos, crop both sides, and publish cards to your public sections."
+        actions={
+          <CollectorLinkButton to="/collector/cards/new">
+            <Plus className="h-4 w-4" />
+            Add card
+          </CollectorLinkButton>
+        }
+      />
+
+      <CollectorCardGrid
+        cards={cards}
+        linkTo={(c) => `/collector/cards/${c.publicId}/edit`}
+        empty={
+          <CollectorEmptyState
+            title={COLLECTOR_COPY.empty.cards.title}
+            body={COLLECTOR_COPY.empty.cards.body}
+            action={
+              <CollectorLinkButton to="/collector/cards/new">
+                {COLLECTOR_COPY.empty.cards.action}
+              </CollectorLinkButton>
+            }
+          />
+        }
+      />
     </div>
   );
 }

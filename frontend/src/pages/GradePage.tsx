@@ -14,6 +14,7 @@ import {
   Camera,
 } from "lucide-react";
 import { buildGradeReportPdf } from "../lib/gradeReportPdf";
+import { shouldWatermarkFreeExports } from "../lib/watermark";
 import { GradeUsageInline } from "../components/plan/PlanUsageCard";
 import {
   gradeCard,
@@ -103,6 +104,7 @@ export function GradePage() {
   const [previews, setPreviews] = useState<Record<string, string>>({});
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [quota, setQuota] = useState<GradeQuota | null>(null);
+  const [lastBilling, setLastBilling] = useState<string | null>(null);
   const [result, setResult] = useState<GradeResult | null>(null);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -470,6 +472,7 @@ export function GradePage() {
       const res = await gradeCard(payload, buildCentering());
       setResult(res.result);
       setQuota(res.quota);
+      setLastBilling(res.billing ?? null);
     } catch (err) {
       if (err instanceof ApiError && err.status === 422) {
         const body = err.body as { capture_quality?: CaptureQuality } | null;
@@ -489,6 +492,7 @@ export function GradePage() {
     setResult(null);
     setError(null);
     setCaptureBlockers([]);
+    setLastBilling(null);
   }, []);
 
   const centeringMeasured = Boolean(buildCentering());
@@ -623,7 +627,7 @@ export function GradePage() {
                         front: proc.front.src ?? previews.front,
                         back: proc.back.src ?? previews.back,
                       },
-                      { watermark: !isAdmin && plan === "free" }
+                      { watermark: shouldWatermarkFreeExports({ isAdmin, plan, billing: lastBilling }) }
                     );
                   } catch {
                     setError("Couldn't build the PDF report.");

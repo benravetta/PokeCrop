@@ -1,8 +1,17 @@
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Loader2 } from "lucide-react";
+import { ArrowLeft, Sparkles } from "lucide-react";
 import { createCollectorProfile } from "../api";
 import { useCollectorProfilesConfig } from "../hooks/useCollectorProfilesConfig";
+import { COLLECTOR_COPY } from "../copy";
+import {
+  CollectorButton,
+  CollectorField,
+  CollectorInput,
+  CollectorLoading,
+  CollectorPageHeader,
+  CollectorSection,
+} from "../components/ui";
 
 export function CollectorSetupPage() {
   const navigate = useNavigate();
@@ -12,17 +21,10 @@ export function CollectorSetupPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  if (configLoading) {
-    return <div className="p-8 text-text-secondary">Loading…</div>;
-  }
+  if (configLoading) return <CollectorLoading />;
   if (!enabled) {
     return (
-      <div className="max-w-lg mx-auto p-8 text-center">
-        <p className="text-text-secondary">Collector profiles are not available yet.</p>
-        <Link to="/account" className="mt-4 inline-block text-accent hover:underline">
-          Back to account
-        </Link>
-      </div>
+      <CollectorEmptyUnavailable />
     );
   }
 
@@ -41,42 +43,59 @@ export function CollectorSetupPage() {
   };
 
   return (
-    <div className="max-w-lg mx-auto px-4 py-10">
-      <h1 className="text-2xl font-semibold text-text-primary">GemCheck Collector Profile</h1>
-      <p className="mt-2 text-text-secondary">
-        Show what you collect, list what you will trade and share it all with one link.
-      </p>
-      <form onSubmit={onSubmit} className="mt-8 space-y-4">
-        <label className="block">
-          <span className="text-sm text-text-secondary">Username</span>
-          <input
-            className="mt-1 w-full rounded-lg border border-border-subtle bg-surface-raised px-3 py-2"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            placeholder="my_collection"
-            required
-          />
-          <span className="text-xs text-text-secondary">gemcheck.co.uk/u/yourname</span>
-        </label>
-        <label className="block">
-          <span className="text-sm text-text-secondary">Display name</span>
-          <input
-            className="mt-1 w-full rounded-lg border border-border-subtle bg-surface-raised px-3 py-2"
-            value={displayName}
-            onChange={(e) => setDisplayName(e.target.value)}
-            placeholder="Your collector name"
-          />
-        </label>
-        {error && <p className="text-sm text-red-500">{error}</p>}
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full flex items-center justify-center gap-2 rounded-lg bg-accent text-white py-2.5 font-medium disabled:opacity-60"
-        >
-          {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-          Create profile
-        </button>
-      </form>
+    <div className="space-y-6 anim-rise">
+      <Link
+        to="/account"
+        className="inline-flex items-center gap-1.5 text-sm text-text-muted hover:text-text-primary"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Back to account
+      </Link>
+
+      <CollectorPageHeader
+        title="Create your collector profile"
+        description={COLLECTOR_COPY.tagline}
+      />
+
+      <CollectorSection
+        icon={<Sparkles className="h-4 w-4" />}
+        title="Choose your public URL"
+        description="You can update your bio and visibility after setup"
+      >
+        <form onSubmit={onSubmit} className="space-y-4">
+          <CollectorField label="Username" hint="gemcheck.co.uk/u/yourname — letters, numbers, underscores">
+            <CollectorInput
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="my_collection"
+              autoComplete="off"
+              required
+            />
+          </CollectorField>
+          <CollectorField label="Display name" hint="Shown at the top of your public profile">
+            <CollectorInput
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              placeholder="Your collector name"
+            />
+          </CollectorField>
+          {error && <p className="text-sm text-error">{error}</p>}
+          <CollectorButton type="submit" loading={loading} className="w-full">
+            Create profile
+          </CollectorButton>
+        </form>
+      </CollectorSection>
+    </div>
+  );
+}
+
+function CollectorEmptyUnavailable() {
+  return (
+    <div className="py-12 text-center">
+      <p className="text-text-secondary">Collector profiles are not available yet.</p>
+      <Link to="/account" className="mt-4 inline-block text-sm font-medium text-accent hover:underline">
+        Back to account
+      </Link>
     </div>
   );
 }

@@ -145,6 +145,7 @@ router.post(
       result: out.result,
       quota: out.quota,
       capture_quality: out.capture_quality,
+      billing: out.billing,
     });
   } catch (err) {
     console.error("grade error:", err);
