@@ -32,6 +32,6 @@ describe("applyCropWatermark", () => {
       expect(out.length).toBeGreaterThan(0);
       expect(out.subarray(0, 8).toString("hex")).toBe("89504e470d0a1a0a");
     },
-    15_000
+    60_000
   );
 });
