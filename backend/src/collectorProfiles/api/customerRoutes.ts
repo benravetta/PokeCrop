@@ -725,10 +725,12 @@ collectorProfilesCustomerRoutes.post(
       const images = await listCardImages(card.id);
       const front = images.find((i) => i.image_role === "front");
       const back = images.find((i) => i.image_role === "back");
-      const frontBuf = await loadImageBuffer(front?.processed_storage_id ?? front?.original_storage_id);
+      const frontBuf = await loadImageBuffer(
+        front?.processed_storage_id ?? front?.original_storage_id ?? null
+      );
       if (!frontBuf) throw new CollectorProfileError("COLLECTOR_INVALID_INPUT", "Front image required.", 400);
       const backBuf = back
-        ? await loadImageBuffer(back.processed_storage_id ?? back.original_storage_id)
+        ? await loadImageBuffer(back.processed_storage_id ?? back.original_storage_id ?? null)
         : undefined;
 
       const reservationId = req.body?.reservationId ?? req.body?.reservation_id;

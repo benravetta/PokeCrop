@@ -37,7 +37,9 @@ export type ActivityAction =
   | "human_pregrade.report_completed"
   | "human_pregrade.order_unable_to_assess"
   | "human_pregrade.order_cancelled"
-  | "human_pregrade.refund_processed";
+  | "human_pregrade.refund_processed"
+  | "collector.report.created"
+  | "collector.profile_published";
 
 export interface ActivityInput {
   /** Whose timeline this event belongs to. */

@@ -3,6 +3,8 @@ import {
   canAnonymousViewCard,
   isProfilePubliclyAccessible,
   shouldNoIndex,
+  type CardVisibility,
+  type ProfileVisibility,
 } from "../domain/visibility.js";
 import type { CollectorProfileRow } from "../domain/types.js";
 import { isEitherBlocked } from "../infrastructure/blockRepo.js";
@@ -39,7 +41,7 @@ export async function buildPublicProfileView(opts: {
   }
 
   const isOwner = opts.viewerUserId === profile.user_id;
-  if (!isOwner && !isProfilePubliclyAccessible(profile.visibility, profile.status)) {
+  if (!isOwner && !isProfilePubliclyAccessible(profile.visibility as ProfileVisibility, profile.status)) {
     throw new CollectorProfileError("COLLECTOR_NOT_FOUND", "Profile not found.", 404);
   }
 
@@ -57,7 +59,12 @@ export async function buildPublicProfileView(opts: {
   const mapCard = async (card: Awaited<ReturnType<typeof listCardsForProfile>>[0]) => {
     if (
       !isOwner &&
-      !canAnonymousViewCard(card.visibility, profile.visibility, profile.status, card.status)
+      !canAnonymousViewCard(
+        card.visibility as CardVisibility,
+        profile.visibility as ProfileVisibility,
+        profile.status,
+        card.status
+      )
     ) {
       return null;
     }
@@ -130,7 +137,7 @@ export async function buildPublicCardView(opts: {
   }
 
   const isOwner = opts.viewerUserId === profile.user_id;
-  if (!isOwner && !isProfilePubliclyAccessible(profile.visibility, profile.status)) {
+  if (!isOwner && !isProfilePubliclyAccessible(profile.visibility as ProfileVisibility, profile.status)) {
     throw new CollectorProfileError("COLLECTOR_NOT_FOUND", "Card not found.", 404);
   }
 
@@ -140,7 +147,12 @@ export async function buildPublicCardView(opts: {
   }
   if (
     !isOwner &&
-    !canAnonymousViewCard(card.visibility, profile.visibility, profile.status, card.status)
+    !canAnonymousViewCard(
+      card.visibility as CardVisibility,
+      profile.visibility as ProfileVisibility,
+      profile.status,
+      card.status
+    )
   ) {
     throw new CollectorProfileError("COLLECTOR_NOT_FOUND", "Card not found.", 404);
   }
@@ -205,14 +217,14 @@ export async function assertCanInitiateGrade(opts: {
     throw new CollectorProfileError("COLLECTOR_NOT_FOUND", "Card not found.", 404);
   }
 
-  if (!isProfilePubliclyAccessible(profile.visibility, profile.status)) {
+  if (!isProfilePubliclyAccessible(profile.visibility as ProfileVisibility, profile.status)) {
     throw new CollectorProfileError("COLLECTOR_NOT_FOUND", "Card not found.", 404);
   }
 
   if (
     !canAnonymousViewCard(
-      opts.card.visibility,
-      profile.visibility,
+      opts.card.visibility as CardVisibility,
+      profile.visibility as ProfileVisibility,
       profile.status,
       opts.card.status
     )

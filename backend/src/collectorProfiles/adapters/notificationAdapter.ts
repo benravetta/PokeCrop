@@ -1,6 +1,10 @@
-import { logActivity } from "../../lib/activity.js";
+import { logActivity, type ActivityAction } from "../../lib/activity.js";
 import { sendMail } from "../../lib/mail.js";
 import { getServiceClient } from "../../lib/supabase.js";
+
+const ACTIVITY_ACTION: Record<string, ActivityAction> = {
+  profile_published: "collector.profile_published",
+};
 
 export async function sendCollectorNotification(opts: {
   userId: string;
@@ -35,12 +39,15 @@ export async function notifyCollectorEvent(opts: {
   });
   if (dupErr?.code === "23505") return;
 
-  logActivity({
-    userId: opts.userId,
-    action: `collector.${opts.eventType}`,
-    actorId: opts.userId,
-    detail: { entityId: opts.entityId, preview: opts.preview },
-  });
+  const action = ACTIVITY_ACTION[opts.eventType];
+  if (action) {
+    logActivity({
+      userId: opts.userId,
+      action,
+      actorId: opts.userId,
+      detail: { entityId: opts.entityId, preview: opts.preview },
+    });
+  }
 
   await sendCollectorNotification({
     userId: opts.userId,
