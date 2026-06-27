@@ -322,7 +322,7 @@ export function AdminHumanPregradeReviewPage() {
           </select>
         </label>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          {scoreInput("Centering", "centeringScore")}
+          {scoreInput("Centring", "centeringScore")}
           {scoreInput("Corners", "cornersScore")}
           {scoreInput("Edges", "edgesScore")}
           {scoreInput("Surface", "surfaceScore")}

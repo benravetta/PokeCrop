@@ -14,7 +14,7 @@ export const paths = {
 
 **Output:** JSON by default; send \`Accept: image/png\` for raw bytes.
 
-**Metering:** Only **successful** extractions count toward rate limits.`,
+**Usage counting:** Only **successful** extractions count towards rate limits.`,
       requestBody: {
         required: true,
         content: {
@@ -303,7 +303,7 @@ open("report.pdf", "wb").write(r.content)`
       tags: ["Grade"],
       summary: "Straighten a card photo",
       description:
-        "Runs one image through the grading-safe crop pipeline for centering measurement. **Not** metered against grade quota. Rate limited to 30/min per account.",
+        "Runs one image through the grading-safe crop pipeline for centring measurement. **Not** counted against grade quota. Rate limited to 30/min per account.",
       requestBody: {
         required: true,
         content: {
@@ -345,9 +345,9 @@ open("report.pdf", "wb").write(r.content)`
   "/grade/centering-preview": {
     post: {
       tags: ["Grade"],
-      summary: "Preview centering against grader thresholds",
+      summary: "Preview centring against grader thresholds",
       description:
-        "Runs the deterministic centering engine on user-measured ratios. **Not** metered against grade quota and does not invoke the LLM.",
+        "Runs the deterministic centring engine on user-measured ratios. **Not** counted against grade quota and does not invoke the LLM.",
       requestBody: {
         required: true,
         content: {
@@ -364,7 +364,7 @@ open("report.pdf", "wb").write(r.content)`
       },
       responses: {
         "200": {
-          description: "Collector-safe centering preview.",
+          description: "Collector-safe centring preview.",
           content: {
             "application/json": {
               schema: {
@@ -374,7 +374,7 @@ open("report.pdf", "wb").write(r.content)`
             },
           },
         },
-        "400": errorResponse("Valid centering JSON with at least one ratio is required."),
+        "400": errorResponse("Valid centring JSON with at least one ratio is required."),
         "401": errorResponse("Missing or invalid API key."),
         "403": errorResponse("Requires active API plan."),
       },

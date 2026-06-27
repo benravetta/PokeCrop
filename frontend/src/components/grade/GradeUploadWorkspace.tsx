@@ -197,7 +197,7 @@ function GuideSidebar() {
   const [tab, setTab] = useState<GuideTab>("tips");
   const tabs: { id: GuideTab; label: string }[] = [
     { id: "tips", label: "Photo tips" },
-    { id: "centering", label: "Centering" },
+    { id: "centering", label: "Centring" },
     { id: "graders", label: "Graders" },
   ];
 
@@ -230,12 +230,12 @@ function GuideSidebar() {
 function GuideTips() {
   const tips = [
     { icon: Camera, t: "Full resolution", d: "Camera originals only — no screenshots or re-shared images." },
-    { icon: Square, t: "Bare & flat", d: "Out of sleeve/toploader. Holos curl and skew centering reads." },
+    { icon: Square, t: "Bare & flat", d: "Out of sleeve/toploader. Holos curl and skew centring reads." },
     { icon: ScanSearch, t: "Square-on", d: "Fill the frame, tap to focus, even light without glare." },
     { icon: Layers, t: "Front + back", d: "Both sides for gem-grade confidence and back subgrades." },
   ];
   const checks = [
-    { icon: ScanSearch, t: "Centering", d: "Border evenness, front and back." },
+    { icon: ScanSearch, t: "Centring", d: "Border evenness, front and back." },
     { icon: Square, t: "Corners", d: "Whitening, dents, rounding." },
     { icon: Crop, t: "Edges", d: "Chips, nicks, rough cuts." },
     { icon: Layers, t: "Surface", d: "Scratches, print lines, creases." },
@@ -318,11 +318,11 @@ function GuideCentering() {
 
 function GuideGraders() {
   const rows = [
-    ["PSA", "Whole 1–10. Gem 10 needs tight front centering."],
+    ["PSA", "Whole 1–10. Gem 10 needs tight front centring."],
     ["Beckett", "Half grades + subs. Black Label = all 10s."],
     ["CGC", "Half grades, strict on the weakest sub."],
-    ["TAG", "One-decimal CV score, tight centering bands."],
-    ["ACE", "One-decimal AI grade with published centering caps."],
+    ["TAG", "One-decimal CV score, tight centring bands."],
+    ["ACE", "One-decimal AI grade with published centring caps."],
   ];
   return (
     <div>
@@ -350,7 +350,7 @@ function CenteringPreviewPanel({ preview }: { preview: CenteringPreview }) {
   return (
     <div className="rounded-xl border border-border-subtle bg-surface-overlay/40 overflow-hidden">
       <div className="px-4 py-3 border-b border-border-subtle/80 bg-surface-overlay/50">
-        <h3 className="text-sm font-medium text-text-primary">Centering preview (PSA baseline)</h3>
+        <h3 className="text-sm font-medium text-text-primary">Centring preview (PSA baseline)</h3>
         <p className="mt-1 text-xs text-text-secondary leading-relaxed">{preview.explanation}</p>
       </div>
       <div className="p-4 space-y-3">
@@ -549,7 +549,7 @@ export function GradeUploadWorkspace({
           <div className="mt-6 flex items-center gap-2 sm:gap-4 overflow-x-auto pb-1">
             <StepBadge n={1} label="Upload" done={hasFront} active={!hasFront} />
             <div className="h-px w-6 sm:w-10 shrink-0 bg-border-strong" />
-            <StepBadge n={2} label="Center" done={centeringMeasured} active={hasFront && !centeringMeasured} />
+            <StepBadge n={2} label="Centring" done={centeringMeasured} active={hasFront && !centeringMeasured} />
             <div className="h-px w-6 sm:w-10 shrink-0 bg-border-strong" />
             <StepBadge n={3} label="Report" active={hasFront && centeringMeasured} />
           </div>
@@ -635,7 +635,7 @@ export function GradeUploadWorkspace({
           {hasFront && (
             <Panel
               step={2}
-              title="Measure centering"
+              title="Measure centring"
               description="Confirm the outer card edge and inner artwork border on each straightened photo."
             >
               <div className={`grid gap-4 ${hasBack ? "xl:grid-cols-2" : ""}`}>
@@ -704,7 +704,7 @@ export function GradeUploadWorkspace({
                   <CheckCircle2 className="w-3.5 h-3.5" /> {GRADE_UPLOAD.readyState}
                 </span>
               ) : (
-                "Confirm centering borders for best accuracy"
+                "Confirm centring borders for best accuracy"
               )
             ) : (
               "Upload a front image to continue."

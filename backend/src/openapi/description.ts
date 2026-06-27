@@ -90,8 +90,8 @@ Also works with \`Accept: application/pdf\` or multipart field \`format=pdf\`.
 | GET | \`/crop/limits\` | Crop rate limit + today's usage |
 | POST | \`/grade\` | AI pre-grade → JSON or PDF |
 | GET | \`/grade/quota\` | Grading allowance remaining |
-| POST | \`/grade/straighten\` | Straighten one photo (centering helper) |
-| POST | \`/grade/centering-preview\` | Preview measured centering (no quota burn) |
+| POST | \`/grade/straighten\` | Straighten one photo (centring helper) |
+| POST | \`/grade/centering-preview\` | Preview measured centring (no quota burn) |
 | GET | \`/account\` | Plan, quotas, key count |
 | GET | \`/usage\` | Paginated API usage history |
 | GET | \`/health\` | Health check (no auth) |
@@ -122,7 +122,7 @@ See **CropParams** schema. Notable fields:
 - Default: \`application/json\` → \`{ image_base64, metadata }\`
 - \`Accept: image/png\` → raw PNG bytes
 
-**Metering:** Each **successful** crop counts toward rate limits. Failed detections do not.
+**Usage counting:** Each **successful** crop counts towards rate limits. Failed detections do not.
 
 ---
 
@@ -136,7 +136,7 @@ See **CropParams** schema. Notable fields:
 | \`back\` | No | Back photo (strongly recommended) |
 | \`angled_front\`, \`angled_back\` | No | Glare / angle shots |
 | \`closeups\` | No | Up to 6 defect close-ups |
-| \`centering\` | No | JSON: \`{"front":{"leftRight":"55/45","topBottom":"50/50"}}\` |
+| \`centering\` | No | JSON centring ratios: \`{"front":{"leftRight":"55/45","topBottom":"50/50"}}\` |
 | \`format\` | No | \`json\` (default) or \`pdf\` |
 
 **Response (JSON)**

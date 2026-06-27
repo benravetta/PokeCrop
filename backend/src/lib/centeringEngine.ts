@@ -403,7 +403,7 @@ function buildExplanation(
   const cfg = getGradingCenteringConfig();
   if (confidence < cfg.minimum_confidence_for_cap) {
     return (
-      "Centering could not be measured reliably from this image. " +
+      "Centring could not be measured reliably from this image. " +
       "A clearer straight-on photograph would improve the estimate."
     );
   }
@@ -411,18 +411,18 @@ function buildExplanation(
     return "A sleeve or toploader may be affecting border measurement — lay the card flat and bare for a clearer read.";
   }
   const eq = result.centering_equivalent;
-  if (eq == null) return "Centering data unavailable.";
+  if (eq == null) return "Centring data unavailable.";
   if (result.grade_cap === "none") {
-    return `Centering appears broadly consistent with a ${grader} ${eq} equivalent; it is unlikely to be the main grade-limiting factor on its own.`;
+    return `Centring appears broadly consistent with a ${grader} ${eq} equivalent; it is unlikely to be the main grade-limiting factor on its own.`;
   }
   if (result.grade_cap === "soft") {
     return (
-      `Front/back ratios sit near the typical ${grader} ${eq} centering guideline. ` +
+      `Front/back ratios sit near the typical ${grader} ${eq} centring guideline. ` +
       "A professional grader may interpret this borderline measurement differently."
     );
   }
   return (
-    `Measured centering supports a maximum ${grader} ${eq} centering equivalent. ` +
+    `Measured centring supports a maximum ${grader} ${eq} centring equivalent. ` +
     "Other condition factors may still reduce the overall prediction."
   );
 }

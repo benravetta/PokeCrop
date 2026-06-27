@@ -203,7 +203,7 @@ function ProductPreview() {
                 <span className="font-medium text-text-primary">
                   {recommended.co} looks like the strongest match for this card.
                 </span>{" "}
-                {ESTIMATE_DISCLAIMER_SHORT} Each company weights centering, corners, edges and
+                {ESTIMATE_DISCLAIMER_SHORT} Each company weights centring, corners, edges and
                 surface differently.
               </p>
             </div>

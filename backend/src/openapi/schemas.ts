@@ -63,7 +63,7 @@ export const components = {
           type: "boolean",
           default: false,
           description:
-            "Perspective-correct crop without beautification — use before measuring centering or grading.",
+            "Perspective-correct crop without beautification — use before measuring centring or grading.",
         },
         background: {
           type: "string",
@@ -152,7 +152,7 @@ export const components = {
     },
     MeasuredCentering: {
       type: "object",
-      description: "User-measured centering ratios (larger side first), e.g. 55/45.",
+      description: "User-measured centring ratios (larger side first), e.g. 55/45.",
       properties: {
         front: {
           type: "object",
@@ -182,7 +182,7 @@ export const components = {
     },
     CenteringPreview: {
       type: "object",
-      description: "Collector-safe centering preview — no quota burn, no LLM.",
+      description: "Collector-safe centring preview — no quota burn, no LLM.",
       properties: {
         explanation: { type: "string" },
         measurement_confidence: { type: "number", minimum: 0, maximum: 1 },
@@ -289,7 +289,7 @@ export const components = {
         centering: { type: "object", additionalProperties: true },
         centering_analysis: {
           type: "object",
-          description: "Optional grader-specific centering analysis (present on new grade runs).",
+          description: "Optional grader-specific centring analysis (present on new grade runs).",
           nullable: true,
           additionalProperties: true,
         },

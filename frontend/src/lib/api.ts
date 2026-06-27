@@ -137,6 +137,11 @@ export interface MeResponse {
   cropsRemaining: number | null;
   dailyLimit?: number | null;
   gradeCredits?: number;
+  gradeUsed?: number | null;
+  gradeLimit?: number | null;
+  gradeAllowanceRemaining?: number | null;
+  gradeRemaining?: number | null;
+  gradeWindow?: "day" | "month" | null;
   isAdmin: boolean;
 }
 
@@ -792,7 +797,7 @@ export async function adminCatalogFacets(opts: {
   if (opts.set) q.set("set", opts.set);
   const res = await apiFetch(`${BASE}/admin/catalog/facets?${q.toString()}`, {
   });
-  if (!res.ok) await fail(res, "Failed to load catalog facets");
+  if (!res.ok) await fail(res, "Failed to load catalogue facets");
   return res.json();
 }
 
@@ -1025,7 +1030,7 @@ export async function previewCentering(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ centering }),
   });
-  if (!res.ok) await fail(res, "Failed to preview centering");
+  if (!res.ok) await fail(res, "Failed to preview centring");
   return res.json();
 }
 
@@ -1228,7 +1233,7 @@ export async function adminCatalogItems(opts: {
   if (opts.pageSize) q.set("pageSize", String(opts.pageSize));
   const res = await apiFetch(`${BASE}/admin/catalog/items?${q.toString()}`, {
   });
-  if (!res.ok) await fail(res, "Failed to load catalog items");
+  if (!res.ok) await fail(res, "Failed to load catalogue items");
   return res.json();
 }
 

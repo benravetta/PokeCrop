@@ -1,5 +1,7 @@
 /** Legal page copy — en-GB. Keep aligned with product behaviour in COPY_MANIFEST verified facts. */
 
+import { FREE_GRADES_PER_MONTH } from "./marketingCopy";
+
 export const LEGAL_LAST_UPDATED = "23 June 2026";
 
 export const LEGAL_OPERATOR =
@@ -223,7 +225,7 @@ export const REFUND_POLICY: LegalDocument = {
     {
       heading: "Free monthly allowance",
       paragraphs: [
-        "Each free account includes one card check per month at no charge. Free allowances are not billable items and are not refundable.",
+        `Each free account includes ${FREE_GRADES_PER_MONTH} card checks per calendar month at no charge. Free allowances are not billable items and are not refundable.`,
         "If a check does not complete because of photo quality issues, a not-a-card result, or a processing failure, your paid or free credit is not consumed, as described in the FAQ.",
       ],
     },

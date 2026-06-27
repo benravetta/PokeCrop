@@ -98,7 +98,7 @@ router.post(
   try {
     const centering = parseCentering((req.body as Record<string, unknown>)?.centering);
     if (!centering) {
-      res.status(400).json({ error: "Valid centering JSON with at least one ratio is required." });
+      res.status(400).json({ error: "Valid centring JSON with at least one ratio is required." });
       return;
     }
     const preview = previewCentering(centering);
@@ -106,7 +106,7 @@ router.post(
     res.json({ preview });
   } catch (err) {
     console.error("centering preview error:", err);
-    res.status(500).json({ error: "Unexpected error during centering preview." });
+    res.status(500).json({ error: "Unexpected error during centring preview." });
   }
 });
 

@@ -4,6 +4,7 @@ import { Sparkles } from "lucide-react";
 import { useMe } from "../hooks/useMe";
 import { useAuth } from "../hooks/useAuth";
 import { isAdminMe } from "../lib/adminAccess";
+import { cropUsageFromMe, cropUsageHeadline } from "../lib/planUsageDisplay";
 
 // Compact header indicator: shows remaining free crops, or an "Unlimited" pill
 // for paying users. Links through to the account/billing page.
@@ -33,8 +34,9 @@ export function CropsBadge() {
     );
   }
 
-  const remaining = me.cropsRemaining ?? 0;
-  const depleted = remaining <= 0;
+  const usage = cropUsageFromMe(me);
+  if (!usage) return null;
+  const depleted = usage.remaining <= 0;
 
   return (
     <Link
@@ -46,7 +48,7 @@ export function CropsBadge() {
       }`}
       title="Free daily crops remaining"
     >
-      {remaining} left today
+      {cropUsageHeadline(usage)}
     </Link>
   );
 }

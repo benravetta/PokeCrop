@@ -201,7 +201,7 @@ export function ReportPreview({ asPage = false }: { asPage?: boolean }) {
                 </div>
               </PaperSec>
 
-              <PaperSec title="Centering (measured)">
+              <PaperSec title="Centring (measured)">
                 <div className="grid grid-cols-2 gap-4 text-[11.5px]">
                   <div>
                     <div className="text-[10px] mb-0.5" style={{ color: RPT_MUTE }}>

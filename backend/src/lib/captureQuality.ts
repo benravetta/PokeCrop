@@ -188,7 +188,7 @@ export async function assessCaptureQuality(
       code: "centering_not_measured",
       severity: "warn",
       message:
-        "Centering was not measured on the straightened card. Confirm borders for accurate subgrades.",
+        "Centring was not measured on the straightened card. Confirm borders for accurate subgrades.",
     });
     score -= 8;
   }
@@ -219,7 +219,7 @@ export async function assessCaptureQuality(
         code: "sleeved",
         severity: "warn",
         message:
-          "The card appears to be in a sleeve or toploader. Lay it bare and flat for centering and edge reads.",
+          "The card appears to be in a sleeve or toploader. Lay it bare and flat for centring and edge reads.",
       });
       score -= 12;
     }

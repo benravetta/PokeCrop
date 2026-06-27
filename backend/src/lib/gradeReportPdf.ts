@@ -395,7 +395,7 @@ export async function buildGradeReportPdfBuffer(
     asStr(cent.back_top_bottom) && `Back T/B ${asStr(cent.back_top_bottom)}`,
   ].filter(Boolean) as string[];
   if (centBits.length) {
-    heading(`Centering${cent.measured === true ? "  (measured)" : ""}`);
+    heading(`Centring${cent.measured === true ? "  (measured)" : ""}`);
     para(centBits.join("     "), { color: INK, size: 9.5 });
     if (asStr(cent.verdict)) para(asStr(cent.verdict));
   }

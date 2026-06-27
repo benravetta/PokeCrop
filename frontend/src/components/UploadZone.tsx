@@ -1,10 +1,16 @@
-import { useCallback } from "react";
+import { useCallback, type ReactNode } from "react";
 import { useDropzone } from "react-dropzone";
 import { useAppStore } from "../hooks/useProcessing";
 import { Upload, FileImage, FileText, Loader2, HelpCircle } from "lucide-react";
 import { SingleGradePromo } from "./SingleGradePromo";
 
-export function UploadZone({ onHelp }: { onHelp?: () => void }) {
+export function UploadZone({
+  onHelp,
+  cropUsage,
+}: {
+  onHelp?: () => void;
+  cropUsage?: ReactNode;
+}) {
   const { upload, uploading, error } = useAppStore();
 
   const onDrop = useCallback(
@@ -47,6 +53,8 @@ export function UploadZone({ onHelp }: { onHelp?: () => void }) {
             (and an accurate grade later).
           </p>
         </div>
+
+        {cropUsage}
 
         <div
           {...getRootProps()}

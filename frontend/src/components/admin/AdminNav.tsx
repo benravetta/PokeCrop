@@ -18,7 +18,7 @@ const BASE_LINKS = [
   { to: "/admin/revenue", label: "Revenue", icon: PoundSterling },
   { to: "/admin/usage", label: "Usage", icon: Activity },
   { to: "/admin/operations", label: "Operations", icon: Wrench },
-  { to: "/admin/catalog", label: "Catalog", icon: Layers },
+  { to: "/admin/catalog", label: "Catalogue", icon: Layers },
 ] as const;
 
 type AdminNavLink = {

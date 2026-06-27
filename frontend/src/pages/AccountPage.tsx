@@ -3,9 +3,17 @@ import { Link, useSearchParams } from "react-router-dom";
 import { User as UserIcon, CreditCard, Lock, Check, Loader2, Sparkles, KeyRound, History } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { useMe } from "../hooks/useMe";
-import { openBillingPortal, startGradeCheckout, getGradeQuota, getProfile, updateProfile, type GradeQuota } from "../lib/api";
+import { openBillingPortal, startGradeCheckout, getProfile, updateProfile } from "../lib/api";
 import { PLAN_LABELS } from "../lib/plans";
 import { isAdminMe, STAFF_ACCOUNT } from "../lib/adminAccess";
+import {
+  cropUsageDetail,
+  cropUsageFromMe,
+  cropUsageHeadline,
+  gradeUsageDetail,
+  gradeUsageFromMe,
+  gradeUsageHeadline,
+} from "../lib/planUsageDisplay";
 import { StaffAccountPanel } from "../components/staff/StaffAccountPanel";
 import { Field } from "../components/auth/AuthLayout";
 import { ApiKeysPanel } from "../components/ApiKeysPanel";
@@ -40,7 +48,6 @@ export function AccountPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [portalBusy, setPortalBusy] = useState(false);
   const [buyBusy, setBuyBusy] = useState(false);
-  const [gradeQuota, setGradeQuota] = useState<GradeQuota | null>(null);
 
   const [displayName, setDisplayName] = useState("");
   const [savingName, setSavingName] = useState(false);
@@ -56,9 +63,6 @@ export function AccountPage() {
 
   useEffect(() => {
     refresh();
-    getGradeQuota()
-      .then((r) => setGradeQuota(r.quota))
-      .catch(() => {});
   }, [refresh]);
 
   // Returning from Stripe Checkout: refresh plan, then strip the query param.
@@ -146,6 +150,8 @@ export function AccountPage() {
 
   const plan = me?.plan ?? "free";
   const admin = isAdminMe(me);
+  const cropUsage = cropUsageFromMe(me);
+  const gradeUsage = gradeUsageFromMe(me);
 
   return (
     <div className="flex-1 min-h-0 overflow-y-auto">
@@ -203,19 +209,15 @@ export function AccountPage() {
                 {PLAN_LABELS[plan] ?? plan} plan
               </p>
               <p className="text-[12px] text-text-muted mt-0.5">
-                {plan === "free"
-                  ? me
-                    ? `${me.cropsRemaining ?? 0} of 3 daily crops remaining`
-                    : "3 crops per day"
-                  : "Unlimited crops"}
+                {cropUsage
+                  ? `${cropUsageHeadline(cropUsage)} · ${cropUsageDetail(cropUsage)}`
+                  : plan === "free"
+                    ? "3 crops per day"
+                    : "Unlimited crops"}
               </p>
-              {gradeQuota && (
+              {gradeUsage && (
                 <p className="text-[12px] text-text-muted mt-0.5">
-                  {gradeQuota.allowanceRemaining} of {gradeQuota.limit} AI grades remaining{" "}
-                  {gradeQuota.window === "month" ? "this month" : "today"}
-                  {gradeQuota.credits > 0 && (
-                    <span className="text-accent"> · +{gradeQuota.credits} purchased</span>
-                  )}
+                  {gradeUsageHeadline(gradeUsage)} · {gradeUsageDetail(gradeUsage)}
                 </p>
               )}
             </div>

@@ -14,6 +14,7 @@ import {
   Camera,
 } from "lucide-react";
 import { buildGradeReportPdf } from "../lib/gradeReportPdf";
+import { GradeUsageInline } from "../components/plan/PlanUsageCard";
 import {
   gradeCard,
   getGradeQuota,
@@ -38,6 +39,7 @@ import { GradeProgress } from "../components/grade/GradeProgress";
 import { GradeUploadWorkspace } from "../components/grade/GradeUploadWorkspace";
 import { HumanPregradePromo } from "../humanPregrade/components/HumanPregradePromo";
 import { borderRatios, sideMeasurementMeta, type Box } from "../lib/centering";
+import { SUBGRADE_KEYS, subgradeLabel, CENTRING_SECTION_TITLE } from "../lib/displayLabels";
 import { loadImage, cropFromImage, resolveRect } from "../lib/cardRegions";
 import { useAppStore } from "../hooks/useProcessing";
 import { PAYMENT } from "../lib/marketingCopy";
@@ -512,28 +514,13 @@ export function GradePage() {
     localCaptureHints.push({
       code: "centering_not_measured",
       severity: "warn",
-      message: "Centering not measured — confirm borders on the straightened card for accurate subgrades.",
+      message: "Centring not measured — confirm borders on the straightened card for accurate subgrades.",
     });
   }
 
   const outOfQuota = isAdmin ? false : quota ? quota.remaining <= 0 : false;
 
-  const quotaLabel =
-    quota && !isAdmin && !quota.isAdmin ? (
-    <div className="shrink-0 rounded-xl border border-border-subtle bg-surface/60 backdrop-blur-sm px-4 py-3 text-right">
-      <div className="text-[11px] uppercase tracking-wide text-text-muted">Grades left</div>
-      <div className="text-lg font-semibold text-text-primary tabular-nums">
-        {quota.remaining}
-        <span className="text-sm font-normal text-text-muted"> / {quota.limit + quota.credits}</span>
-      </div>
-      <div className="text-[11px] text-text-muted mt-0.5">
-        {quota.allowanceRemaining} plan · {quota.window === "month" ? "this month" : "today"}
-        {quota.credits > 0 && (
-          <span className="text-accent"> · +{quota.credits} purchased</span>
-        )}
-      </div>
-    </div>
-  ) : null;
+  const quotaLabel = quota && !isAdmin && !quota.isAdmin ? <GradeUsageInline quota={quota} /> : null;
 
   const purchaseBanner =
     purchaseStatus === "success" ? (
@@ -616,7 +603,9 @@ export function GradePage() {
               <div className="text-[11px] uppercase tracking-wide text-text-muted">Pre-grade estimate</div>
               <h1 className="text-xl font-semibold text-text-primary mt-0.5">{REPORT.mainHeading}</h1>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-3">
+              {quotaLabel}
+              <div className="flex flex-wrap items-center gap-2">
               <button
                 onClick={reset}
                 className="inline-flex items-center gap-2 rounded-xl border border-border-strong px-4 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-surface-overlay transition-colors"
@@ -648,6 +637,7 @@ export function GradePage() {
                 {pdfBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}
                 {pdfBusy ? "Building PDF…" : "Download PDF"}
               </button>
+              </div>
             </div>
           </div>
           <GradeReport
@@ -754,9 +744,9 @@ function CompanyEstimate({ obj }: { obj: unknown }) {
       </div>
       {hasSubs && (
         <div className="mt-3 grid grid-cols-4 gap-1 text-center">
-          {(["centering", "corners", "edges", "surface"] as const).map((k) => (
+          {SUBGRADE_KEYS.map((k) => (
             <div key={k}>
-              <div className="text-[10px] uppercase tracking-wide text-text-muted">{k.slice(0, 4)}</div>
+              <div className="text-[10px] uppercase tracking-wide text-text-muted">{subgradeLabel(k)}</div>
               <div className="text-xs text-text-primary">{asStr(subs[k]) || "—"}</div>
             </div>
           ))}
@@ -1349,7 +1339,7 @@ function Centering({ obj }: { obj: unknown }) {
   return (
     <div className="rounded-xl border border-border-subtle bg-surface-raised p-5">
       <h3 className="text-sm font-medium text-text-primary mb-2 flex items-center gap-2">
-        Centering
+        {CENTRING_SECTION_TITLE}
         {measured && (
           <span className="rounded-full bg-emerald-500/15 text-emerald-300 text-[10px] font-semibold px-2 py-0.5">
             MEASURED

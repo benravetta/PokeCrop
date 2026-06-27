@@ -1,4 +1,7 @@
 import { FREE_GRADES_PER_MONTH, SINGLE_REPORT_PRICE } from "../../lib/marketingCopy";
+import { SUBGRADE_KEYS, SUBGRADE_LABELS } from "../../lib/displayLabels";
+
+export { SUBGRADE_KEYS };
 
 export const BEFORE_IMG = "/demo-before.jpg?v=oddish4";
 export const AFTER_IMG = "/demo-after.png?v=oddish4";
@@ -51,17 +54,15 @@ export const EXAMPLE_COMPANIES = [
 
 export type ExampleCompany = (typeof EXAMPLE_COMPANIES)[number];
 
-export const SUBGRADE_KEYS = ["corners", "centering", "edges", "surface"] as const;
-
 /** Demo data for the Compare estimates section (Oddish report, distinct from hero Charizard). */
 export const GRADER_COMPARE_DEMO = {
   card: "Erika's Oddish",
   set: "Gym Heroes · 1st Edition · 52/132",
   thumb: AFTER_IMG,
-  subgradeLabels: ["Corners", "Centering", "Edges", "Surface"] as const,
+  subgradeLabels: SUBGRADE_KEYS.map((k) => SUBGRADE_LABELS[k]),
   bestFit: "CGC or Beckett",
   bestFitReason:
-    "Strong edges and surface, but rear corner whitening limits a gem mint. Both score borderline centering more generously than PSA.",
+    "Strong edges and surface, but rear corner whitening limits a gem mint. Both score borderline centring more generously than PSA.",
   confidence: "Moderate confidence",
 } as const;
 

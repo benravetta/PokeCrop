@@ -18,6 +18,8 @@ import { ExportControls } from "./ExportControls";
 import { CropCentringPanel } from "./CropCentringPanel";
 import { SingleGradePromo } from "./SingleGradePromo";
 import { useAppStore, paramsDiffer } from "../hooks/useProcessing";
+import { useMe } from "../hooks/useMe";
+import { PlanUsageStrip } from "./plan/PlanUsageCard";
 import { fetchExport } from "../lib/api";
 
 // Read a Blob back as raw base64 (no data: prefix), matching the store's
@@ -54,6 +56,7 @@ export function Workspace() {
   } = useAppStore();
 
   const navigate = useNavigate();
+  const me = useMe((s) => s.me);
   const [mode, setMode] = useState<Mode>("view");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [sending, setSending] = useState(false);
@@ -109,6 +112,8 @@ export function Workspace() {
           </span>
         )}
       </div>
+
+      <PlanUsageStrip me={me} />
 
       {/* Guidance: low-confidence auto-crop or photo-quality tips */}
       {mode === "view" && !busy && metadata && (() => {

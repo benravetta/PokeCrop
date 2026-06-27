@@ -1,6 +1,6 @@
 # GemCheck copy manifest
 
-Last updated: 2026-06-24. Implementation SSOT: `frontend/src/lib/marketingCopy.ts`, `frontend/src/lib/gradeUploadCopy.ts`.
+Last updated: 2026-06-27. Implementation SSOT: `frontend/src/lib/marketingCopy.ts`, `frontend/src/lib/gradeUploadCopy.ts`, `frontend/src/lib/displayLabels.ts`.
 
 ## Brand positioning
 
@@ -20,7 +20,7 @@ Honest pre-grade estimates from clear photographs, with reasons you can act on b
 ## Functional benefits
 
 - Compare five supported graders side by side
-- Visible condition breakdown (centering, corners, edges, surface)
+- Visible condition breakdown (centring, corners, edges, surface)
 - Photo quality gate before a report runs
 - Crop and centring tools included on free tier
 - No subscription required for occasional checks
@@ -56,6 +56,7 @@ Knowledgeable, honest, calm, direct, lightly playful (one pun per major page max
 | supported grader / grading company | PSA, Beckett, CGC, ACE, TAG |
 | likely best fit | where product calculates it |
 | visible condition | photo-limited assessment |
+| centring | border evenness (not "centering" in user copy) |
 
 ## Disallowed terminology
 

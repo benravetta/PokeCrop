@@ -191,7 +191,7 @@ export function GraderPerspectiveChart() {
             </table>
           </div>
           <p className="mt-3 text-[10px] text-text-muted leading-relaxed">
-            Each grader weights corners, centering, edges and surface differently. The lowest
+            Each grader weights corners, centring, edges and surface differently. The lowest
             subgrade often sets the ceiling on Beckett, CGC, TAG and ACE.
           </p>
         </div>

@@ -439,7 +439,7 @@ router.post(
       sendApiError(
         res,
         "invalid_request",
-        "Valid centering JSON with at least one ratio is required."
+        "Valid centring JSON with at least one ratio is required."
       );
       return;
     }
@@ -448,7 +448,7 @@ router.post(
     res.json({ preview });
   } catch (err) {
     console.error("v1 centering preview error:", err);
-    sendApiError(res, "internal_error", "Unexpected error during centering preview.");
+    sendApiError(res, "internal_error", "Unexpected error during centring preview.");
   }
 });
 

@@ -24,10 +24,10 @@ const GRADERS: GraderKey[] = ["PSA", "BGS", "ACE", "CGC", "TAG"];
 
 function hintLabel(grader: GraderKey, eq: number | null, cap: number | null): string | null {
   if (eq == null) return null;
-  if (grader === "CGC") return `CGC centering ~${eq}/10 equivalent`;
-  if (grader === "TAG") return `TAG centering ~${eq}/10 equivalent`;
-  if (cap != null && cap < eq) return `${grader} centering cap ~${cap}`;
-  return `${grader} centering ~${eq}/10 equivalent`;
+  if (grader === "CGC") return `CGC centring ~${eq}/10 equivalent`;
+  if (grader === "TAG") return `TAG centring ~${eq}/10 equivalent`;
+  if (cap != null && cap < eq) return `${grader} centring cap ~${cap}`;
+  return `${grader} centring ~${eq}/10 equivalent`;
 }
 
 /** Collector-safe centering preview — no LLM, no quota burn. */

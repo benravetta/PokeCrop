@@ -2,7 +2,7 @@ import { Router, Request, Response } from "express";
 import { requireActiveAuth } from "../middleware/auth.js";
 import { getServiceClient } from "../lib/supabase.js";
 import { FREE_DAILY_LIMIT, getPlan, getUsageToday } from "../lib/usage.js";
-import { getGradeCredits } from "../lib/gradeQuota.js";
+import { getGradeCredits, getGradeQuota } from "../lib/gradeQuota.js";
 import { getHistory, type UsageKind } from "../lib/usageEvents.js";
 import { enrichHistoryEvents, updateHistoryEventCentring } from "../lib/historyEnrich.js";
 import { parseCentering } from "../lib/gradeService.js";
@@ -16,10 +16,11 @@ router.get("/me", requireActiveAuth, async (req: Request, res: Response) => {
   const userId = req.user!.id;
   const admin = isAdminRole(req.user!.role);
   try {
-    const [plan, used, gradeCredits] = await Promise.all([
+    const [plan, used, gradeCredits, gradeQuota] = await Promise.all([
       getPlan(userId),
       getUsageToday(userId),
       getGradeCredits(userId),
+      admin ? Promise.resolve(null) : getGradeQuota(userId, req.user!.role),
     ]);
 
     if (admin) {
@@ -43,6 +44,11 @@ router.get("/me", requireActiveAuth, async (req: Request, res: Response) => {
       cropsRemaining,
       dailyLimit: plan === "free" ? FREE_DAILY_LIMIT : null,
       gradeCredits,
+      gradeUsed: gradeQuota?.used ?? null,
+      gradeLimit: gradeQuota?.limit ?? null,
+      gradeAllowanceRemaining: gradeQuota?.allowanceRemaining ?? null,
+      gradeRemaining: gradeQuota?.remaining ?? null,
+      gradeWindow: gradeQuota?.window ?? null,
       isAdmin: false,
     });
   } catch (err) {

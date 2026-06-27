@@ -33,7 +33,7 @@ export function CatalogPage() {
       setItems(res.items);
       setTotal(res.total);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load catalog.");
+      setError(err instanceof Error ? err.message : "Failed to load catalogue.");
     } finally {
       setLoading(false);
     }
@@ -58,7 +58,7 @@ export function CatalogPage() {
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 w-full">
         <div className="flex items-center gap-3 mb-1">
           <Layers className="w-6 h-6 text-accent" />
-          <h1 className="text-xl font-semibold text-text-primary">Admin catalog</h1>
+          <h1 className="text-xl font-semibold text-text-primary">Admin catalogue</h1>
         </div>
         <p className="text-sm text-text-secondary">
           Every archived crop with detect confidence, card ID, centring scores and dimensions — searchable.

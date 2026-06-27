@@ -564,7 +564,7 @@ router.get("/admin/catalog/facets", requireAdmin, async (req: Request, res: Resp
     res.json({ facets: data ?? [] });
   } catch (err) {
     console.error("admin catalog facets failed:", err);
-    res.status(500).json({ error: "Failed to load catalog facets." });
+    res.status(500).json({ error: "Failed to load catalogue facets." });
   }
 });
 
@@ -583,7 +583,7 @@ router.get("/admin/catalog/items", requireAdmin, async (req: Request, res: Respo
     res.json(result);
   } catch (err) {
     console.error("admin catalog items failed:", err);
-    res.status(500).json({ error: "Failed to load catalog items." });
+    res.status(500).json({ error: "Failed to load catalogue items." });
   }
 });
 

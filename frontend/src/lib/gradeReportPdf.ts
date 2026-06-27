@@ -5,6 +5,7 @@
 // report uses, so the PDF matches what the user sees.
 
 import { jsPDF } from "jspdf";
+import { CENTRING_SECTION_TITLE } from "./displayLabels";
 import { loadImage, cropFromImage, resolveRect } from "./cardRegions";
 import { applyCropWatermarkToDataUrl } from "./cropWatermark";
 import { applyPdfFreePlanWatermark } from "./pdfWatermark";
@@ -398,7 +399,7 @@ export async function buildGradeReportPdf(
     asStr(cent.back_top_bottom) && `Back T/B ${asStr(cent.back_top_bottom)}`,
   ].filter(Boolean) as string[];
   if (centBits.length) {
-    heading(`Centering${cent.measured === true ? "  (measured)" : ""}`);
+    heading(`${CENTRING_SECTION_TITLE}${cent.measured === true ? "  (measured)" : ""}`);
     para(centBits.join("     "), { color: INK, size: 9.5 });
     if (asStr(cent.verdict)) para(asStr(cent.verdict));
   }

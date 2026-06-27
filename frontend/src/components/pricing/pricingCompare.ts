@@ -377,8 +377,8 @@ export const PRICING_FAQ = [
     a: "If photo quality blocks the check, or the image is not a trading card, your report credit is not used. Retake the photo and try again.",
   },
   {
-    q: "What counts toward my crop limit?",
-    a: "Each successful straighten/crop on the web app counts toward your daily free limit. Failed detections do not. Premium, Pro and Enterprise include unlimited web crops.",
+    q: "What counts towards my crop limit?",
+    a: "Each successful straighten/crop on the web app counts towards your daily free limit. Failed detections do not. Premium, Pro and Enterprise include unlimited web crops.",
   },
   {
     q: "How does the Pro launch offer work?",

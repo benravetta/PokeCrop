@@ -61,7 +61,7 @@ export const HOW_IT_WORKS = {
     },
     {
       title: "Get your estimates",
-      copy: "Compare supported graders and see the likely effect of centering, corners, edges and visible surface condition.",
+      copy: "Compare supported graders and see the likely effect of centring, corners, edges and visible surface condition.",
     },
     {
       title: "Choose your next move",
@@ -77,7 +77,7 @@ export const WHAT_WE_CHECK = {
     "GemCheck breaks the visible condition down into the areas collectors and graders care about most.",
   items: [
     {
-      label: "Centering",
+      label: "Centring",
       copy: "How evenly the artwork and borders sit within the card.",
     },
     {
@@ -111,7 +111,7 @@ export const GRADER_COMPARE = {
     },
     {
       title: "Condition breakdown",
-      copy: "Centering, corners, edges and surface scored with plain-language notes.",
+      copy: "Centring, corners, edges and surface scored with plain-language notes.",
     },
     {
       title: "Confidence and limits",
@@ -134,7 +134,7 @@ export const TRANSPARENCY = {
 
 export const PRICING = {
   heading: "Check one free. Pay only when you need more.",
-  body: `Your account includes ${FREE_GRADES_PER_MONTH} free card check every month. Extra reports start at ${SINGLE_REPORT_PRICE}, with no subscription required.`,
+  body: `Your account includes ${FREE_GRADES_PER_MONTH} free card checks every month. Extra reports start at ${SINGLE_REPORT_PRICE}, with no subscription required.`,
   vatNote: "TODO: Confirm whether prices include VAT before publishing VAT wording.",
 } as const;
 
@@ -147,7 +147,7 @@ export const FOOTER = {
 export const AUTH = {
   loginSubtitle: "Sign in to check cards and review your reports.",
   registerSubtitle: "Create a free account to check your first card each month.",
-  registerBenefit: `${FREE_GRADES_PER_MONTH} free card check every month on the free plan.`,
+  registerBenefit: `${FREE_GRADES_PER_MONTH} free card checks every month on the free plan.`,
   alreadyHaveAccount: "Already have an account? Sign in",
   noAccount: "No account yet?",
 } as const;
@@ -230,7 +230,7 @@ export const SITE_FAQ = [
   },
   {
     q: "Which grading companies are supported?",
-    a: `GemCheck compares pre-grade estimates across ${SUPPORTED_GRADERS}. Each company weights centering, corners, edges and surface differently.`,
+    a: `GemCheck compares pre-grade estimates across ${SUPPORTED_GRADERS}. Each company weights centring, corners, edges and surface differently.`,
   },
   {
     q: "Which cards are supported?",
@@ -246,7 +246,7 @@ export const SITE_FAQ = [
   },
   {
     q: "Why do estimates differ between graders?",
-    a: "Each grading company uses its own standards and weighting. Centering, corners, edges and surface are judged differently, so one card can look stronger with one grader than another.",
+    a: "Each grading company uses its own standards and weighting. Centring, corners, edges and surface are judged differently, so one card can look stronger with one grader than another.",
   },
   {
     q: "Does GemCheck inspect the physical card?",
@@ -254,7 +254,7 @@ export const SITE_FAQ = [
   },
   {
     q: "Do I need a subscription?",
-    a: `No. Your free account includes ${FREE_GRADES_PER_MONTH} card check per month. Extra reports start at ${SINGLE_REPORT_PRICE}. Subscriptions are optional for heavier use.`,
+    a: `No. Your free account includes ${FREE_GRADES_PER_MONTH} card checks per month. Extra reports start at ${SINGLE_REPORT_PRICE}. Subscriptions are optional for heavier use.`,
   },
   {
     q: "Where do value estimates come from?",
