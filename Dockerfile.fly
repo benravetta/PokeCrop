@@ -29,6 +29,7 @@ COPY backend/package.json backend/package-lock.json ./
 RUN npm ci
 COPY backend/tsconfig.json ./
 COPY backend/src ./src
+COPY supabase/email-templates /be/email-templates
 RUN npm run build
 
 # ---- 3. Runtime: Node + Python + nginx + supervisor in one image ----
@@ -68,6 +69,7 @@ RUN mkdir -p /app/models \
 WORKDIR /app
 COPY python-service/ /app/python-service/
 COPY --from=backend /be/dist/server.cjs /app/backend/server.cjs
+COPY --from=backend /be/email-templates /app/email-templates
 COPY backend/assets /app/backend/assets
 COPY --from=frontend /fe/dist /usr/share/nginx/html
 

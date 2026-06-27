@@ -7,14 +7,17 @@
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import {
+  readLayoutHtml,
+  wrapEmailBody,
+} from "./lib/emailLayout.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = __dirname;
-const PARTIALS = path.join(ROOT, "partials");
 const TEMPLATES_DIR = path.join(ROOT, "templates");
 const OUT = path.join(ROOT, "auth-config.patch.json");
 
-const layout = fs.readFileSync(path.join(PARTIALS, "layout.html"), "utf8");
+const layout = readLayoutHtml();
 const subjects = JSON.parse(
   fs.readFileSync(path.join(ROOT, "subjects.json"), "utf8")
 );
@@ -101,19 +104,8 @@ const MANIFEST = [
   },
 ];
 
-function minifyHtml(html) {
-  return html
-    .replace(/\r\n/g, "\n")
-    .replace(/\n+/g, "")
-    .replace(/>\s+</g, "><")
-    .trim();
-}
-
 function buildEmail(body, preheader) {
-  const html = layout
-    .replace("{{PREHEADER}}", preheader)
-    .replace("{{CONTENT}}", body.trim());
-  return minifyHtml(html);
+  return wrapEmailBody(body, preheader, layout);
 }
 
 const patch = { ...subjects };

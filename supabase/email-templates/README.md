@@ -7,10 +7,15 @@ Branded HTML templates for all Supabase Auth emails (sign-up, magic link, passwo
 | Path | Purpose |
 |------|---------|
 | `partials/layout.html` | Shared wrapper — logo, preheader, footer |
-| `templates/*.html` | Per-email body content (Go template variables) |
+| `lib/emailLayout.mjs` | Shared layout wrapper + body components (used by build script) |
+| `templates/*.html` | Per-email body content (Go template variables for Supabase Auth) |
+| `templates/admin_invite.html` | Beta invite body (app SMTP — mirrors `invite.html`) |
+| `templates/app_notification.html` | Generic app notification body (collector profile emails) |
 | `subjects.json` | Email subject lines |
 | `build-templates.mjs` | Merges layout + bodies → `auth-config.patch.json` |
 | `auth-config.patch.json` | Generated payload for the Management API |
+
+Supabase Auth emails and app-sent SMTP mail (beta invites, collector notifications) share the same layout and typography via `backend/src/lib/gemcheckEmail.ts`, which reads these files at runtime (`/app/email-templates` in production).
 
 ## Customise
 

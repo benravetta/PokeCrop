@@ -37,7 +37,7 @@ import {
   revertInviteRequestApproval,
 } from "../lib/inviteRequests.js";
 import { isSmtpConfigured, sendMail } from "../lib/mail.js";
-import { buildInviteEmailHtml } from "../lib/inviteEmail.js";
+import { buildAdminInviteEmail } from "../lib/gemcheckEmail.js";
 import {
   parsePlan,
   parseSubStatus,
@@ -822,10 +822,11 @@ async function mailInvite(opts: {
   token: string;
 }): Promise<void> {
   const registerUrl = inviteRegisterUrl(opts.token);
+  const built = buildAdminInviteEmail({ registerUrl, role: opts.role });
   await sendMail({
     to: opts.email,
-    subject: "You're invited to GemCheck",
-    html: buildInviteEmailHtml({ registerUrl, role: opts.role }),
+    subject: built.subject,
+    html: built.html,
   });
 }
 

@@ -343,11 +343,18 @@ collectorProfilesCustomerRoutes.post(
       const profile = await getProfileByUserId(req.user!.id);
       if (!profile) throw new CollectorProfileError("COLLECTOR_NOT_FOUND", "No profile yet.", 404);
       const published = await publishProfile(profile.id);
+      const origin = (process.env.PUBLIC_ORIGIN ?? "https://gemcheck.co.uk").replace(/\/$/, "");
       await notifyCollectorEvent({
         userId: req.user!.id,
         eventType: "profile_published",
         entityId: profile.id,
-        preview: "Your collector profile is now live.",
+        subject: "Your collector profile is live",
+        title: "Your collector profile is live",
+        preview:
+          "Your collector profile is now published. Visitors can browse your cards, trade listings and showcase.",
+        preheader: "Your GemCheck collector profile is now live.",
+        ctaHref: `${origin}/u/${encodeURIComponent(published.username)}`,
+        ctaLabel: "View your profile",
       });
       res.json({ profile: published });
     } catch (err) {

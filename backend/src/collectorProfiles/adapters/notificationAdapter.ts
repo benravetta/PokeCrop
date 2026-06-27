@@ -1,4 +1,5 @@
 import { logActivity, type ActivityAction } from "../../lib/activity.js";
+import { buildAppNotificationEmail } from "../../lib/gemcheckEmail.js";
 import { sendMail } from "../../lib/mail.js";
 import { getServiceClient } from "../../lib/supabase.js";
 
@@ -9,17 +10,30 @@ const ACTIVITY_ACTION: Record<string, ActivityAction> = {
 export async function sendCollectorNotification(opts: {
   userId: string;
   eventType: string;
-  subject: string;
+  subject?: string;
+  title?: string;
   preview: string;
+  preheader?: string;
+  ctaHref?: string;
+  ctaLabel?: string;
 }): Promise<void> {
   const { data } = await getServiceClient().auth.admin.getUserById(opts.userId);
   const email = data.user?.email;
   if (!email) return;
+
+  const built = buildAppNotificationEmail({
+    title: opts.title ?? opts.subject ?? "GemCheck Collector Profile update",
+    body: opts.preview,
+    preheader: opts.preheader ?? opts.preview,
+    ctaHref: opts.ctaHref,
+    ctaLabel: opts.ctaLabel,
+  });
+
   await sendMail({
     to: email,
-    subject: opts.subject,
+    subject: opts.subject ?? built.subject,
+    html: built.html,
     text: opts.preview,
-    html: `<p>${opts.preview}</p>`,
   }).catch((err) => console.error("collector notification email failed:", err));
 }
 
@@ -28,7 +42,11 @@ export async function notifyCollectorEvent(opts: {
   eventType: string;
   entityId?: string;
   subject?: string;
+  title?: string;
   preview?: string;
+  preheader?: string;
+  ctaHref?: string;
+  ctaLabel?: string;
 }): Promise<void> {
   const idempotencyKey = `${opts.userId}:${opts.eventType}:${opts.entityId ?? "none"}:${Math.floor(Date.now() / 60000)}`;
   const { error: dupErr } = await getServiceClient().from("collector_notification_deliveries").insert({
@@ -52,7 +70,11 @@ export async function notifyCollectorEvent(opts: {
   await sendCollectorNotification({
     userId: opts.userId,
     eventType: opts.eventType,
-    subject: opts.subject ?? "GemCheck Collector Profile update",
+    subject: opts.subject,
+    title: opts.title,
     preview: opts.preview ?? "You have a new update on your collector profile.",
+    preheader: opts.preheader,
+    ctaHref: opts.ctaHref,
+    ctaLabel: opts.ctaLabel,
   });
 }
