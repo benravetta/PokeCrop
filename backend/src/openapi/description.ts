@@ -14,7 +14,7 @@ an optional **PDF report** identical to the web download.
 
 | Plan | Price | API access |
 |------|-------|------------|
-| Free | £0 | No — web app only |
+| Free | £0 | No — web app only, 3 pre-grades/month |
 | Premium | £9.99/mo | No — 30 pre-grades/month |
 | Pro | £19.99/mo | No — 100 pre-grades/month |
 | **Enterprise** | **£29.99/mo** | **Yes** — Pro + REST API, 100 pre-grades/month |

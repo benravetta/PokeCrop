@@ -91,7 +91,7 @@ Human-first headings. Specific page titles. No keyword stuffing. Homepage title:
 | Fact | Value | Source |
 |------|-------|--------|
 | Supported graders | PSA, Beckett (BGS), CGC, TAG, ACE | `backend/src/lib/grading.ts` |
-| Free card checks / month | 1 | `backend/src/lib/gradeQuota.ts` |
+| Free card checks / month | 3 | `backend/src/lib/plans.ts` (`MONTHLY_GRADE_LIMITS`) |
 | Free crops / day | 3 | `backend/src/lib/usage.ts` |
 | Single report price | £2.99 | `frontend/src/components/landing/data.ts`, Stripe |
 | Subscriptions | Premium £9.99, Pro £19.99, Enterprise £29.99/mo | `frontend/src/lib/plans.ts` |

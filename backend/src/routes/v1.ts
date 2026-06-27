@@ -28,7 +28,11 @@ import {
 } from "../lib/imageInput.js";
 import { runCropJob, type MetadataLevel } from "../lib/cropPipeline.js";
 import { getPlan } from "../lib/usage.js";
-import { applyCropWatermark, shouldWatermarkCrop } from "../lib/cropWatermark.js";
+import {
+  applyCropWatermark,
+  shouldWatermarkCrop,
+} from "../lib/cropWatermark.js";
+import { shouldWatermarkFreeExports } from "../lib/pdfWatermark.js";
 import {
   executeGrade,
   parseCentering,
@@ -220,7 +224,13 @@ async function respondGrade(
     return;
   }
   try {
-    const pdf = await buildGradeReportPdfBuffer(body.result, imgs);
+    const plan = await getPlan(req.apiUser!.userId);
+    const watermark = shouldWatermarkFreeExports({
+      role: req.apiUser!.role,
+      plan,
+      billing: plan === "free" ? "free" : "subscription",
+    });
+    const pdf = await buildGradeReportPdfBuffer(body.result, imgs, { watermark });
     res.set({
       "Content-Type": "application/pdf",
       "Content-Disposition": `attachment; filename="${pdf.filename}"`,

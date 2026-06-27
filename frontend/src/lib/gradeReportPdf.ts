@@ -6,6 +6,8 @@
 
 import { jsPDF } from "jspdf";
 import { loadImage, cropFromImage, resolveRect } from "./cardRegions";
+import { applyCropWatermarkToDataUrl } from "./cropWatermark";
+import { applyPdfFreePlanWatermark } from "./pdfWatermark";
 import type { GradeResult, Preparation, PrepItem, CardPricing } from "./api";
 
 const asObj = (v: unknown): Record<string, unknown> =>
@@ -122,7 +124,8 @@ function drawReportHeader(
 
 export async function buildGradeReportPdf(
   result: GradeResult,
-  images: { front?: string; back?: string }
+  images: { front?: string; back?: string },
+  opts?: { watermark?: boolean }
 ): Promise<void> {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const PAGE_W = doc.internal.pageSize.getWidth();
@@ -131,6 +134,10 @@ export async function buildGradeReportPdf(
   const CONTENT_W = PAGE_W - M * 2;
   let y = M;
   const logo = await loadLogoDataUrl();
+  const frontSrc =
+    opts?.watermark && images.front ? await applyCropWatermarkToDataUrl(images.front) : images.front;
+  const backSrc =
+    opts?.watermark && images.back ? await applyCropWatermarkToDataUrl(images.back) : images.back;
 
   const setColor = (c: readonly [number, number, number]) => doc.setTextColor(c[0], c[1], c[2]);
   const ensure = (h: number) => {
@@ -180,8 +187,8 @@ export async function buildGradeReportPdf(
 
   // ---------------------------------------------- card identity + images
   const ident = asObj(result.card_identification);
-  const imgFront = await toPngDataUrl(images.front);
-  const imgBack = await toPngDataUrl(images.back);
+  const imgFront = await toPngDataUrl(frontSrc);
+  const imgBack = await toPngDataUrl(backSrc);
 
   const topY = y + 2;
   // Images on the right.
@@ -582,6 +589,10 @@ export async function buildGradeReportPdf(
   rule();
   y += 4;
   para(asStr(result.disclaimer), { size: 7.5, color: MUTE });
+
+  if (opts?.watermark) {
+    applyPdfFreePlanWatermark(doc, logo);
+  }
 
   // Page numbers footer.
   const pageCount = doc.getNumberOfPages();

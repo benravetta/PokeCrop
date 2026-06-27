@@ -1,5 +1,6 @@
 import { SINGLE_GRADE } from "../landing/data";
 import { PLAN_LABELS, type Plan } from "../../lib/plans";
+import { FREE_GRADES_PER_MONTH, SINGLE_REPORT_PRICE } from "../../lib/marketingCopy";
 
 export type PlanColumn = "free" | "unlimited" | "pro" | "api" | "single";
 
@@ -56,7 +57,7 @@ export const SUBSCRIPTION_TIERS = [
     promo: null as string | null,
     features: [
       "3 crop & centring sessions per day",
-      "1 pre-grade report per month",
+      `${FREE_GRADES_PER_MONTH} pre-grade reports per month`,
       "Collector profile, trade lists & messaging",
       "Full PDF reports & prep checklist",
       "All 5 grading companies compared",
@@ -145,7 +146,7 @@ export const COMPARE_SECTIONS: CompareSection[] = [
       },
       {
         label: "Watermark-free exports",
-        hint: "Paid plans remove the GemCheck watermark from cropped downloads",
+        hint: "Paid plans remove the GemCheck watermark from crop PNGs and PDF reports",
         free: false,
         unlimited: true,
         pro: true,
@@ -194,7 +195,7 @@ export const COMPARE_SECTIONS: CompareSection[] = [
     rows: [
       {
         label: "Reports included",
-        free: "1 / month",
+        free: `${FREE_GRADES_PER_MONTH} / month`,
         unlimited: "30 / month",
         pro: "100 / month",
         api: "100 / month",
@@ -211,11 +212,20 @@ export const COMPARE_SECTIONS: CompareSection[] = [
       },
       {
         label: "Full PDF report download",
+        hint: "Free plan PDFs include a GemCheck watermark",
         free: true,
         unlimited: true,
         pro: true,
         api: true,
         single: true,
+      },
+      {
+        label: "Watermark-free PDF reports",
+        free: false,
+        unlimited: true,
+        pro: true,
+        api: true,
+        single: "—",
       },
       {
         label: "Prep checklist & flaw notes",
@@ -330,7 +340,7 @@ export const COMPARE_SECTIONS: CompareSection[] = [
       {
         label: "Pre-grade cards on your profile",
         hint: "Uses the same monthly allowance or credits as web pre-grades",
-        free: "1 / month",
+        free: `${FREE_GRADES_PER_MONTH} / month`,
         unlimited: "30 / month",
         pro: "100 / month",
         api: "100 / month",
@@ -360,7 +370,7 @@ export const PRICING_FAQ = [
   },
   {
     q: "Do I need a subscription?",
-    a: "No. Your free account includes 1 card check per month. Extra reports start at £2.99. Subscriptions are optional for heavier use.",
+    a: `No. Your free account includes ${FREE_GRADES_PER_MONTH} card checks per month. Extra reports start at ${SINGLE_REPORT_PRICE}. Subscriptions are optional for heavier use.`,
   },
   {
     q: "What happens if a photo is rejected?",

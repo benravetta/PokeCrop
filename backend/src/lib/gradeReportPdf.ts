@@ -9,6 +9,8 @@ import {
   resolveRect,
   toPngDataUrl,
 } from "./gradeReportPdfImages.js";
+import { applyCropWatermark } from "./cropWatermark.js";
+import { applyPdfFreePlanWatermark } from "./pdfWatermark.js";
 
 const asObj = (v: unknown): Record<string, unknown> =>
   v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
@@ -119,12 +121,22 @@ export interface GradeReportImages {
 
 export async function buildGradeReportPdfBuffer(
   result: Record<string, unknown>,
-  images: GradeReportImages
+  images: GradeReportImages,
+  opts?: { watermark?: boolean }
 ): Promise<{ buffer: Buffer; filename: string }> {
-  const frontJimp = images.front
-    ? await loadReportImage(images.front, images.frontName)
+  let reportImages = images;
+  if (opts?.watermark) {
+    reportImages = {
+      ...images,
+      front: images.front ? await applyCropWatermark(images.front) : undefined,
+      back: images.back ? await applyCropWatermark(images.back) : undefined,
+    };
+  }
+
+  const frontJimp = reportImages.front
+    ? await loadReportImage(reportImages.front, reportImages.frontName)
     : null;
-  const backJimp = images.back ? await loadReportImage(images.back, images.backName) : null;
+  const backJimp = reportImages.back ? await loadReportImage(reportImages.back, reportImages.backName) : null;
 
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const PAGE_W = doc.internal.pageSize.getWidth();
@@ -577,6 +589,10 @@ export async function buildGradeReportPdfBuffer(
   rule();
   y += 4;
   para(asStr(result.disclaimer), { size: 7.5, color: MUTE });
+
+  if (opts?.watermark) {
+    applyPdfFreePlanWatermark(doc, logoDataUrl());
+  }
 
   const pageCount = doc.getNumberOfPages();
   for (let p = 1; p <= pageCount; p++) {

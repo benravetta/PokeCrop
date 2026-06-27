@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { ArrowRight, CreditCard, FileText, Loader2, ScanSearch } from "lucide-react";
 import { useMe } from "../hooks/useMe";
 import { startGradeCheckout } from "../lib/api";
+import { FREE_GRADES_PER_MONTH } from "../lib/marketingCopy";
 import { SINGLE_GRADE } from "./landing/data";
 import { isAdminMe } from "../lib/adminAccess";
 
@@ -36,7 +37,7 @@ export function SingleGradePromo({
         <div className="min-w-0">
           <p className="text-sm font-medium text-text-primary">Pre-grade before you submit</p>
           <p className="text-xs text-text-secondary mt-0.5">
-            1 free report every month — extra reports {SINGLE_GRADE.price} each, no subscription.
+            {FREE_GRADES_PER_MONTH} free reports every month — extra reports {SINGLE_GRADE.price} each, no subscription.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 shrink-0">
@@ -79,7 +80,7 @@ export function SingleGradePromo({
           </h3>
           <p className="mt-1.5 text-sm text-text-secondary leading-relaxed">
             Get estimates across PSA, Beckett, CGC and more — plus a prep checklist — as a PDF.
-            Your free plan includes 1 report a month; need another? Pay {SINGLE_GRADE.price} once,
+            Your free plan includes {FREE_GRADES_PER_MONTH} reports a month; need another? Pay {SINGLE_GRADE.price} once,
             no subscription.
           </p>
         </div>

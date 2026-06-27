@@ -2,7 +2,7 @@
 
 export const SUPPORTED_GRADERS = "PSA, Beckett, CGC, ACE and TAG" as const;
 export const SUPPORTED_GRADERS_SHORT = "PSA, Beckett, CGC, ACE, TAG" as const;
-export const FREE_GRADES_PER_MONTH = 1;
+export const FREE_GRADES_PER_MONTH = 3;
 export const SINGLE_REPORT_PRICE = "£2.99" as const;
 export const IMAGE_FORMATS_GRADE = "JPG, PNG, WEBP, HEIC, HEIF or DNG" as const;
 export const IMAGE_MAX_SIZE = "50 MB" as const;
@@ -33,9 +33,9 @@ export const HERO = {
   primaryCtaGuest: "Check a card free",
   primaryCtaLoggedIn: "Check a card",
   secondaryCta: "View a sample report",
-  supportGuest: `1 free card check every month. Extra reports from ${SINGLE_REPORT_PRICE}. No subscription.`,
+  supportGuest: `${FREE_GRADES_PER_MONTH} free card checks every month. Extra reports from ${SINGLE_REPORT_PRICE}. No subscription.`,
   supportFreePlan: (singlePrice: string) =>
-    `Free plan: 1 card check per month, plus 3 crop sessions a day. Extra reports from ${singlePrice}.`,
+    `Free plan: ${FREE_GRADES_PER_MONTH} card checks per month, plus 3 crop sessions a day. Extra reports from ${singlePrice}.`,
   qualification: ESTIMATE_DISCLAIMER,
 } as const;
 
@@ -193,7 +193,7 @@ export const WAITLIST = {
     },
   ],
   perks: [
-    "1 free card check every month on the free plan",
+    `${FREE_GRADES_PER_MONTH} free card checks every month on the free plan`,
     "Pre-grade estimates across PSA, Beckett, CGC, ACE and TAG",
     "Your photos stay in your account — cards never leave your hands",
   ],
@@ -305,7 +305,7 @@ export const SEO = {
   },
   pricing: {
     title: "GemCheck Pricing | One Free Check, Pay As You Go",
-    description: `1 free card check per month. Extra pre-grade reports from ${SINGLE_REPORT_PRICE}. Optional subscriptions for regular collectors.`,
+    description: `${FREE_GRADES_PER_MONTH} free card checks per month. Extra pre-grade reports from ${SINGLE_REPORT_PRICE}. Optional subscriptions for regular collectors.`,
     path: "/pricing",
   },
   trade: {

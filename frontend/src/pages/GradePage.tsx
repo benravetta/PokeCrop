@@ -112,6 +112,7 @@ export function GradePage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const refreshMe = useMe((s) => s.refresh);
   const isAdmin = useMe((s) => s.me?.isAdmin) === true;
+  const plan = useMe((s) => s.me?.plan ?? "free");
   const purchaseStatus = searchParams.get("purchase");
 
   // Optional close-up photos of problem areas — sharpen the surface/defect read.
@@ -627,10 +628,14 @@ export function GradePage() {
                 onClick={async () => {
                   setPdfBusy(true);
                   try {
-                    await buildGradeReportPdf(result, {
-                      front: proc.front.src ?? previews.front,
-                      back: proc.back.src ?? previews.back,
-                    });
+                    await buildGradeReportPdf(
+                      result,
+                      {
+                        front: proc.front.src ?? previews.front,
+                        back: proc.back.src ?? previews.back,
+                      },
+                      { watermark: !isAdmin && plan === "free" }
+                    );
                   } catch {
                     setError("Couldn't build the PDF report.");
                   } finally {

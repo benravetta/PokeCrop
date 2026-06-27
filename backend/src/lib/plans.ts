@@ -23,3 +23,11 @@ export function hasApiAccess(plan: Plan): boolean {
 export function isSubscriptionPlan(value: string): value is SubscriptionPlan {
   return value === "unlimited" || value === "pro" || value === "api";
 }
+
+/** Monthly pre-grade allowances (UTC calendar month). */
+export const MONTHLY_GRADE_LIMITS: Record<Plan, number> = {
+  free: 3,
+  unlimited: 30,
+  pro: 100,
+  api: 100,
+};

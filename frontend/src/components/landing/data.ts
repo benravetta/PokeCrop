@@ -1,4 +1,4 @@
-import { SINGLE_REPORT_PRICE } from "../../lib/marketingCopy";
+import { FREE_GRADES_PER_MONTH, SINGLE_REPORT_PRICE } from "../../lib/marketingCopy";
 
 export const BEFORE_IMG = "/demo-before.jpg?v=oddish4";
 export const AFTER_IMG = "/demo-after.png?v=oddish4";
@@ -101,7 +101,7 @@ export const PRICING_TIERS = [
     highlight: false,
     features: [
       "3 crops per day",
-      "1 pre-grade report per month",
+      `${FREE_GRADES_PER_MONTH} pre-grade reports per month`,
       "Full PDF reports",
       "All 5 grading companies",
     ],

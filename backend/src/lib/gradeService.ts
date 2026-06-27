@@ -289,7 +289,9 @@ export async function executeGrade(opts: {
       code: "quota_exceeded",
       message:
         quota.window === "month"
-          ? "You've used your free grade for this month."
+          ? quota.plan === "free"
+            ? `You've used all ${quota.limit} free pre-grade reports for this month.`
+            : `You've used all ${quota.limit} pre-grade reports for this month.`
           : "You've reached today's grading limit.",
       quota,
     };
@@ -409,6 +411,9 @@ export async function executeGrade(opts: {
         eventId,
         result: resultRec,
         files,
+        plan: quota.plan,
+        billing,
+        role,
       });
       if (artifacts) {
         await patchGradeArtifacts(eventId, userId, artifacts, detail);

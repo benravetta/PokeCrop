@@ -56,6 +56,8 @@ import {
   getSignedStorageUrl,
   putPublicDerivative,
 } from "../adapters/storageAdapter.js";
+import { getPlan } from "../../lib/usage.js";
+import { applyCropWatermark, shouldWatermarkCrop } from "../../lib/cropWatermark.js";
 import { detectCardBoundary, processCardImageCrop } from "../adapters/cardProcessor.js";
 import {
   getAvailableEntitlements,
@@ -118,6 +120,24 @@ function publicOrigin(req: Request): string {
   const proto = req.headers["x-forwarded-proto"] ?? "http";
   const host = req.headers["x-forwarded-host"] ?? req.headers.host ?? "localhost:5173";
   return `${proto}://${host}`.replace(/\/$/, "");
+}
+
+async function maybeWatermarkCollectorCrop(
+  userId: string,
+  role: "user" | "admin",
+  buffer: Buffer
+): Promise<Buffer> {
+  const plan = await getPlan(userId);
+  if (
+    !shouldWatermarkCrop({
+      role,
+      plan,
+      billing: plan === "free" ? "free" : "subscription",
+    })
+  ) {
+    return buffer;
+  }
+  return applyCropWatermark(buffer);
 }
 
 collectorProfilesPublicRoutes.get("/collector/config/public", async (_req, res) => {
@@ -538,7 +558,7 @@ collectorProfilesCustomerRoutes.post(
         profileId: card.profile_id,
         cardId: card.id,
         role: `processed-${role}`,
-        buffer: crop.pngBuffer,
+        buffer: await maybeWatermarkCollectorCrop(req.user!.id, req.user!.role, crop.pngBuffer),
         mime: "image/png",
       });
       const updated = await upsertCardImage(card.id, role, {
@@ -571,7 +591,7 @@ async function handleCropConfirm(req: Request, res: Response, role: "front" | "b
     profileId: card.profile_id,
     cardId: card.id,
     role: `processed-${role}`,
-    buffer: crop.pngBuffer,
+    buffer: await maybeWatermarkCollectorCrop(req.user!.id, req.user!.role, crop.pngBuffer),
     mime: "image/png",
   });
   const updated = await upsertCardImage(card.id, role, {

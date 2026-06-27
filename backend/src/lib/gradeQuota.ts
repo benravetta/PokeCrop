@@ -1,16 +1,11 @@
 import { getServiceClient } from "./supabase.js";
 import { getPlan, type Plan } from "./usage.js";
+import { MONTHLY_GRADE_LIMITS } from "./plans.js";
 import { adminGradeQuota, isAdminRole, type UserRole } from "./adminAccess.js";
 
-// Grading is costlier than cropping, so quotas are tighter:
-//   free      -> 1 / month
-//   unlimited (Premium) -> 30 / month
-//   pro       -> 100 / month
-//   api       (Enterprise) -> 100 / month + REST API access
+// Grading is costlier than cropping, so quotas are tighter than crop limits.
 function planLimit(plan: Plan): { limit: number; window: "day" | "month" } {
-  if (plan === "api" || plan === "pro") return { limit: 100, window: "month" };
-  if (plan === "unlimited") return { limit: 30, window: "month" };
-  return { limit: 1, window: "month" };
+  return { limit: MONTHLY_GRADE_LIMITS[plan], window: "month" };
 }
 
 export interface GradeQuota {

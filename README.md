@@ -197,13 +197,13 @@ Settings live in `fly.toml` under `[env]` and `[[vm]]`:
 ## Accounts, Billing & Admin
 
 CardCrop gates cropping behind a login. Free accounts get **3 crops/day** and
-**1 pre-grade/month**; paid plans include unlimited crops and higher grade
+**3 pre-grades/month** on the free plan; paid plans include unlimited crops and higher grade
 allowances. Auth + data live in **Supabase**; subscriptions are billed in
 **GBP** via **Stripe**.
 
 | Plan | Price | Pre-grades | API |
 |------|-------|------------|-----|
-| **Free** | £0 | 1/month | — |
+| **Free** | £0 | 3/month | — |
 | **Premium** | £9.99/mo | 30/month | — |
 | **Pro** | £19.99/mo | 100/month | — |
 | **Enterprise** | £29.99/mo* | 100/month | REST API + keys |
