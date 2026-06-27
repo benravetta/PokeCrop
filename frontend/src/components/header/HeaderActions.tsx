@@ -142,9 +142,14 @@ export function GuestMobileMenuActions() {
   if (waitlistMode) {
     return (
       <MobileMenuSection>
-        <Link to={guestSignupPath(true)} className={mobilePrimaryBtn} onClick={onNavigate}>
-          {NAV.joinWaitlist}
-        </Link>
+        <div className={mobileActionGrid}>
+          <Link to="/login" className={mobileOutlineBtn} onClick={onNavigate}>
+            {NAV.signIn}
+          </Link>
+          <Link to={guestSignupPath(true)} className={mobilePrimaryBtn} onClick={onNavigate}>
+            {NAV.joinWaitlist}
+          </Link>
+        </div>
       </MobileMenuSection>
     );
   }

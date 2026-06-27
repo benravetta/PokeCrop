@@ -44,6 +44,27 @@ import {
 import { AdminHumanPregradesPage } from "./humanPregrade/admin/AdminHumanPregradesPage";
 import { AdminHumanPregradeReviewPage } from "./humanPregrade/admin/AdminHumanPregradeReviewPage";
 import { AdminHumanPregradeSettingsPage } from "./humanPregrade/admin/AdminHumanPregradeSettingsPage";
+import { PublicCollectorProfilePage } from "./collectorProfiles/pages/PublicCollectorProfilePage";
+import { PublicCollectorCardPage } from "./collectorProfiles/pages/PublicCollectorCardPage";
+import { CollectorSetupPage } from "./collectorProfiles/pages/CollectorSetupPage";
+import { CollectorProfilePage } from "./collectorProfiles/pages/CollectorProfilePage";
+import { CollectorCardsPage } from "./collectorProfiles/pages/CollectorCardsPage";
+import { CollectorNewCardPage } from "./collectorProfiles/pages/CollectorNewCardPage";
+import { CollectorEditCardPage } from "./collectorProfiles/pages/CollectorEditCardPage";
+import { CollectorTradesPage } from "./collectorProfiles/pages/CollectorTradesPage";
+import { CollectorMessagesPage } from "./collectorProfiles/pages/CollectorMessagesPage";
+import { CollectorConversationPage } from "./collectorProfiles/pages/CollectorConversationPage";
+import { CollectorSettingsPage } from "./collectorProfiles/pages/CollectorSettingsPage";
+import { AdminCollectorProfilesPage } from "./collectorProfiles/admin/AdminCollectorProfilesPage";
+import { AdminCollectorSettingsPage } from "./collectorProfiles/admin/AdminCollectorSettingsPage";
+import {
+  AdminCollectorReportsPage,
+  AdminCollectorModerationCasesPage,
+  AdminCollectorModerationCasePage,
+  AdminCollectorCardsPage,
+  AdminCollectorTradesPage,
+  AdminCollectorConversationPage,
+} from "./collectorProfiles/admin/AdminCollectorModerationPage";
 
 function FullScreenLoader() {
   return (
@@ -122,6 +143,10 @@ export default function App() {
         }
       />
 
+      {/* Public collector profiles */}
+      <Route path="/u/:username" element={<PublicCollectorProfilePage />} />
+      <Route path="/u/:username/cards/:publicCardId" element={<PublicCollectorCardPage />} />
+
       <Route
         element={
           <ProtectedRoute>
@@ -138,6 +163,15 @@ export default function App() {
         <Route path="/human-pregrade/orders" element={<HumanPregradeOrdersPage />} />
         <Route path="/human-pregrade/orders/:publicId" element={<HumanPregradeOrderPage />} />
         <Route path="/human-pregrade/orders/:publicId/report" element={<HumanPregradeReportPage />} />
+        <Route path="/collector/setup" element={<CollectorSetupPage />} />
+        <Route path="/collector/profile" element={<CollectorProfilePage />} />
+        <Route path="/collector/cards" element={<CollectorCardsPage />} />
+        <Route path="/collector/cards/new" element={<CollectorNewCardPage />} />
+        <Route path="/collector/cards/:publicCardId/edit" element={<CollectorEditCardPage />} />
+        <Route path="/collector/trades" element={<CollectorTradesPage />} />
+        <Route path="/collector/messages" element={<CollectorMessagesPage />} />
+        <Route path="/collector/messages/:conversationId" element={<CollectorConversationPage />} />
+        <Route path="/collector/settings" element={<CollectorSettingsPage />} />
         <Route
           path="/admin"
           element={
@@ -155,6 +189,14 @@ export default function App() {
           <Route path="human-pregrades" element={<AdminHumanPregradesPage />} />
           <Route path="human-pregrades/settings" element={<AdminHumanPregradeSettingsPage />} />
           <Route path="human-pregrades/:id/review" element={<AdminHumanPregradeReviewPage />} />
+          <Route path="collector/profiles" element={<AdminCollectorProfilesPage />} />
+          <Route path="collector/cards" element={<AdminCollectorCardsPage />} />
+          <Route path="collector/trades" element={<AdminCollectorTradesPage />} />
+          <Route path="collector/reports" element={<AdminCollectorReportsPage />} />
+          <Route path="collector/moderation-cases" element={<AdminCollectorModerationCasesPage />} />
+          <Route path="collector/moderation-cases/:caseId" element={<AdminCollectorModerationCasePage />} />
+          <Route path="collector/conversations/:conversationId" element={<AdminCollectorConversationPage />} />
+          <Route path="collector/settings" element={<AdminCollectorSettingsPage />} />
         </Route>
       </Route>
 

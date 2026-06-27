@@ -18,6 +18,11 @@ import {
   humanPregradeCustomerRoutes,
   humanPregradeAdminRoutes,
 } from "./humanPregrade/index.js";
+import {
+  collectorProfilesCustomerRoutes,
+  collectorProfilesPublicRoutes,
+  collectorProfilesAdminRoutes,
+} from "./collectorProfiles/index.js";
 import { sendApiError } from "./lib/apiError.js";
 import { csrfProtection } from "./middleware/csrf.js";
 import { assertProductionEnv } from "./lib/envGuard.js";
@@ -83,6 +88,9 @@ app.use("/api", formsRoutes);
 app.use("/api", valuationsRoutes);
 app.use("/api", humanPregradeCustomerRoutes);
 app.use("/api", humanPregradeAdminRoutes);
+app.use("/api", collectorProfilesPublicRoutes);
+app.use("/api", collectorProfilesCustomerRoutes);
+app.use("/api", collectorProfilesAdminRoutes);
 app.use("/v1", apiV1Routes);
 
 // API-shaped error handler for /v1 (multer/body-parser errors become the

@@ -21,6 +21,7 @@ import { ReviewsSection } from "../components/landing/SocialProof";
 import { PricingSection, PlanCta } from "../components/landing/PricingSection";
 import { ApiSection, SiteFooter } from "../components/landing/FooterSections";
 import { ExpertReviewHomeSection } from "../components/landing/ExpertReviewHomeSection";
+import { CollectorProfilesHomeSection } from "../collectorProfiles/landing/CollectorProfilesHomeSection";
 import {
   FaqStripSection,
   GraderCompareSection,
@@ -87,6 +88,7 @@ export function LandingPage() {
       <WhatWeCheckSection />
       <GraderCompareSection />
       <ExpertReviewHomeSection loggedIn={loggedIn} />
+      <CollectorProfilesHomeSection loggedIn={loggedIn} />
       <TransparencySection />
       <ReviewsSection />
       <PricingSection

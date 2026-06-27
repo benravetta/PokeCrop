@@ -1,5 +1,6 @@
 import { NavLink } from "react-router-dom";
 import { appNavActive, appNavIdle, appNavLink } from "./styles";
+import { useCollectorProfilesConfig } from "../../collectorProfiles/hooks/useCollectorProfilesConfig";
 
 type AppNavLinksProps = {
   onNavigate?: () => void;
@@ -8,6 +9,7 @@ type AppNavLinksProps = {
 };
 
 export function AppNavLinks({ onNavigate, stacked = false }: AppNavLinksProps) {
+  const { enabled: collectorEnabled } = useCollectorProfilesConfig();
   return (
     <nav className={stacked ? "flex flex-col gap-0.5" : "flex items-center gap-1"}>
       <NavLink
@@ -29,6 +31,17 @@ export function AppNavLinks({ onNavigate, stacked = false }: AppNavLinksProps) {
       >
         Grade
       </NavLink>
+      {collectorEnabled && (
+        <NavLink
+          to="/collector/profile"
+          onClick={onNavigate}
+          className={({ isActive }) =>
+            `${appNavLink} ${isActive ? appNavActive : appNavIdle}`
+          }
+        >
+          Collector profile
+        </NavLink>
+      )}
     </nav>
   );
 }

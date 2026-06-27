@@ -152,9 +152,14 @@ export function GuestHeaderActions({ onNavigate }: { onNavigate?: () => void }) 
 
   if (waitlistMode) {
     return (
-      <Link to={guestSignupPath(true)} className={headerPrimaryBtn} onClick={onNavigate}>
-        {NAV.joinWaitlist}
-      </Link>
+      <>
+        <Link to="/login" className={headerGhostBtn} onClick={onNavigate}>
+          {NAV.signIn}
+        </Link>
+        <Link to={guestSignupPath(true)} className={headerPrimaryBtn} onClick={onNavigate}>
+          {NAV.joinWaitlist}
+        </Link>
+      </>
     );
   }
 

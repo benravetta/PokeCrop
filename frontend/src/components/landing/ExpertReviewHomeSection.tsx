@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { ArrowRight, Check, Clock, UserCheck } from "lucide-react";
 import { SectionHeading } from "../landing/shared";
 import { EXPERT_REVIEW } from "../../humanPregrade/landing/expertReviewCopy";
+import { NAV } from "../../lib/marketingCopy";
 import { formatMinorUnits, useHumanPregradeConfig } from "../../humanPregrade/hooks/useHumanPregradeConfig";
 import { guestSignupPath, useInviteRequired } from "../../hooks/useInviteRequired";
 
@@ -80,12 +81,22 @@ export function ExpertReviewHomeSection({ loggedIn }: { loggedIn: boolean }) {
                 {primaryLabel}
                 <ArrowRight className="h-4 w-4" />
               </Link>
-              <Link
-                to={secondaryHref}
-                className="inline-flex items-center justify-center gap-2 rounded-xl border border-border-strong bg-surface-raised/60 px-6 py-3.5 text-sm font-semibold text-text-primary transition hover:bg-surface-overlay"
-              >
-                {secondaryLabel}
-              </Link>
+              {!loggedIn && inviteRequired ? (
+                <Link
+                  to="/login"
+                  state={{ from: "/human-pregrade" }}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-border-strong bg-surface-raised/60 px-6 py-3.5 text-sm font-semibold text-text-primary transition hover:bg-surface-overlay"
+                >
+                  {NAV.signIn}
+                </Link>
+              ) : (
+                <Link
+                  to={secondaryHref}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-border-strong bg-surface-raised/60 px-6 py-3.5 text-sm font-semibold text-text-primary transition hover:bg-surface-overlay"
+                >
+                  {secondaryLabel}
+                </Link>
+              )}
             </div>
 
             {showUnavailableNote ? (

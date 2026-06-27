@@ -1,0 +1,131 @@
+import { apiFetch } from "../lib/sessionFetch";
+
+const BASE = "/api";
+
+async function fail(res: Response): Promise<never> {
+  let body: { error?: string; error_code?: string } = {};
+  try {
+    body = await res.json();
+  } catch {
+    /* ignore */
+  }
+  throw new Error(body.error ?? `Request failed (${res.status})`);
+}
+
+export interface CollectorProfilesConfig {
+  enabled: boolean;
+  messagingEnabled: boolean;
+  gradingEnabled: boolean;
+  discoveryEnabled: boolean;
+  tradeEnquiriesEnabled: boolean;
+  supportedCardGames: string[];
+  allowViewerGradingDefault: boolean;
+}
+
+export interface PublicProfileView {
+  profile: {
+    username: string;
+    displayName: string;
+    bio: string | null;
+    locationRegion: string | null;
+    messagingEnabled?: boolean;
+    tradeEnquiriesEnabled?: boolean;
+  };
+  interests: { interest_type: string; interest_value: string }[];
+  links: { label: string; url: string }[];
+  showcase: unknown[];
+  forTrade: unknown[];
+  wanted: unknown[];
+  seo: { noIndex: boolean };
+}
+
+export async function fetchCollectorProfilesConfigPublic(): Promise<{ enabled: boolean } | null> {
+  const res = await fetch(`${BASE}/collector/config/public`, { credentials: "include" });
+  if (res.status === 404) return null;
+  if (!res.ok) await fail(res);
+  return res.json();
+}
+
+export async function fetchCollectorProfilesConfig(): Promise<CollectorProfilesConfig | null> {
+  const res = await apiFetch(`${BASE}/collector/config`);
+  if (res.status === 404) return null;
+  if (!res.ok) await fail(res);
+  return res.json();
+}
+
+export async function fetchPublicProfile(username: string): Promise<PublicProfileView> {
+  const res = await fetch(`${BASE}/collector/profiles/${encodeURIComponent(username)}`, {
+    credentials: "include",
+  });
+  if (!res.ok) await fail(res);
+  return res.json();
+}
+
+export async function fetchMyCollectorProfile() {
+  const res = await apiFetch(`${BASE}/collector/profile/me`);
+  if (!res.ok) await fail(res);
+  return res.json();
+}
+
+export async function createCollectorProfile(body: { username: string; displayName: string }) {
+  const res = await apiFetch(`${BASE}/collector/profile`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) await fail(res);
+  return res.json();
+}
+
+export async function updateCollectorProfile(body: Record<string, unknown>) {
+  const res = await apiFetch(`${BASE}/collector/profile/me`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) await fail(res);
+  return res.json();
+}
+
+export async function publishCollectorProfile() {
+  const res = await apiFetch(`${BASE}/collector/profile/me/publish`, { method: "POST" });
+  if (!res.ok) await fail(res);
+  return res.json();
+}
+
+export async function listCollectorCards() {
+  const res = await apiFetch(`${BASE}/collector/cards`);
+  if (!res.ok) await fail(res);
+  return res.json();
+}
+
+export async function createCollectorCard(body: Record<string, unknown>) {
+  const res = await apiFetch(`${BASE}/collector/cards`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) await fail(res);
+  return res.json();
+}
+
+export async function listCollectorConversations() {
+  const res = await apiFetch(`${BASE}/collector/conversations`);
+  if (!res.ok) await fail(res);
+  return res.json();
+}
+
+export async function listCollectorTradeEnquiries() {
+  const res = await apiFetch(`${BASE}/collector/trade-enquiries`);
+  if (!res.ok) await fail(res);
+  return res.json();
+}
+
+export async function fetchPublicCard(username: string, publicCardId: string) {
+  const res = await fetch(
+    `${BASE}/collector/profiles/${encodeURIComponent(username)}/cards/${encodeURIComponent(publicCardId)}`,
+    { credentials: "include" }
+  );
+  if (!res.ok) await fail(res);
+  return res.json();
+}

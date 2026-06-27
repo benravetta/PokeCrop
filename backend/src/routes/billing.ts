@@ -20,6 +20,7 @@ import {
   userIdForPaymentIntent,
 } from "../lib/billingPurchases.js";
 import { handleHumanPregradeStripeSession } from "../humanPregrade/index.js";
+import { handleCollectorProfileStripeSession } from "../collectorProfiles/index.js";
 import { rejectAdminBilling } from "../lib/adminAccess.js";
 
 const router = Router();
@@ -321,6 +322,10 @@ async function handleCheckoutSession(session: Stripe.Checkout.Session): Promise<
   if (session.mode !== "payment") return;
   if (session.metadata?.product === "human_pregrade") {
     await handleHumanPregradeStripeSession(session);
+    return;
+  }
+  if (session.metadata?.product === "collector_profile_grade") {
+    await handleCollectorProfileStripeSession(session);
     return;
   }
   if (session.metadata?.product !== "grade_single") return;

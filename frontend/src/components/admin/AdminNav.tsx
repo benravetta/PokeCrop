@@ -1,4 +1,5 @@
 import { NavLink } from "react-router-dom";
+import type { LucideIcon } from "lucide-react";
 import {
   LayoutDashboard,
   Users,
@@ -7,8 +8,10 @@ import {
   Wrench,
   Layers,
   UserCheck,
+  UserCircle,
 } from "lucide-react";
 import { useHumanPregradeConfig } from "../../humanPregrade/hooks/useHumanPregradeConfig";
+import { useCollectorProfilesConfig } from "../../collectorProfiles/hooks/useCollectorProfilesConfig";
 
 const BASE_LINKS = [
   { to: "/admin", end: true, label: "Overview", icon: LayoutDashboard },
@@ -19,14 +22,23 @@ const BASE_LINKS = [
   { to: "/admin/catalog", label: "Catalog", icon: Layers },
 ] as const;
 
+type AdminNavLink = {
+  to: string;
+  label: string;
+  icon: LucideIcon;
+  end?: boolean;
+};
+
 export function AdminNav({ horizontal }: { horizontal?: boolean }) {
-  const { enabled } = useHumanPregradeConfig();
-  const links = enabled
-    ? [
-        ...BASE_LINKS,
-        { to: "/admin/human-pregrades", label: "Expert reviews", icon: UserCheck },
-      ]
-    : BASE_LINKS;
+  const { enabled: hpEnabled } = useHumanPregradeConfig();
+  const { enabled: collectorEnabled } = useCollectorProfilesConfig();
+  const links: AdminNavLink[] = [...BASE_LINKS];
+  if (hpEnabled) {
+    links.push({ to: "/admin/human-pregrades", label: "Expert reviews", icon: UserCheck });
+  }
+  if (collectorEnabled) {
+    links.push({ to: "/admin/collector/profiles", label: "Collector profiles", icon: UserCircle });
+  }
 
   return (
     <nav className={`flex ${horizontal ? "flex-row gap-1 min-w-max" : "flex-col gap-0.5"}`}>

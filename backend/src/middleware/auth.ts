@@ -120,6 +120,20 @@ async function refreshLiveUser(req: Request, res: Response): Promise<boolean> {
   }
 }
 
+/** Sets req.user when a valid session cookie is present; never rejects. */
+export async function optionalAuth(
+  req: Request,
+  _res: Response,
+  next: NextFunction
+): Promise<void> {
+  const token = extractToken(req);
+  if (token) {
+    const user = await resolveUser(token);
+    if (user) req.user = user;
+  }
+  next();
+}
+
 export async function requireAuth(
   req: Request,
   res: Response,

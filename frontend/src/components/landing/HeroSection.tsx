@@ -2,7 +2,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { ArrowRight, CheckCircle2, Upload, UserCheck } from "lucide-react";
 import { HERO_CARD_IMG, SINGLE_GRADE } from "./data";
 import { AppWindow } from "./shared";
-import { ESTIMATE_DISCLAIMER_SHORT, HERO, TRUST_STRIP } from "../../lib/marketingCopy";
+import { ESTIMATE_DISCLAIMER_SHORT, HERO, NAV, TRUST_STRIP } from "../../lib/marketingCopy";
 import { EXPERT_REVIEW } from "../../humanPregrade/landing/expertReviewCopy";
 import { STAFF_ACCOUNT } from "../../lib/adminAccess";
 import { PLAN_LABELS, type Plan } from "../../lib/plans";
@@ -59,13 +59,22 @@ export function HeroSection({
                 <Upload className="w-4 h-4" />
                 {primary.label}
               </Link>
-              <Link
-                to="/sample-report"
-                className="inline-flex items-center justify-center gap-2 rounded-xl border border-border-strong bg-surface-raised/60 px-6 py-3.5 text-sm font-semibold text-text-primary hover:bg-surface-overlay transition-colors"
-              >
-                {HERO.secondaryCta}
-                <ArrowRight className="w-4 h-4 text-text-muted" />
-              </Link>
+              {!loggedIn && inviteRequired ? (
+                <Link
+                  to="/login"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-border-strong bg-surface-raised/60 px-6 py-3.5 text-sm font-semibold text-text-primary hover:bg-surface-overlay transition-colors"
+                >
+                  {NAV.signIn}
+                </Link>
+              ) : (
+                <Link
+                  to="/sample-report"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-border-strong bg-surface-raised/60 px-6 py-3.5 text-sm font-semibold text-text-primary hover:bg-surface-overlay transition-colors"
+                >
+                  {HERO.secondaryCta}
+                  <ArrowRight className="w-4 h-4 text-text-muted" />
+                </Link>
+              )}
             </div>
 
             <a
