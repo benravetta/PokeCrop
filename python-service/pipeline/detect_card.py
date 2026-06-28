@@ -19,6 +19,8 @@ from utils.geometry import order_corners
 CONFIDENCE_MANUAL_THRESHOLD = 0.50
 CONFIDENCE_AUTO_THRESHOLD = 0.70
 ENSEMBLE_DISAGREE = 0.15
+# Scan inset is only valid when the card (or candidates) nearly fill the frame.
+FULLBLEED_AREA = 0.85
 
 
 def strict_gating_enabled() -> bool:
@@ -48,16 +50,6 @@ def _quad_area_frac(quad: np.ndarray, shape) -> float:
     return float(cv2.contourArea(quad.astype(np.float32))) / float(h * w)
 
 
-def _image_has_card_signal(image: np.ndarray) -> bool:
-    """Reject blank / uniform frames where scan inset would hallucinate a card."""
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    if float(gray.std()) < 8.0:
-        return False
-    if float(cv2.Laplacian(gray, cv2.CV_64F).var()) < 35.0:
-        return False
-    return True
-
-
 def _reject_blank_hallucination(working: np.ndarray, quad: np.ndarray) -> bool:
     """True when a large quad on an empty desk is almost certainly a false positive."""
     gray = cv2.cvtColor(working, cv2.COLOR_BGR2GRAY)
@@ -76,7 +68,7 @@ def _maybe_add_scan_candidate(
     if not candidates:
         return
     max_area = max(_quad_area_frac(c[1], working.shape) for c in candidates)
-    if max_area < 0.45:
+    if max_area < FULLBLEED_AREA:
         return
     scan_b = scan_boundary(working)
     if scan_b is None:
@@ -86,6 +78,20 @@ def _maybe_add_scan_candidate(
         return
     q, v, damaged = parsed
     candidates.append(("scan", q, v, damaged, True))
+
+
+def _pick_best_candidate(
+    candidates: List[Tuple[str, np.ndarray, Validation, bool, bool]],
+    working: np.ndarray,
+) -> Tuple[str, np.ndarray, Validation, bool, bool]:
+    max_area = max(_quad_area_frac(c[1], working.shape) for c in candidates)
+    scan_cands = [c for c in candidates if c[4]]
+    if scan_cands and max_area >= FULLBLEED_AREA:
+        scan_cands.sort(key=lambda c: c[2].confidence, reverse=True)
+        return scan_cands[0]
+    pool = [c for c in candidates if not c[4]] or candidates
+    pool.sort(key=lambda c: c[2].confidence, reverse=True)
+    return pool[0]
 
 
 def _quad_from_boundary(
@@ -141,25 +147,12 @@ def detect_card_quad(
         _maybe_add_scan_candidate(working, original, scale, candidates)
     else:
         boundary = card_boundary(working, roi)
-        if boundary is None:
-            scan_b = scan_boundary(working)
-            if scan_b is not None:
-                boundary = scan_b
         if boundary is not None:
             parsed = _quad_from_boundary(boundary, working, original, scale)
             if parsed:
                 q, v, damaged = parsed
                 path = "scan" if boundary.scan_mode else ("segment" if boundary.from_segment else "classical")
                 candidates.append((path, q, v, damaged, boundary.scan_mode))
-
-    if not candidates:
-        if _image_has_card_signal(working):
-            scan_b = scan_boundary(working)
-            if scan_b is not None:
-                parsed = _quad_from_boundary(scan_b, working, original, scale)
-                if parsed:
-                    q, v, damaged = parsed
-                    candidates.append(("scan", q, v, damaged, True))
 
     if not candidates:
         return None
@@ -169,9 +162,7 @@ def detect_card_quad(
     if not candidates:
         return None
 
-    # Prefer scan inset when full-bleed geometry is present.
-    candidates.sort(key=lambda c: (0 if c[4] else 1, -c[2].confidence))
-    path, quad_full, validation, damaged, scan_mode = candidates[0]
+    path, quad_full, validation, damaged, scan_mode = _pick_best_candidate(candidates, working)
     detection_path = path
 
     if len(candidates) >= 2:

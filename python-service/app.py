@@ -272,6 +272,8 @@ async def process_card(
         }
         if result.reasons:
             response_content["metadata"]["detection_notes"] = result.reasons
+        if result.card_outer_frac:
+            response_content["metadata"]["card_outer_frac"] = result.card_outer_frac
         if result_png_b64 is not None:
             response_content["result_png"] = result_png_b64
 

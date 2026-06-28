@@ -90,3 +90,30 @@ def order_corners(box: np.ndarray) -> np.ndarray:
     tl, bl = left[np.argsort(left[:, 1], kind="stable")]
     tr, br = right[np.argsort(right[:, 1], kind="stable")]
     return np.array([tl, tr, br, bl], dtype=np.float32)
+
+
+def expand_quad_outward(
+    quad: np.ndarray,
+    image_shape: Tuple[int, int],
+    frac: float = 0.012,
+) -> np.ndarray:
+    """Scale a quad slightly outward from its centre so the warp keeps the full cut edge.
+
+    Segmentation often hugs the inner frame; a ~1% outward bias preserves the outer
+    silver border for centering without meaningfully increasing background area.
+    """
+    h, w = image_shape[:2]
+    q = order_corners(np.asarray(quad, dtype=np.float64).reshape(4, 2))
+    centre = q.mean(axis=0)
+    scale = 1.0 + max(0.0, float(frac))
+    out = centre + (q - centre) * scale
+    out[:, 0] = np.clip(out[:, 0], 0.0, float(w - 1))
+    out[:, 1] = np.clip(out[:, 1], 0.0, float(h - 1))
+    return out.astype(np.float64)
+
+
+def quad_area_frac(quad: np.ndarray, image_shape: Tuple[int, int]) -> float:
+    h, w = image_shape[:2]
+    if h <= 0 or w <= 0:
+        return 0.0
+    return float(cv2.contourArea(np.asarray(quad, dtype=np.float32).reshape(4, 2))) / float(h * w)

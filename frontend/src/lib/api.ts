@@ -88,6 +88,8 @@ export interface ProcessResult {
     aspect?: number;
     damaged?: boolean;
     glare?: number;
+    /** Normalised outer cut edge in the cropped PNG (x0,y0,x1,y1). */
+    card_outer_frac?: [number, number, number, number];
     score_breakdown: Record<string, number>;
   };
   error?: string;

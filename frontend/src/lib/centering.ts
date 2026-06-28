@@ -259,7 +259,39 @@ function colourDist(a: number[], b: number[]): number {
 interface Sampler {
   w: number;
   h: number;
+  fullOpaque: Box | null;
   px: (x: number, y: number) => number[];
+  alpha: (x: number, y: number) => number;
+}
+
+function opaqueBoundsFromAlpha(
+  w: number,
+  h: number,
+  alphaAt: (x: number, y: number) => number,
+  thresh = 8,
+): Box | null {
+  const THRESH = thresh;
+  let minX = w;
+  let minY = h;
+  let maxX = -1;
+  let maxY = -1;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (alphaAt(x, y) >= THRESH) {
+        if (x < minX) minX = x;
+        if (y < minY) minY = y;
+        if (x > maxX) maxX = x;
+        if (y > maxY) maxY = y;
+      }
+    }
+  }
+  if (maxX < minX || maxY < minY) return null;
+  return {
+    x0: minX / w,
+    y0: minY / h,
+    x1: (maxX + 1) / w,
+    y1: (maxY + 1) / h,
+  };
 }
 
 function sampler(img: HTMLImageElement): Sampler | null {
@@ -279,13 +311,34 @@ function sampler(img: HTMLImageElement): Sampler | null {
   } catch {
     return null;
   }
+
+  // Opaque bounds at native resolution — bilinear downscale bleeds alpha at edges.
+  let fullOpaque: Box | null = null;
+  const bw = img.naturalWidth;
+  const bh = img.naturalHeight;
+  const boundsCanvas = document.createElement("canvas");
+  boundsCanvas.width = bw;
+  boundsCanvas.height = bh;
+  const bctx = boundsCanvas.getContext("2d", { willReadFrequently: true });
+  if (bctx) {
+    bctx.drawImage(img, 0, 0);
+    try {
+      const fullData = bctx.getImageData(0, 0, bw, bh).data;
+      fullOpaque = opaqueBoundsFromAlpha(bw, bh, (x, y) => fullData[(y * bw + x) * 4 + 3]);
+    } catch {
+      fullOpaque = null;
+    }
+  }
+
   return {
     w,
     h,
+    fullOpaque,
     px: (x, y) => {
       const i = (y * w + x) * 4;
       return [data[i], data[i + 1], data[i + 2]];
     },
+    alpha: (x, y) => data[(y * w + x) * 4 + 3],
   };
 }
 
@@ -303,103 +356,256 @@ function lineMean(s: Sampler, idx: number, vertical: boolean): number[] {
   return n ? [r / n, g / n, b / n] : [0, 0, 0];
 }
 
-// Find the fraction (0..1) where the colour first deviates from `ref` by more
-// than THRESH for RUN consecutive lines, scanning inward from one edge.
-function firstTransition(
-  s: Sampler,
-  ref: number[],
-  vertical: boolean,
-  fromStart: boolean,
-  startFrac: number,
-  limitFrac: number
-): number | null {
-  const span = vertical ? s.w : s.h; // index axis: x for vertical lines
-  const THRESH = 40;
-  const RUN = 3;
-  const start = Math.floor(span * startFrac);
-  const limit = Math.floor(span * limitFrac);
-  let run = 0;
-  if (fromStart) {
-    for (let i = start; i < limit; i++) {
-      if (colourDist(lineMean(s, i, vertical), ref) > THRESH) {
-        if (++run >= RUN) return (i - RUN + 1) / span;
-      } else run = 0;
+function saturation(c: number[]): number {
+  return Math.max(c[0], c[1], c[2]) - Math.min(c[0], c[1], c[2]);
+}
+
+function meanColor(samples: number[][]): number[] {
+  if (!samples.length) return [0, 0, 0];
+  let r = 0, g = 0, b = 0;
+  for (const c of samples) {
+    r += c[0]; g += c[1]; b += c[2];
+  }
+  const n = samples.length;
+  return [r / n, g / n, b / n];
+}
+
+type CardEdge = "left" | "right" | "top" | "bottom";
+
+/** Sample the printed border strip along one outer edge (not the card interior). */
+function edgeStripSamples(s: Sampler, outer: Box, edge: CardEdge): number[][] {
+  const stripFrac = 0.035;
+  const cornerSkip = 0.16;
+  const cw = outer.x1 - outer.x0;
+  const ch = outer.y1 - outer.y0;
+  const samples: number[][] = [];
+  const px = (x: number, y: number) => s.px(Math.max(0, Math.min(s.w - 1, x)), Math.max(0, Math.min(s.h - 1, y)));
+
+  if (edge === "left") {
+    const x0 = Math.floor(s.w * outer.x0);
+    const x1 = Math.floor(s.w * (outer.x0 + stripFrac * cw));
+    const y0 = Math.floor(s.h * (outer.y0 + ch * cornerSkip));
+    const y1 = Math.floor(s.h * (outer.y1 - ch * cornerSkip));
+    for (let x = x0; x <= x1; x++) {
+      for (let y = y0; y < y1; y += 2) samples.push(px(x, y));
+    }
+  } else if (edge === "right") {
+    const x1 = Math.floor(s.w * outer.x1);
+    const x0 = Math.floor(s.w * (outer.x1 - stripFrac * cw));
+    const y0 = Math.floor(s.h * (outer.y0 + ch * cornerSkip));
+    const y1 = Math.floor(s.h * (outer.y1 - ch * cornerSkip));
+    for (let x = x0; x <= x1; x++) {
+      for (let y = y0; y < y1; y += 2) samples.push(px(x, y));
+    }
+  } else if (edge === "top") {
+    const y0 = Math.floor(s.h * outer.y0);
+    const y1 = Math.floor(s.h * (outer.y0 + stripFrac * ch));
+    const x0 = Math.floor(s.w * (outer.x0 + cw * cornerSkip));
+    const x1 = Math.floor(s.w * (outer.x1 - cw * cornerSkip));
+    for (let y = y0; y <= y1; y++) {
+      for (let x = x0; x < x1; x += 2) samples.push(px(x, y));
     }
   } else {
-    for (let i = span - 1 - start; i > span - 1 - limit; i--) {
-      if (colourDist(lineMean(s, i, vertical), ref) > THRESH) {
-        if (++run >= RUN) return (i + RUN - 1) / span;
-      } else run = 0;
+    const y1 = Math.floor(s.h * outer.y1);
+    const y0 = Math.floor(s.h * (outer.y1 - stripFrac * ch));
+    const x0 = Math.floor(s.w * (outer.x0 + cw * cornerSkip));
+    const x1 = Math.floor(s.w * (outer.x1 - cw * cornerSkip));
+    for (let y = y0; y <= y1; y++) {
+      for (let x = x0; x < x1; x += 2) samples.push(px(x, y));
     }
   }
-  return null;
+  return samples;
+}
+
+function isBorderLike(c: number[], ref: number[]): boolean {
+  const d = colourDist(c, ref);
+  if (d <= 28) return true;
+  return d <= 44 && saturation(c) <= 62 && saturation(ref) <= 62;
+}
+
+/** Mean colour of a scan line across the card interior band (corners skipped). */
+function bandMean(s: Sampler, outer: Box, edge: CardEdge, idx: number): number[] {
+  const cornerSkip = 0.18;
+  const cw = outer.x1 - outer.x0;
+  const ch = outer.y1 - outer.y0;
+  let r = 0, g = 0, b = 0, n = 0;
+  if (edge === "left" || edge === "right") {
+    const y0 = Math.floor(s.h * (outer.y0 + ch * cornerSkip));
+    const y1 = Math.floor(s.h * (outer.y1 - ch * cornerSkip));
+    for (let y = y0; y < y1; y += 2) {
+      const c = s.px(idx, y);
+      r += c[0]; g += c[1]; b += c[2]; n++;
+    }
+  } else {
+    const x0 = Math.floor(s.w * (outer.x0 + cw * cornerSkip));
+    const x1 = Math.floor(s.w * (outer.x1 - cw * cornerSkip));
+    for (let x = x0; x < x1; x += 2) {
+      const c = s.px(x, idx);
+      r += c[0]; g += c[1]; b += c[2]; n++;
+    }
+  }
+  return n ? [r / n, g / n, b / n] : [0, 0, 0];
+}
+
+function scanInnerEdge(s: Sampler, outer: Box, edge: CardEdge, borderRef: number[]): number {
+  const RUN = 2;
+  const maxScan = 0.14;
+  const cw = outer.x1 - outer.x0;
+  const ch = outer.y1 - outer.y0;
+  let run = 0;
+
+  if (edge === "left") {
+    const xStart = Math.ceil(s.w * (outer.x0 + 0.002));
+    const xEnd = Math.floor(s.w * (outer.x0 + cw * maxScan));
+    for (let x = xStart; x <= xEnd; x++) {
+      if (!isBorderLike(bandMean(s, outer, "left", x), borderRef)) {
+        if (++run >= RUN) return (x - (RUN - 1)) / s.w;
+      } else run = 0;
+    }
+    return outer.x0 + cw * 0.035;
+  }
+  if (edge === "right") {
+    const xStart = Math.floor(s.w * (outer.x1 - 0.002));
+    const xEnd = Math.ceil(s.w * (outer.x1 - cw * maxScan));
+    for (let x = xStart; x >= xEnd; x--) {
+      if (!isBorderLike(bandMean(s, outer, "right", x), borderRef)) {
+        if (++run >= RUN) return (x + (RUN - 1)) / s.w;
+      } else run = 0;
+    }
+    return outer.x1 - cw * 0.035;
+  }
+  if (edge === "top") {
+    const yStart = Math.ceil(s.h * (outer.y0 + 0.002));
+    const yEnd = Math.floor(s.h * (outer.y0 + ch * maxScan));
+    for (let y = yStart; y <= yEnd; y++) {
+      if (!isBorderLike(bandMean(s, outer, "top", y), borderRef)) {
+        if (++run >= RUN) return (y - (RUN - 1)) / s.h;
+      } else run = 0;
+    }
+    return outer.y0 + ch * 0.035;
+  }
+  const yStart = Math.floor(s.h * (outer.y1 - 0.002));
+  const yEnd = Math.ceil(s.h * (outer.y1 - ch * maxScan));
+  for (let y = yStart; y >= yEnd; y--) {
+    if (!isBorderLike(bandMean(s, outer, "bottom", y), borderRef)) {
+      if (++run >= RUN) return (y + (RUN - 1)) / s.h;
+    } else run = 0;
+  }
+  return outer.y1 - ch * 0.035;
+}
+
+function median(values: number[]): number {
+  if (!values.length) return 0.035;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+function detectInnerBox(s: Sampler, outer: Box): Box {
+  const refs = {
+    left: meanColor(edgeStripSamples(s, outer, "left")),
+    right: meanColor(edgeStripSamples(s, outer, "right")),
+    top: meanColor(edgeStripSamples(s, outer, "top")),
+    bottom: meanColor(edgeStripSamples(s, outer, "bottom")),
+  };
+  const globalRef = meanColor([refs.left, refs.right, refs.top, refs.bottom]);
+
+  let inner: Box = {
+    x0: scanInnerEdge(s, outer, "left", refs.left),
+    x1: scanInnerEdge(s, outer, "right", refs.right),
+    y0: scanInnerEdge(s, outer, "top", refs.top),
+    y1: scanInnerEdge(s, outer, "bottom", refs.bottom),
+  };
+
+  const cw = outer.x1 - outer.x0;
+  const ch = outer.y1 - outer.y0;
+  const widths = {
+    left: inner.x0 - outer.x0,
+    right: outer.x1 - inner.x1,
+    top: inner.y0 - outer.y0,
+    bottom: outer.y1 - inner.y1,
+  };
+  const MIN = 0.01;
+  const MAX = 0.13;
+  const good = (w: number) => w >= MIN && w <= MAX;
+  const goodVals = Object.values(widths).filter(good);
+  const med = median(goodVals.length ? goodVals : [0.035]);
+
+  if (!good(widths.left)) inner.x0 = outer.x0 + med;
+  if (!good(widths.right)) inner.x1 = outer.x1 - med;
+  if (!good(widths.top)) inner.y0 = outer.y0 + med;
+  if (!good(widths.bottom)) inner.y1 = outer.y1 - med;
+
+  if (!good(widths.right)) inner.x1 = scanInnerEdge(s, outer, "right", globalRef);
+  if (!good(outer.x1 - inner.x1)) inner.x1 = outer.x1 - med;
+
+  if (inner.x1 - inner.x0 < 0.3 || inner.y1 - inner.y0 < 0.3) {
+    inner.x0 = outer.x0 + cw * 0.035;
+    inner.x1 = outer.x1 - cw * 0.035;
+    inner.y0 = outer.y0 + ch * 0.035;
+    inner.y1 = outer.y1 - ch * 0.035;
+  }
+  return inner;
+}
+
+export function boxFromFrac(f: [number, number, number, number]): Box {
+  return { x0: f[0], y0: f[1], x1: f[2], y1: f[3] };
+}
+
+function validBox(b: Box): boolean {
+  return b.x1 - b.x0 > 0.4 && b.y1 - b.y0 > 0.4 && b.x0 >= 0 && b.y0 >= 0 && b.x1 <= 1 && b.y1 <= 1;
 }
 
 // Auto-seed the outer (card edge) and inner (art edge) boxes.
-// Strategy: the straightened preview is normally full-bleed, so outer defaults
-// to the image edge; if a uniform background margin is detected it's pulled in.
-// inner is the first border->art colour transition from each (outer) edge.
-export function detectBorders(img: HTMLImageElement): { outer: Box; inner: Box } {
+export function detectBorders(
+  img: HTMLImageElement,
+  outerHint?: Box | null,
+): { outer: Box; inner: Box } {
   const s = sampler(img);
   if (!s) return { outer: { ...FULL_BOX }, inner: { ...DEFAULT_INNER } };
 
-  // --- Outer: look for a uniform background margin matching the corner colour.
-  const corner = s.px(1, 1);
-  const bgMatchesCorner = (idx: number, vertical: boolean) =>
-    colourDist(lineMean(s, idx, vertical), corner) <= 22;
-  const marginFrom = (vertical: boolean, fromStart: boolean): number => {
-    const span = vertical ? s.w : s.h;
-    const cap = Math.floor(span * 0.18);
-    let m = 0;
-    for (let k = 0; k < cap; k++) {
-      const idx = fromStart ? k : span - 1 - k;
-      if (bgMatchesCorner(idx, vertical)) m = k + 1;
-      else break;
+  const opaque = s.fullOpaque;
+  const opaqueArea =
+    opaque == null ? 1 : (opaque.x1 - opaque.x0) * (opaque.y1 - opaque.y0);
+
+  // --- Outer: use pipeline hint when available; otherwise alpha bounds at a low
+  // threshold so anti-aliased border pixels are not clipped.
+  let outer: Box;
+  if (outerHint && validBox(outerHint)) {
+    outer = { ...outerHint };
+  } else if (opaque != null && opaqueArea < 0.98 && opaque.x1 - opaque.x0 > 0.5 && opaque.y1 - opaque.y0 > 0.5) {
+    outer = { ...opaque };
+  } else {
+    const corner = s.px(1, 1);
+    const bgMatchesCorner = (idx: number, vertical: boolean) =>
+      colourDist(lineMean(s, idx, vertical), corner) <= 22;
+    const marginFrom = (vertical: boolean, fromStart: boolean): number => {
+      const span = vertical ? s.w : s.h;
+      const cap = Math.floor(span * 0.18);
+      let m = 0;
+      for (let k = 0; k < cap; k++) {
+        const idx = fromStart ? k : span - 1 - k;
+        if (bgMatchesCorner(idx, vertical)) m = k + 1;
+        else break;
+      }
+      return m / span;
+    };
+    outer = {
+      x0: marginFrom(true, true),
+      y0: marginFrom(false, true),
+      x1: 1 - marginFrom(true, false),
+      y1: 1 - marginFrom(false, false),
+    };
+    if (outer.x1 - outer.x0 < 0.5 || outer.y1 - outer.y0 < 0.5) {
+      outer.x0 = 0;
+      outer.y0 = 0;
+      outer.x1 = 1;
+      outer.y1 = 1;
     }
-    return m / span;
-  };
-  // Only treat as background if the corner area isn't already card (heuristic:
-  // a real margin exists on at least the left or top). Small margins are kept.
-  const outer: Box = {
-    x0: marginFrom(true, true),
-    y0: marginFrom(false, true),
-    x1: 1 - marginFrom(true, false),
-    y1: 1 - marginFrom(false, false),
-  };
-  if (outer.x1 - outer.x0 < 0.5 || outer.y1 - outer.y0 < 0.5) {
-    outer.x0 = 0; outer.y0 = 0; outer.x1 = 1; outer.y1 = 1;
   }
 
-  // --- Inner: sample the border colour just inside each outer edge, then scan
-  // inward to the first transition into the artwork.
-  const inFromX = outer.x0 + 0.02;
-  const inToX = outer.x1 - 0.02;
-  const inFromY = outer.y0 + 0.02;
-  const inToY = outer.y1 - 0.02;
-  const refL = lineMean(s, Math.floor(s.w * inFromX), true);
-  const refR = lineMean(s, Math.floor(s.w * inToX), true);
-  const refT = lineMean(s, Math.floor(s.h * inFromY), false);
-  const refB = lineMean(s, Math.floor(s.h * inToY), false);
+  // --- Inner: scan inward from each edge until the border colour ends.
+  const inner = detectInnerBox(s, outer);
 
-  const cap = 0.4;
-  const x0 = firstTransition(s, refL, true, true, outer.x0 + 0.02, outer.x0 + cap);
-  const x1 = firstTransition(s, refR, true, false, (1 - outer.x1) + 0.02, (1 - outer.x1) + cap);
-  const y0 = firstTransition(s, refT, false, true, outer.y0 + 0.02, outer.y0 + cap);
-  const y1 = firstTransition(s, refB, false, false, (1 - outer.y1) + 0.02, (1 - outer.y1) + cap);
-
-  const inner: Box = {
-    x0: x0 ?? outer.x0 + 0.08,
-    y0: y0 ?? outer.y0 + 0.06,
-    x1: x1 ?? outer.x1 - 0.08,
-    y1: y1 ?? outer.y1 - 0.06,
-  };
-
-  // Sanity: inner must sit inside outer with a positive interior.
-  if (inner.x1 - inner.x0 < 0.3 || inner.y1 - inner.y0 < 0.3) {
-    inner.x0 = outer.x0 + (outer.x1 - outer.x0) * 0.08;
-    inner.x1 = outer.x1 - (outer.x1 - outer.x0) * 0.08;
-    inner.y0 = outer.y0 + (outer.y1 - outer.y0) * 0.06;
-    inner.y1 = outer.y1 - (outer.y1 - outer.y0) * 0.06;
-  }
   return { outer, inner };
 }

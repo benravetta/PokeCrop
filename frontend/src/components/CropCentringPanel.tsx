@@ -1,15 +1,17 @@
 import { useEffect, useRef, useState } from "react";
 import { Crosshair } from "lucide-react";
 import { CenteringTool } from "./grade/CenteringTool";
-import { borderRatios, type Box } from "../lib/centering";
+import { borderRatios, boxFromFrac, type Box } from "../lib/centering";
 import { saveHistoryCentring } from "../lib/api";
 
 export function CropCentringPanel({
   imageSrc,
   historyEventId,
+  outerHint,
 }: {
   imageSrc: string;
   historyEventId: number | null;
+  outerHint?: Box | null;
 }) {
   const [outer, setOuter] = useState<Box | null>(null);
   const [inner, setInner] = useState<Box | null>(null);
@@ -22,7 +24,7 @@ export function CropCentringPanel({
     setInner(null);
     setSkipped(false);
     setSaved(false);
-  }, [imageSrc, historyEventId]);
+  }, [imageSrc]);
 
   useEffect(() => {
     if (!historyEventId || skipped || !outer || !inner) return;
@@ -60,6 +62,7 @@ export function CropCentringPanel({
         <CenteringTool
           side="front"
           imageSrc={imageSrc}
+          outerHint={outerHint}
           outer={outer}
           inner={inner}
           onOuter={setOuter}

@@ -31,6 +31,23 @@ def trim_and_pad(rgba: np.ndarray, pad: int = 8) -> np.ndarray:
     return cropped
 
 
+def card_outer_frac(rgba: np.ndarray, alpha_thresh: int = 8) -> Optional[list]:
+    """Normalised outer cut edge in the final PNG (includes anti-aliased border pixels)."""
+    if rgba.size == 0:
+        return None
+    alpha = rgba[:, :, 3]
+    ys, xs = np.where(alpha >= int(alpha_thresh))
+    if len(xs) == 0:
+        return None
+    h, w = alpha.shape[:2]
+    return [
+        float(xs.min()) / w,
+        float(ys.min()) / h,
+        float(xs.max() + 1) / w,
+        float(ys.max() + 1) / h,
+    ]
+
+
 def encode_png(rgba: np.ndarray, compress_level: int = 3) -> bytes:
     buf = io.BytesIO()
     Image.fromarray(rgba, "RGBA").save(buf, format="PNG", compress_level=int(compress_level))

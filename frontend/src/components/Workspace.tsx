@@ -22,6 +22,7 @@ import { useAppStore, paramsDiffer } from "../hooks/useProcessing";
 import { useMe } from "../hooks/useMe";
 import { PlanUsageStrip } from "./plan/PlanUsageCard";
 import { fetchExport } from "../lib/api";
+import { boxFromFrac } from "../lib/centering";
 
 // Read a Blob back as raw base64 (no data: prefix), matching the store's
 // resultBase64 format.
@@ -172,6 +173,11 @@ export function Workspace() {
               <CropCentringPanel
                 imageSrc={`data:image/png;base64,${resultBase64}`}
                 historyEventId={historyEventId}
+                outerHint={
+                  metadata?.card_outer_frac
+                    ? boxFromFrac(metadata.card_outer_frac)
+                    : null
+                }
               />
             )}
           </>

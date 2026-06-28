@@ -16,6 +16,7 @@ const MIN = 0.04; // minimum span / gap between edges
 export function CenteringTool({
   side,
   imageSrc,
+  outerHint,
   outer,
   inner,
   onOuter,
@@ -26,6 +27,7 @@ export function CenteringTool({
 }: {
   side: CardSide;
   imageSrc: string;
+  outerHint?: Box | null;
   outer: Box | null;
   inner: Box | null;
   onOuter: (b: Box) => void;
@@ -49,7 +51,7 @@ export function CenteringTool({
     if (autoDone.current || !imgRef.current) return;
     autoDone.current = true;
     try {
-      const { outer: o, inner: i } = detectBorders(imgRef.current);
+      const { outer: o, inner: i } = detectBorders(imgRef.current, outerHint);
       onOuter(o);
       onInner(i);
       onAutoDetect?.(o, i);
@@ -60,11 +62,12 @@ export function CenteringTool({
   };
 
   useEffect(() => {
+    if (outer !== null || inner !== null) return;
     const img = imgRef.current;
     if (img?.complete && img.naturalWidth > 0) {
       runAutoDetect();
     }
-  }, [imageSrc]);
+  }, [imageSrc, outer, inner, outerHint]);
 
   useEffect(() => {
     const move = (e: PointerEvent) => {
@@ -141,7 +144,6 @@ export function CenteringTool({
           className="block w-full"
           draggable={false}
           onLoad={runAutoDetect}
-          crossOrigin="anonymous"
         />
 
         {ready && (

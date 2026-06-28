@@ -370,9 +370,7 @@
         "min_confidence": 0.45,
         "aspect_tolerance": 0.12,
         "max_processing_ms": 8000,
-        "max_background_frac": 0.05,
-        "scan_mode": true,
-        "detection_path": "scan"
+        "max_background_frac": 0.05
       },
       "verified_corners": null
     },

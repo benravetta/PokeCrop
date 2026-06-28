@@ -23,7 +23,7 @@ from pipeline.orientation import orient_upright
 from pipeline.alpha import build_alpha
 from pipeline.enhance import enhance_clean, glare_fraction
 from pipeline import export as exp
-from utils.geometry import order_corners
+from utils.geometry import order_corners, expand_quad_outward, quad_area_frac
 
 CONFIDENCE_MANUAL_THRESHOLD = 0.50
 CONFIDENCE_AUTO_THRESHOLD = 0.70
@@ -41,6 +41,8 @@ EDIT_CARD_LONG = 1000
 # shot can't blow up memory, and floored so it's never worse than a normal crop.
 GRADING_MAX_LONG = 3000
 GRADING_MIN_LONG = OUTPUT_SIZES["standard"][1]  # 1760
+# Bias auto-detected quads outward so the warp retains the full physical cut edge.
+OUTWARD_EXPAND_FRAC = 0.012
 
 
 @dataclass
@@ -79,6 +81,7 @@ class CropResult:
     reasons: List[str] = field(default_factory=list)
     stage_times: dict = field(default_factory=dict)
     error: Optional[str] = None
+    card_outer_frac: List[float] = field(default_factory=list)
 
 
 def run_crop(
@@ -129,6 +132,8 @@ def run_crop(
         res.detection_path = detected.detection_path
         res.scan_mode = detected.scan_mode
         damaged = detected.damaged
+        if quad_area_frac(quad_full, original.shape) < 0.82:
+            quad_full = expand_quad_outward(quad_full, original.shape, OUTWARD_EXPAND_FRAC)
 
     res.working_corners = (quad_full / float(scale)).astype(np.float64).tolist()
 
@@ -195,6 +200,9 @@ def run_crop(
     t = time.time()
     pad = max(4, int(round(min(warp.image.shape[:2]) * 0.006)))
     rgba = exp.trim_and_pad(rgba, pad=pad)
+    outer_frac = exp.card_outer_frac(rgba)
+    if outer_frac is not None:
+        res.card_outer_frac = outer_frac
     if opts.background is not None:
         rgb = exp.composite_solid(rgba, opts.background)
         rgba[:, :, :3] = rgb
