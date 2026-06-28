@@ -95,7 +95,7 @@ export function PricingSection({
 
   return (
     <section id="pricing" className="scroll-mt-20 py-16 sm:py-24">
-      <div className="mx-auto max-w-6xl px-4 sm:px-6">
+      <div className="mx-auto w-full max-w-6xl page-x">
         <SectionHeading
           kicker="Pricing"
           title={PRICING.heading}
@@ -278,7 +278,7 @@ export function PlanCta({
 
   return (
     <section className="relative overflow-hidden border-t border-border-subtle landing-mesh">
-      <div className="relative mx-auto max-w-4xl px-4 sm:px-6 py-20 sm:py-28 text-center">
+      <div className="relative mx-auto w-full max-w-4xl page-x py-20 sm:py-28 text-center">
         <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight text-balance">{title}</h2>
         <p className="mt-4 text-text-secondary max-w-xl mx-auto leading-relaxed">{copy}</p>
         <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">

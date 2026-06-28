@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { PageContainer } from "../../components/pageLayout";
 import { Link } from "react-router-dom";
 import {
   Users,
@@ -77,7 +78,7 @@ export function AdminOverviewPage() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-5 py-8">
+    <PageContainer width="medium">
       <h1 className="text-xl font-semibold text-text-primary mb-1">Overview</h1>
       <p className="text-[13px] text-text-secondary mb-6">
         Users, usage, revenue and operational alerts at a glance.
@@ -175,6 +176,6 @@ export function AdminOverviewPage() {
           <AiSpendPanel spend={spend} days={30} />
         </>
       )}
-    </div>
+    </PageContainer>
   );
 }

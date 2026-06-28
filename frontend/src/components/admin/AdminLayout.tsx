@@ -17,7 +17,7 @@ export function AdminLayout() {
       </aside>
 
       <div className="flex-1 min-h-0 overflow-y-auto">
-        <div className="md:hidden border-b border-border-subtle bg-surface-raised px-4 py-3 overflow-x-auto">
+        <div className="page-x overflow-x-auto border-b border-border-subtle bg-surface-raised py-3 safe-bottom md:hidden">
           <AdminNav horizontal />
         </div>
         <Outlet />

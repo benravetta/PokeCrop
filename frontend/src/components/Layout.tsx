@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Link, Outlet, useOutletContext } from "react-router-dom";
 import { HelpDrawer } from "./HelpDrawer";
 import { AppSiteHeader } from "./AppSiteHeader";
+import { FooterLegalBlock } from "./pageLayout/FooterLegalBlock";
 import { SEO } from "../lib/marketingCopy";
 import { usePageSeo } from "../lib/seo";
 
@@ -26,31 +27,31 @@ export function Layout() {
         <Outlet context={{ openHelp: () => setHelpOpen(true) } satisfies LayoutContext} />
       </main>
 
-      <footer className="border-t border-border-subtle bg-surface/90">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6 py-2.5 sm:py-3 flex flex-col sm:flex-row items-center justify-between gap-1">
-          <p className="text-[11px] text-text-muted">
+      <footer className="border-t border-border-subtle bg-surface/90 footer-py-compact">
+        <div className="mx-auto flex w-full max-w-6xl flex-col items-center gap-2 page-x sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+          <p className="text-center text-xs text-text-muted sm:text-left">
             A{" "}
             <a
               href="https://getlooky.uk"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-text-secondary hover:text-text-primary transition-colors"
+              className="text-text-secondary transition-colors hover:text-text-primary"
             >
               Looky Collectibles
             </a>{" "}
             Tool
           </p>
-          <p className="text-[11px] text-text-muted text-center">
+          <FooterLegalBlock className="text-center sm:text-left">
             GemCheck provides pre-grade estimates only. Final grades are set by the grading company.
-          </p>
-          <div className="flex items-center gap-3">
+          </FooterLegalBlock>
+          <div className="flex flex-wrap items-center justify-center gap-3 sm:justify-end">
             <Link
               to="/docs"
-              className="text-[11px] text-text-muted hover:text-text-primary transition-colors"
+              className="text-xs text-text-muted transition-colors hover:text-text-primary"
             >
               API docs
             </Link>
-            <span className="hidden sm:block text-[11px] text-text-muted">
+            <span className="hidden text-xs text-text-muted sm:inline">
               Built with ❤️ in the English Lake District
             </span>
           </div>

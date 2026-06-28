@@ -17,6 +17,7 @@ import { CenteringTool } from "./CenteringTool";
 import type { CaptureIssue, CenteringPreview } from "../../lib/api";
 import type { Box } from "../../lib/centering";
 import { GRADE_UPLOAD } from "../../lib/gradeUploadCopy";
+import { StickyFooterBar } from "../pageLayout";
 
 type CardSlot = "front" | "back";
 type Slot = CardSlot | "angled_front" | "angled_back";
@@ -689,9 +690,8 @@ export function GradeUploadWorkspace({
         <GuideSidebar />
       </div>
 
-      {/* Sticky action bar */}
-      <div className="sticky bottom-0 z-20 -mx-4 sm:-mx-6 px-4 sm:px-6 py-4 border-t border-border-subtle bg-surface/90 backdrop-blur-md">
-        <div className="flex flex-wrap items-center justify-between gap-3 max-w-6xl mx-auto">
+      <StickyFooterBar>
+        <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3">
           <div className="text-xs text-text-muted min-w-0">
             {straightening ? (
               <span className="inline-flex items-center gap-1.5">
@@ -731,7 +731,7 @@ export function GradeUploadWorkspace({
             </button>
           </div>
         </div>
-      </div>
+      </StickyFooterBar>
     </div>
   );
 }

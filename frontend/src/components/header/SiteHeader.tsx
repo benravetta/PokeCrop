@@ -64,8 +64,8 @@ export function SiteHeader({
 
   useEffect(() => {
     if (!menuOpen) return;
-    const mq = window.matchMedia("(max-width: 767px)");
-    if (!mq.matches) return;
+    const isMobileSheet = () => window.innerWidth < 768;
+    if (!isMobileSheet()) return;
 
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -79,7 +79,7 @@ export function SiteHeader({
 
   return (
     <header
-      className={`z-50 transition-all duration-300 ${
+      className={`z-40 transition-all duration-300 safe-top ${
         sticky ? "sticky top-0" : ""
       } ${
         sticky && scrolled
@@ -89,7 +89,7 @@ export function SiteHeader({
             : "bg-surface/90 backdrop-blur-xl border-b border-border-subtle"
       }`}
     >
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 h-14 sm:h-16 flex items-center justify-between gap-3">
+      <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-2 sm:gap-3 page-x header-h">
         {homeIsAnchor ? (
           <a href={homeHref} className="shrink-0" onClick={closeMenu}>
             <Wordmark className={logoClassName} />
@@ -112,13 +112,13 @@ export function SiteHeader({
           ) : null}
 
           {mobileActions ? (
-            <div className="flex md:hidden items-center gap-0.5 shrink-0">{mobileActions}</div>
+            <div className="flex shrink-0 items-center gap-1 md:hidden">{mobileActions}</div>
           ) : null}
 
           <button
             type="button"
             onClick={() => setMenuOpen((v) => !v)}
-            className={`inline-flex items-center justify-center w-10 h-10 rounded-lg transition-colors ${
+            className={`touch-target inline-flex items-center justify-center rounded-lg transition-colors ${
               menuOpen
                 ? "bg-surface-overlay text-text-primary"
                 : "text-text-secondary hover:bg-surface-overlay"
@@ -135,7 +135,7 @@ export function SiteHeader({
               <button
                 type="button"
                 aria-label="Close menu"
-                className="md:hidden fixed inset-0 top-14 sm:top-16 z-30 bg-black/40"
+                className="fixed inset-0 top-[var(--header-h)] z-30 bg-black/40 md:hidden"
                 onClick={closeMenu}
               />
 
@@ -144,7 +144,7 @@ export function SiteHeader({
                 role="dialog"
                 aria-modal="true"
                 aria-label="Site menu"
-                className="md:hidden fixed inset-x-0 top-14 sm:top-16 z-40 border-t border-border-subtle bg-surface/98 backdrop-blur-xl px-4 py-3 shadow-lg shadow-black/20 anim-fade max-h-[calc(100dvh-3.5rem)] sm:max-h-[calc(100dvh-4rem)] overflow-y-auto overscroll-contain"
+                className="fixed inset-x-0 top-[var(--header-h)] z-40 max-h-[calc(100dvh-var(--header-h))] overflow-y-auto overscroll-contain border-t border-border-subtle bg-surface/98 px-4 py-4 shadow-lg shadow-black/20 backdrop-blur-xl anim-fade safe-bottom md:hidden"
               >
                 <HeaderMenuProvider closeMenu={closeMenu}>
                   <SiteNavMenu highlightActive={highlightActive} onNavigate={closeMenu} variant="sheet" />

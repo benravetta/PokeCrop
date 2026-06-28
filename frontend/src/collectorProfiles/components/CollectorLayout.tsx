@@ -27,8 +27,8 @@ export function CollectorLayout() {
 
   if (isCentered) {
     return (
-      <div className="flex-1 min-h-0 overflow-y-auto">
-        <div className="mx-auto flex w-full max-w-lg flex-col px-4 py-8 sm:px-6 sm:py-10">
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="mx-auto flex w-full max-w-lg flex-col page-x page-y sm:py-10">
           <Outlet />
         </div>
       </div>
@@ -36,8 +36,8 @@ export function CollectorLayout() {
   }
 
   return (
-    <div className="flex-1 min-h-0 overflow-y-auto">
-      <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
+    <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="mx-auto w-full max-w-6xl page-x page-y">
         <CollectorNavMobile />
         <div className="mt-5 lg:mt-0 lg:grid lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-8 xl:grid-cols-[260px_minmax(0,1fr)] xl:gap-10">
           <CollectorNavSidebar

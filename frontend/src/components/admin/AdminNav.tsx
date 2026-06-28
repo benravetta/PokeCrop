@@ -44,7 +44,7 @@ export function AdminNav({ horizontal }: { horizontal?: boolean }) {
           to={to}
           end={"end" in rest ? rest.end : undefined}
           className={({ isActive }) =>
-            `flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] transition-colors ${
+            `flex min-h-11 items-center gap-2.5 rounded-lg px-3 py-2.5 text-[13px] transition-colors ${
               isActive
                 ? "bg-accent/15 text-accent font-medium"
                 : "text-text-secondary hover:bg-surface-overlay hover:text-text-primary"

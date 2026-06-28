@@ -15,6 +15,7 @@ import { MetadataStep } from "./MetadataStep";
 import { SectionsStep } from "./SectionsStep";
 import { ReviewStep } from "./ReviewStep";
 import { CollectorButton, CollectorLoading, CollectorPageHeader } from "../ui";
+import { StickyFooterBar } from "../../../components/pageLayout";
 
 const STEPS: WizardStep[] = ["front", "metadata", "back", "sections", "review"];
 
@@ -69,23 +70,6 @@ function cardToDraft(card: Record<string, unknown>, sections: string[]): Collect
   };
 }
 
-const AUTOFILL_KEYS = [
-  "cardName",
-  "cardGame",
-  "setName",
-  "setCode",
-  "cardNumber",
-  "releaseYear",
-  "language",
-  "variant",
-  "rarity",
-  "finishType",
-  "edition",
-  "identifiers",
-  "identificationConfidence",
-  "identificationExtra",
-] as const satisfies readonly (keyof CollectorCardDraft)[];
-
 function valuesDiffer(current: unknown, baseline: unknown): boolean {
   if (Array.isArray(current) || Array.isArray(baseline)) {
     return JSON.stringify(current) !== JSON.stringify(baseline);
@@ -106,11 +90,26 @@ function mergeIdentifiedDraft(
   baseline: CollectorCardDraft,
   identified: CollectorCardDraft
 ): CollectorCardDraft {
-  const merged = { ...current };
-  for (const key of AUTOFILL_KEYS) {
-    merged[key] = valuesDiffer(current[key], baseline[key]) ? current[key] : identified[key];
-  }
-  return merged;
+  const pick = <K extends keyof CollectorCardDraft>(key: K): CollectorCardDraft[K] =>
+    valuesDiffer(current[key], baseline[key]) ? current[key] : identified[key];
+
+  return {
+    ...current,
+    cardName: pick("cardName"),
+    cardGame: pick("cardGame"),
+    setName: pick("setName"),
+    setCode: pick("setCode"),
+    cardNumber: pick("cardNumber"),
+    releaseYear: pick("releaseYear"),
+    language: pick("language"),
+    variant: pick("variant"),
+    rarity: pick("rarity"),
+    finishType: pick("finishType"),
+    edition: pick("edition"),
+    identifiers: pick("identifiers"),
+    identificationConfidence: pick("identificationConfidence"),
+    identificationExtra: pick("identificationExtra"),
+  };
 }
 
 function draftToPatch(draft: CollectorCardDraft): Record<string, unknown> {
@@ -420,26 +419,30 @@ export function CardWizard() {
 
       {error && <p className="text-sm text-error">{error}</p>}
 
-      <div className="flex flex-wrap gap-2 border-t border-border-subtle pt-4">
-        {stepIndex > 0 && step !== "front" && (
-          <CollectorButton variant="secondary" onClick={goBack} disabled={busy}>
-            <ArrowLeft className="h-4 w-4" />
-            Back
-          </CollectorButton>
-        )}
-        {(step === "metadata" || step === "sections") && (
-          <CollectorButton loading={busy} onClick={() => void goNext()}>
-            Continue
-            <ArrowRight className="h-4 w-4" />
-          </CollectorButton>
-        )}
-        {step === "review" && (
-          <CollectorButton loading={busy} onClick={() => void publish()}>
-            <CheckCircle2 className="h-4 w-4" />
-            Publish card
-          </CollectorButton>
-        )}
-      </div>
+      {(step === "metadata" || step === "sections" || step === "review") && (
+        <StickyFooterBar className="mt-4">
+          <div className="flex flex-wrap gap-2">
+            {step !== "metadata" && (
+              <CollectorButton variant="secondary" onClick={goBack} disabled={busy}>
+                <ArrowLeft className="h-4 w-4" />
+                Back
+              </CollectorButton>
+            )}
+            {(step === "metadata" || step === "sections") && (
+              <CollectorButton loading={busy} onClick={() => void goNext()}>
+                Continue
+                <ArrowRight className="h-4 w-4" />
+              </CollectorButton>
+            )}
+            {step === "review" && (
+              <CollectorButton loading={busy} onClick={() => void publish()}>
+                <CheckCircle2 className="h-4 w-4" />
+                Publish card
+              </CollectorButton>
+            )}
+          </div>
+        </StickyFooterBar>
+      )}
     </div>
   );
 }

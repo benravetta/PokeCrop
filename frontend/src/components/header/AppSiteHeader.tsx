@@ -13,6 +13,7 @@ type AppSiteHeaderProps = {
 export function AppSiteHeader({ onOpenHelp }: AppSiteHeaderProps) {
   return (
     <SiteHeader
+      sticky
       homeHref="/crop"
       highlightActive
       centerNav={<AppNavLinks />}

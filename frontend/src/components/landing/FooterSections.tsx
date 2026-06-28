@@ -6,6 +6,7 @@ import { ESTIMATE_DISCLAIMER, FOOTER, GRADER_INDEPENDENCE } from "../../lib/mark
 import { FOOTER_EXTERNAL_LINKS, FOOTER_NAV_LINKS } from "../../lib/siteNav";
 import { STAFF_ACCOUNT } from "../../lib/adminAccess";
 import { SiteNavLinks } from "../marketing/SiteNavLinks";
+import { FooterLegalBlock } from "../pageLayout/FooterLegalBlock";
 import { Wordmark } from "./shared";
 import type { Plan } from "../../lib/plans";
 
@@ -43,7 +44,7 @@ export function ApiSection({
 
   return (
     <section id="api" className="relative scroll-mt-20 border-y border-border-subtle bg-surface-raised/40">
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 py-16 sm:py-24">
+      <div className="mx-auto w-full max-w-6xl page-x py-16 sm:py-24">
         <SectionHeading
           kicker="For developers and trade"
           title="Bulk checks for shops and automation"
@@ -120,31 +121,31 @@ export function HonestSection() {
 
 export function SiteFooter() {
   return (
-    <footer className="border-t border-border-subtle bg-surface-raised/30">
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 py-10">
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
-          <div className="text-center sm:text-left max-w-sm">
+    <footer className="border-t border-border-subtle bg-surface-raised/30 footer-py-marketing">
+      <div className="mx-auto w-full max-w-6xl page-x">
+        <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-start sm:justify-between">
+          <div className="max-w-sm text-center sm:text-left">
             <Wordmark className="mx-auto sm:mx-0" />
-            <p className="mt-2 text-xs text-text-muted leading-relaxed">{FOOTER.tagline}</p>
+            <p className="mt-2 text-xs leading-relaxed text-text-muted">{FOOTER.tagline}</p>
             <p className="mt-1 text-xs text-text-muted">{FOOTER.location}</p>
           </div>
-          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm">
+          <div className="flex flex-col items-center gap-y-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:gap-x-6 sm:gap-y-2">
             <SiteNavLinks
               links={FOOTER_NAV_LINKS}
-              linkClassName="text-text-secondary hover:text-text-primary transition-colors"
+              linkClassName="text-sm text-text-secondary transition-colors hover:text-text-primary"
             />
             <SiteNavLinks
               links={FOOTER_EXTERNAL_LINKS}
-              linkClassName="text-text-secondary hover:text-text-primary transition-colors"
+              linkClassName="text-sm text-text-secondary transition-colors hover:text-text-primary"
             />
           </div>
         </div>
-        <p className="mt-6 text-center text-xs text-text-muted max-w-2xl mx-auto leading-relaxed">
+        <FooterLegalBlock className="mx-auto mt-6 text-center sm:mt-8">
           {ESTIMATE_DISCLAIMER}
-        </p>
-        <p className="mt-2 text-center text-xs text-text-muted max-w-2xl mx-auto leading-relaxed">
+        </FooterLegalBlock>
+        <FooterLegalBlock className="mx-auto mt-2 text-center">
           {GRADER_INDEPENDENCE}
-        </p>
+        </FooterLegalBlock>
       </div>
     </footer>
   );

@@ -31,7 +31,7 @@ const FEATURES = [
 export function FeaturesSection() {
   return (
     <section id="features" className="scroll-mt-20 py-16 sm:py-20 border-b border-border-subtle">
-      <div className="mx-auto max-w-6xl px-4 sm:px-6">
+      <div className="mx-auto w-full max-w-6xl page-x">
         <SectionHeading
           kicker="What you get"
           title="Two tools. One decision."
@@ -95,7 +95,7 @@ export function WhySection() {
 
   return (
     <section className="py-14 sm:py-16 bg-surface-raised/30">
-      <div className="mx-auto max-w-6xl px-4 sm:px-6">
+      <div className="mx-auto w-full max-w-6xl page-x">
         <p className="text-center text-base text-text-secondary max-w-2xl mx-auto">
           Most collectors submit blind.{" "}
           <span className="text-text-primary font-medium">GemCheck is the check before the cheque.</span>

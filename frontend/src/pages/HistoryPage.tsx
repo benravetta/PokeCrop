@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { PageContainer } from "../components/pageLayout";
 import {
   History as HistoryIcon,
   Search,
@@ -149,7 +150,7 @@ export function HistoryPage() {
 
   return (
     <div className="flex-1 min-h-0 overflow-y-auto">
-      <div className="max-w-5xl mx-auto px-5 py-8">
+      <PageContainer width="medium">
         <div className="flex items-center gap-2 mb-1">
           <HistoryIcon className="w-5 h-5 text-accent" />
           <h1 className="text-xl font-semibold text-text-primary">History</h1>
@@ -373,7 +374,7 @@ export function HistoryPage() {
             Next <ChevronRight className="w-4 h-4" />
           </button>
         </div>
-      </div>
+      </PageContainer>
     </div>
   );
 }

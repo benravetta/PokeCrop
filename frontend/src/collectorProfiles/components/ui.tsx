@@ -45,12 +45,12 @@ export function CollectorPageHeader({
   actions?: ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
       <div className="min-w-0">
         <h1 className="text-xl font-semibold text-text-primary sm:text-2xl">{title}</h1>
-        {description && <p className="mt-1.5 max-w-2xl text-sm text-text-secondary">{description}</p>}
+        {description && <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-text-secondary">{description}</p>}
       </div>
-      {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
+      {actions && <div className="flex w-full shrink-0 flex-wrap items-center gap-2 sm:w-auto">{actions}</div>}
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { PageContainer } from "../../components/pageLayout";
 import { Link } from "react-router-dom";
 import { Loader2, ChevronLeft, ChevronRight, AlertTriangle, Check, X } from "lucide-react";
 import {
@@ -163,7 +164,7 @@ export function OperationsPage() {
   ].filter(Boolean) as string[];
 
   return (
-    <div className="max-w-5xl mx-auto px-5 py-8">
+    <PageContainer width="medium">
       <h1 className="text-xl font-semibold text-text-primary mb-1">Operations</h1>
       <p className="text-[13px] text-text-secondary mb-6">
         Beta access, form inbox, webhook log, AI spend and payment alerts.
@@ -415,7 +416,7 @@ export function OperationsPage() {
         </div>
         <Pager page={eventsPage} total={eventsTotal} pageSize={eventsPageSize} onChange={setEventsPage} />
       </section>
-    </div>
+    </PageContainer>
   );
 }
 

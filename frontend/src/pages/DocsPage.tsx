@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft, ExternalLink, KeyRound, Terminal } from "lucide-react";
-import { Wordmark } from "../components/landing/shared";
+import { ExternalLink, KeyRound, Terminal } from "lucide-react";
+import { GuestMarketingHeader } from "../components/header/GuestMarketingHeader";
+import { SiteFooter } from "../components/landing/FooterSections";
+import { PageContainer } from "../components/pageLayout";
 import { SEO } from "../lib/marketingCopy";
 import { usePageSeo } from "../lib/seo";
 
@@ -81,31 +83,18 @@ export function DocsPage() {
   }, []);
 
   return (
-    <div className="min-h-[100dvh] flex flex-col bg-surface">
-      <header className="flex items-center justify-between px-5 h-14 border-b border-border-subtle shrink-0">
-        <Link to="/" className="flex items-center gap-2.5">
-          <Wordmark />
-          <span className="text-[13px] font-medium text-text-muted uppercase tracking-wide">
-            API
-          </span>
-        </Link>
-        <Link
-          to="/"
-          className="inline-flex items-center gap-1.5 text-[13px] text-text-secondary hover:text-text-primary transition-colors"
-        >
-          <ArrowLeft className="w-3.5 h-3.5" /> Back to app
-        </Link>
-      </header>
+    <div className="flex min-h-[100dvh] flex-col bg-surface">
+      <GuestMarketingHeader />
 
-      <section className="border-b border-border-subtle bg-surface-raised/50 shrink-0">
-        <div className="mx-auto max-w-6xl px-5 py-8 sm:py-10">
-          <p className="text-xs font-medium uppercase tracking-wider text-accent mb-2">
+      <section className="shrink-0 border-b border-border-subtle bg-surface-raised/50">
+        <PageContainer className="!py-8 sm:!py-10">
+          <p className="mb-2 text-xs font-medium uppercase tracking-wider text-accent">
             REST API · OpenAPI 1.2.0
           </p>
-          <h1 className="text-2xl sm:text-3xl font-semibold text-text-primary tracking-tight">
+          <h1 className="text-2xl font-semibold tracking-tight text-text-primary sm:text-3xl">
             GemCheck API reference
           </h1>
-          <p className="mt-3 max-w-2xl text-[15px] leading-relaxed text-text-secondary">
+          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-text-secondary sm:text-[15px]">
             Detect and extract cards from photos, run AI pre-grades with per-company estimates,
             and download the same PDF report as the web app. Requires the{" "}
             <Link to="/pricing" className="text-accent hover:underline">
@@ -176,16 +165,20 @@ curl -X POST "${BASE_URL}/grade?format=pdf" \\
   -o report.pdf`}
             </pre>
           </div>
-        </div>
+        </PageContainer>
       </section>
 
-      <div ref={containerRef} className="flex-1 min-h-0" />
+      <div ref={containerRef} className="min-h-0 flex-1" />
       <noscript>
-        <div className="p-6 text-sm text-text-secondary">
-          Enable JavaScript to view the interactive docs, or fetch the raw spec at{" "}
-          <code>/v1/openapi.json</code>.
-        </div>
+        <PageContainer>
+          <p className="text-sm text-text-secondary">
+            Enable JavaScript to view the interactive docs, or fetch the raw spec at{" "}
+            <code>/v1/openapi.json</code>.
+          </p>
+        </PageContainer>
       </noscript>
+
+      <SiteFooter />
     </div>
   );
 }

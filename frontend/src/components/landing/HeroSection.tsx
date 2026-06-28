@@ -37,7 +37,7 @@ export function HeroSection({
 
   return (
     <section id="top" className="relative overflow-hidden landing-mesh">
-      <div className="relative mx-auto max-w-6xl px-4 sm:px-6 pt-14 pb-16 sm:pt-20 sm:pb-20">
+      <div className="relative mx-auto w-full max-w-6xl page-x pt-14 pb-16 sm:pt-20 sm:pb-20">
         <div className="grid lg:grid-cols-2 gap-12 lg:gap-14 items-center">
           <div className="text-center lg:text-left anim-rise">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-accent mb-3">
@@ -51,10 +51,10 @@ export function HeroSection({
               {HERO.body}
             </p>
 
-            <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center lg:justify-start">
+            <div className="mt-8 flex w-full flex-col gap-3 sm:flex-row sm:w-auto justify-center lg:justify-start">
               <Link
                 to={primary.to}
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-6 py-3.5 text-sm font-semibold text-white hover:bg-accent-hover transition-all shadow-lg shadow-accent/25"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-6 py-3.5 text-sm font-semibold text-white shadow-lg shadow-accent/25 transition-all hover:bg-accent-hover sm:w-auto"
               >
                 <Upload className="w-4 h-4" />
                 {primary.label}
@@ -62,14 +62,14 @@ export function HeroSection({
               {!loggedIn && inviteRequired ? (
                 <Link
                   to="/login"
-                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-border-strong bg-surface-raised/60 px-6 py-3.5 text-sm font-semibold text-text-primary hover:bg-surface-overlay transition-colors"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-border-strong bg-surface-raised/60 px-6 py-3.5 text-sm font-semibold text-text-primary transition-colors hover:bg-surface-overlay sm:w-auto"
                 >
                   {NAV.signIn}
                 </Link>
               ) : (
                 <Link
                   to="/sample-report"
-                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-border-strong bg-surface-raised/60 px-6 py-3.5 text-sm font-semibold text-text-primary hover:bg-surface-overlay transition-colors"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-border-strong bg-surface-raised/60 px-6 py-3.5 text-sm font-semibold text-text-primary transition-colors hover:bg-surface-overlay sm:w-auto"
                 >
                   {HERO.secondaryCta}
                   <ArrowRight className="w-4 h-4 text-text-muted" />

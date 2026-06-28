@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { PageContainer } from "../components/pageLayout";
 import { Loader2, Search, ImageOff, Layers } from "lucide-react";
 import { adminCatalogItems, type CatalogItem } from "../lib/api";
 import { centringLabel, fmtCropDate } from "../lib/centringDisplay";
@@ -55,7 +56,7 @@ export function CatalogPage() {
 
   return (
     <div className="flex-1 min-h-0 overflow-y-auto">
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 w-full">
+      <PageContainer width="medium" className="w-full">
         <div className="flex items-center gap-3 mb-1">
           <Layers className="w-6 h-6 text-accent" />
           <h1 className="text-xl font-semibold text-text-primary">Admin catalogue</h1>
@@ -181,7 +182,7 @@ export function CatalogPage() {
             )}
           </>
         )}
-      </div>
+      </PageContainer>
     </div>
   );
 }

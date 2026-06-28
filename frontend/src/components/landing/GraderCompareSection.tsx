@@ -13,7 +13,7 @@ export function GraderCompareSection() {
         aria-hidden
         className="pointer-events-none absolute inset-0 bg-gradient-to-b from-accent/[0.04] via-transparent to-transparent"
       />
-      <div className="relative mx-auto max-w-6xl px-4 sm:px-6">
+      <div className="relative mx-auto w-full max-w-6xl page-x">
         <SectionHeading
           kicker={GRADER_COMPARE.kicker}
           title={GRADER_COMPARE.heading}

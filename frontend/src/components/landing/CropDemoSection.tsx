@@ -7,7 +7,7 @@ import { SectionHeading } from "./shared";
 export function CropDemoSection() {
   return (
     <section id="crop" className="scroll-mt-20 py-16 sm:py-20 border-y border-border-subtle">
-      <div className="mx-auto max-w-6xl px-4 sm:px-6">
+      <div className="mx-auto w-full max-w-6xl page-x">
         <div className="grid lg:grid-cols-2 gap-10 items-center">
           <SectionHeading
             kicker="Crop & centring"

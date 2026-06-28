@@ -174,7 +174,7 @@ export function WaitlistLanding() {
       <GuestMarketingHeader />
 
       <main className="flex-1 landing-mesh border-b border-border-subtle">
-        <div className="mx-auto max-w-5xl px-4 sm:px-6 py-10 sm:py-14">
+        <div className="mx-auto w-full max-w-5xl page-x py-10 sm:py-14">
           <div className="grid gap-8 lg:grid-cols-2 lg:gap-10 lg:items-start">
             <WaitlistFormCard {...formProps} />
             <WaitlistBenefitsPanel />

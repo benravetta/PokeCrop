@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { SiteFooter } from "../landing/FooterSections";
 import { GuestMarketingHeader } from "../header/GuestMarketingHeader";
+import { PageContainer } from "../pageLayout";
 
 export function MarketingPageShell({
   children,
@@ -20,16 +21,16 @@ export function MarketingPageShell({
       <GuestMarketingHeader />
 
       <main className="flex-1">
-        <div className={`mx-auto px-4 sm:px-6 py-8 sm:py-12 ${wide ? "max-w-6xl" : "max-w-3xl"}`}>
+        <PageContainer width={wide ? "wide" : "marketing"}>
           <Link
             to={backHref}
-            className="inline-flex items-center gap-1.5 text-sm text-text-muted hover:text-text-primary mb-8"
+            className="mb-8 inline-flex items-center gap-1.5 text-sm text-text-muted hover:text-text-primary"
           >
-            <ArrowLeft className="w-4 h-4" />
+            <ArrowLeft className="h-4 w-4" />
             {backLabel}
           </Link>
           {children}
-        </div>
+        </PageContainer>
       </main>
 
       <SiteFooter />

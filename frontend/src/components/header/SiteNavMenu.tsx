@@ -7,7 +7,7 @@ import {
   NAV_MENU_GROUPS,
   type SiteNavItem,
 } from "../../lib/siteNav";
-import { headerGhostBtn, headerPrimaryBtn, mobileMenuSection } from "./styles";
+import { headerGhostBtn, headerPrimaryBtn, mobileMenuSection, mobileSheetLink, mobileSheetLinkActive } from "./styles";
 import { NAV } from "../../lib/marketingCopy";
 import { guestSignupPath, useInviteRequired } from "../../hooks/useInviteRequired";
 
@@ -73,10 +73,8 @@ export function SiteNavMenu({
   highlightActive = false,
   variant = "sheet",
 }: Props) {
-  const sheetLink =
-    "px-3 py-2.5 rounded-lg text-sm text-text-secondary hover:text-text-primary hover:bg-surface-overlay transition-colors";
-  const sheetActive =
-    "px-3 py-2.5 rounded-lg text-sm text-text-primary font-medium bg-surface-overlay/80";
+  const sheetLink = mobileSheetLink;
+  const sheetActive = mobileSheetLinkActive;
 
   const dropdownLink =
     "rounded-md px-2 py-1.5 text-[13px] text-text-secondary hover:text-text-primary hover:bg-surface-overlay/70 transition-colors";
@@ -121,7 +119,7 @@ export function SiteNavMenu({
   }
 
   return (
-    <div className="flex flex-col gap-0.5">
+    <div className="flex flex-col gap-1">
       {links.map((item) => (
         <NavItem
           key={item.href}

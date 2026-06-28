@@ -32,6 +32,69 @@
   --animate-scale-in: scale-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+/* Layout spacing tokens — mobile first, bumped at sm (640px) */
+:root {
+  --page-px: 1rem;
+  --page-py: 1.5rem;
+  --section-py: 3.5rem;
+  --header-h: 3.5rem;
+  --footer-py-compact: 0.75rem;
+  --footer-py-marketing: 2.5rem;
+}
+
+@media (min-width: 640px) {
+  :root {
+    --page-px: 1.5rem;
+    --page-py: 2rem;
+    --section-py: 4rem;
+    --header-h: 4rem;
+    --footer-py-compact: 0.875rem;
+  }
+}
+
+/* Horizontal page gutter with landscape safe-area insets */
+.page-x {
+  padding-left: max(var(--page-px), env(safe-area-inset-left, 0px));
+  padding-right: max(var(--page-px), env(safe-area-inset-right, 0px));
+}
+
+.page-y {
+  padding-top: var(--page-py);
+  padding-bottom: var(--page-py);
+}
+
+.section-y {
+  padding-top: var(--section-py);
+  padding-bottom: var(--section-py);
+}
+
+.safe-top {
+  padding-top: max(0px, env(safe-area-inset-top, 0px));
+}
+
+.safe-bottom {
+  padding-bottom: max(0px, env(safe-area-inset-bottom, 0px));
+}
+
+.touch-target {
+  min-height: 2.75rem;
+  min-width: 2.75rem;
+}
+
+.header-h {
+  height: var(--header-h);
+}
+
+.footer-py-compact {
+  padding-top: var(--footer-py-compact);
+  padding-bottom: max(var(--footer-py-compact), env(safe-area-inset-bottom, 0px));
+}
+
+.footer-py-marketing {
+  padding-top: var(--footer-py-marketing);
+  padding-bottom: max(var(--footer-py-marketing), env(safe-area-inset-bottom, 0px));
+}
+
 @keyframes fade-in {
   from {
     opacity: 0;

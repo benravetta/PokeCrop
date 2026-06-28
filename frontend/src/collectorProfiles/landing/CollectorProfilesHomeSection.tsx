@@ -30,7 +30,7 @@ export function CollectorProfilesHomeSection({ loggedIn }: { loggedIn: boolean }
         }}
       />
 
-      <div className="relative mx-auto max-w-6xl px-4 sm:px-6">
+      <div className="relative mx-auto w-full max-w-6xl page-x">
         <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-14">
           <div>
             <SectionHeading

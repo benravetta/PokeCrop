@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { PageContainer } from "../../components/pageLayout";
 import { Download, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import {
   adminListUsageEvents,
@@ -64,7 +65,7 @@ export function UsagePage() {
   const hasMore = page * pageSize < total;
 
   return (
-    <div className="max-w-5xl mx-auto px-5 py-8">
+    <PageContainer width="medium">
       <div className="flex items-start justify-between gap-4 mb-5">
         <div>
           <h1 className="text-xl font-semibold text-text-primary mb-1">Usage</h1>
@@ -165,7 +166,7 @@ export function UsagePage() {
           Next <ChevronRight className="w-4 h-4" />
         </button>
       </div>
-    </div>
+    </PageContainer>
   );
 }
 

@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
+import { PageContainer } from "../../components/pageLayout";
 import { useSearchParams } from "react-router-dom";
 import {
   Loader2,
@@ -106,7 +107,7 @@ export function RevenuePage() {
   ];
 
   return (
-    <div className="max-w-5xl mx-auto px-5 py-8">
+    <PageContainer width="medium">
       <h1 className="text-xl font-semibold text-text-primary mb-1">Revenue</h1>
       <p className="text-[13px] text-text-secondary mb-5">
         Stripe-backed subscriptions, one-off grade purchases and payment failures.
@@ -288,7 +289,7 @@ export function RevenuePage() {
           </button>
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 }
 

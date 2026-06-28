@@ -10,7 +10,7 @@ export function HowItWorksSection() {
       id="how"
       className="border-b border-border-subtle bg-surface-raised/30 py-14 sm:py-16 scroll-mt-20"
     >
-      <div className="mx-auto max-w-6xl px-4 sm:px-6">
+      <div className="mx-auto w-full max-w-6xl page-x">
         <SectionHeading
           kicker={HOW_IT_WORKS.kicker}
           title={HOW_IT_WORKS.heading}

@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
+import { PageContainer } from "../components/pageLayout";
 import { useHumanPregradeConfig, formatMinorUnits } from "../humanPregrade/hooks/useHumanPregradeConfig";
 import { Link } from "react-router-dom";
 import { Check, Sparkles, Loader2, Tag } from "lucide-react";
@@ -77,7 +78,7 @@ export function PricingPage() {
 
   return (
     <div className="min-h-0 overflow-y-auto">
-      <div className="max-w-6xl mx-auto px-5 py-10 sm:py-12">
+      <PageContainer width="wide" className="!py-10 sm:!py-12">
         <div className="text-center mb-10">
           <h1 className="text-2xl sm:text-3xl font-semibold text-text-primary tracking-tight">
             Simple pricing for smarter submissions
@@ -281,7 +282,7 @@ export function PricingPage() {
             </>
           )}
         </p>
-      </div>
+      </PageContainer>
     </div>
   );
 }

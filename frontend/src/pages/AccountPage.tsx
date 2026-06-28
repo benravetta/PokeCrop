@@ -17,6 +17,7 @@ import {
 import { StaffAccountPanel } from "../components/staff/StaffAccountPanel";
 import { Field } from "../components/auth/AuthLayout";
 import { ApiKeysPanel } from "../components/ApiKeysPanel";
+import { PageContainer } from "../components/pageLayout";
 import { HumanPregradeAccountSection } from "../humanPregrade/components/HumanPregradePromo";
 import { UserCheck } from "lucide-react";
 
@@ -155,7 +156,7 @@ export function AccountPage() {
 
   return (
     <div className="flex-1 min-h-0 overflow-y-auto">
-      <div className="max-w-2xl mx-auto px-5 py-8 flex flex-col gap-5">
+      <PageContainer width="narrow" className="flex flex-col gap-5">
         <h1 className="text-xl font-semibold text-text-primary">Account</h1>
 
         <Section icon={<UserIcon className="w-4 h-4" />} title="Profile">
@@ -323,7 +324,7 @@ export function AccountPage() {
             </div>
           </form>
         </Section>
-      </div>
+      </PageContainer>
     </div>
   );
 }

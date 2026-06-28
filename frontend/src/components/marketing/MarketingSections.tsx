@@ -14,7 +14,7 @@ export { GraderCompareSection };
 export function WhatWeCheckSection() {
   return (
     <section className="py-14 sm:py-16 border-b border-border-subtle bg-surface-raised/20">
-      <div className="mx-auto max-w-6xl px-4 sm:px-6">
+      <div className="mx-auto w-full max-w-6xl page-x">
         <SectionHeading
           kicker={WHAT_WE_CHECK.kicker}
           title={WHAT_WE_CHECK.heading}
@@ -42,7 +42,7 @@ export function WhatWeCheckSection() {
 export function TransparencySection() {
   return (
     <section className="py-14 sm:py-16 border-b border-border-subtle bg-surface-raised/30">
-      <div className="mx-auto max-w-3xl px-4 sm:px-6 text-center">
+      <div className="mx-auto w-full max-w-3xl page-x text-center">
         <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight text-balance">
           {TRANSPARENCY.heading}
         </h2>
@@ -58,7 +58,7 @@ export function FaqStripSection() {
   const items = SITE_FAQ.slice(0, 4);
   return (
     <section className="py-14 sm:py-16 border-b border-border-subtle">
-      <div className="mx-auto max-w-6xl px-4 sm:px-6">
+      <div className="mx-auto w-full max-w-6xl page-x">
         <SectionHeading
           kicker="FAQ"
           title="Questions, answered properly"
@@ -91,7 +91,7 @@ export function FaqStripSection() {
 export function TradeTeaserSection() {
   return (
     <section className="py-14 sm:py-16 border-b border-border-subtle bg-surface-raised/30">
-      <div className="mx-auto max-w-6xl px-4 sm:px-6">
+      <div className="mx-auto w-full max-w-6xl page-x">
         <div className="rounded-2xl border border-border-subtle bg-surface-raised p-6 sm:p-8 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
           <div className="max-w-xl">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-accent mb-2">

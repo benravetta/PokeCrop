@@ -17,8 +17,8 @@ const items = [
 
 function navClass(isActive: boolean, compact?: boolean) {
   const base = compact
-    ? "inline-flex shrink-0 items-center gap-2 rounded-full px-3.5 py-2 text-sm font-medium transition"
-    : "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition";
+    ? "inline-flex shrink-0 min-h-11 items-center gap-2 rounded-full px-3.5 py-2.5 text-sm font-medium transition"
+    : "flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition";
   return isActive
     ? `${base} bg-accent/15 text-accent`
     : `${base} text-text-secondary hover:bg-surface-overlay hover:text-text-primary`;
@@ -26,7 +26,7 @@ function navClass(isActive: boolean, compact?: boolean) {
 
 export function CollectorNavMobile() {
   return (
-    <nav className="flex gap-2 overflow-x-auto pb-1 lg:hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    <nav className="flex gap-2 overflow-x-auto pb-2 safe-bottom lg:hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       {items.map(({ to, label, icon: Icon, ...rest }) => (
         <NavLink key={to} to={to} {...rest} className={({ isActive }) => navClass(isActive, true)}>
           <Icon className="h-4 w-4" />

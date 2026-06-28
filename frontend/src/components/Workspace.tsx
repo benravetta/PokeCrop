@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { StickyFooterBar } from "./pageLayout";
 import {
   Crop,
   SlidersHorizontal,
@@ -100,7 +101,7 @@ export function Workspace() {
   return (
     <div className="flex-1 flex flex-col min-h-0">
       {/* Stage header */}
-      <div className="flex items-center gap-3 px-4 sm:px-5 pt-3 sm:pt-4 pb-2.5 sm:pb-3">
+      <div className="flex items-center gap-3 page-x pt-3 sm:pt-4 pb-2.5 sm:pb-3">
         <h2 className="text-sm font-semibold text-text-primary">
           {mode === "crop" ? "Adjust the crop" : "Your card"}
         </h2>
@@ -143,7 +144,7 @@ export function Workspace() {
       )}
 
       {/* Main stage */}
-      <div className="flex-1 min-h-0 px-4 sm:px-5 flex flex-col lg:flex-row gap-3">
+      <div className="flex min-h-0 flex-1 flex-col gap-3 page-x lg:flex-row">
         {busy ? (
           <ProcessingStage phase={uploading ? "uploading" : "processing"} />
         ) : mode === "crop" ? (
@@ -162,12 +163,11 @@ export function Workspace() {
       </div>
 
       {error && !busy && resultBase64 && (
-        <p className="px-5 pt-3 text-xs text-error">{error}</p>
+        <p className="page-x pt-3 text-xs text-error">{error}</p>
       )}
 
-      {/* Action bar */}
-      <div className="border-t border-border-subtle bg-surface-raised mt-3 sm:mt-4">
-        <div className="flex items-center gap-2 px-4 sm:px-5 py-2.5 sm:py-3">
+      <StickyFooterBar className="mt-3 sm:mt-4">
+        <div className="flex w-full items-center gap-2">
           {mode === "view" ? (
             <>
               <button
@@ -276,7 +276,7 @@ export function Workspace() {
             </>
           )}
         </div>
-      </div>
+      </StickyFooterBar>
 
       <AdvancedDrawer
         open={drawerOpen}

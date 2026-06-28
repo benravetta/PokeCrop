@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { PageContainer } from "../../components/pageLayout";
 import { useSearchParams } from "react-router-dom";
 import {
   Search,
@@ -129,7 +130,7 @@ export function AdminUsersPage() {
   };
 
   return (
-    <div className="max-w-5xl mx-auto px-5 py-8">
+    <PageContainer width="medium">
       <h1 className="text-xl font-semibold text-text-primary mb-1">Users</h1>
       <p className="text-[13px] text-text-secondary mb-5">
         Manage roles, plans, API keys, beta invites and account status.
@@ -343,6 +344,6 @@ export function AdminUsersPage() {
           onChanged={load}
         />
       )}
-    </div>
+    </PageContainer>
   );
 }

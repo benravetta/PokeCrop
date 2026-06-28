@@ -16,6 +16,7 @@ import {
 import { buildGradeReportPdf } from "../lib/gradeReportPdf";
 import { shouldWatermarkFreeExports } from "../lib/watermark";
 import { GradeUsageInline } from "../components/plan/PlanUsageCard";
+import { PageContainer } from "../components/pageLayout";
 import {
   gradeCard,
   getGradeQuota,
@@ -539,7 +540,7 @@ export function GradePage() {
 
   return (
     <div className="flex-1 min-h-0 overflow-y-auto">
-    <div className={`mx-auto px-4 sm:px-6 py-8 w-full ${result ? "max-w-6xl xl:max-w-7xl" : "max-w-6xl pb-24"}`}>
+    <PageContainer width="wide" className={`w-full ${result ? "xl:max-w-7xl" : ""}`}>
       {running && (
         <div className="max-w-2xl mx-auto mb-8">
           <GradeProgress />
@@ -677,7 +678,7 @@ export function GradePage() {
           />
         </>
       )}
-    </div>
+    </PageContainer>
     </div>
   );
 }
