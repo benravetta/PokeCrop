@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { Suspense, lazy, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { ExternalLink, KeyRound, Terminal } from "lucide-react";
 import { GuestMarketingHeader } from "../components/header/GuestMarketingHeader";
@@ -7,84 +7,17 @@ import { PageContainer } from "../components/pageLayout";
 import { SEO } from "../lib/marketingCopy";
 import { usePageSeo } from "../lib/seo";
 
-// Public API documentation. Renders the Scalar API reference against the live
-// OpenAPI spec at /v1/openapi.json. Load the exact browser bundle (not the
-// package root — jsDelivr minifies that URL and breaks Subresource Integrity).
-const SCALAR_VERSION = "1.60.0";
-const SCALAR_SRC = `https://cdn.jsdelivr.net/npm/@scalar/api-reference@${SCALAR_VERSION}/dist/browser/standalone.js`;
-const SCALAR_SRI =
-  "sha384-3sxnxyp7pbU2/o4+gs4EbvQ4YKyF60pWDL2LW8SoFZNQBTSiPah2xcHpxsndZEgF";
+const ApiReferencePanel = lazy(() =>
+  import("../components/docs/ApiReferencePanel").then((m) => ({
+    default: m.ApiReferencePanel,
+  }))
+);
+
 const SPEC_URL = "/v1/openapi.json";
 const BASE_URL = "https://gemcheck.co.uk/v1";
 
-type ScalarGlobal = {
-  createApiReference: (
-    el: Element | string,
-    config: Record<string, unknown>
-  ) => { destroy: () => void };
-};
-
-const scalarConfig = {
-  url: SPEC_URL,
-  darkMode: true,
-  layout: "modern",
-  theme: "purple",
-  searchHotKey: "k",
-  hideDownloadButton: false,
-  hideModels: false,
-  defaultHttpClient: { targetKey: "curl", clientKey: "curl" },
-  metaData: {
-    title: "GemCheck API",
-    description:
-      "Crop trading cards and run AI pre-grades — same engine as the web app. Requires the Enterprise plan.",
-  },
-  customCss: `
-    .scalar-app { --scalar-color-accent: #7c6cf6; }
-    .introduction-description { max-width: 72ch; }
-  `,
-};
-
 export function DocsPage() {
-  const containerRef = useRef<HTMLDivElement>(null);
-
   usePageSeo(useMemo(() => SEO.docs, []));
-
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    let scalarInstance: { destroy: () => void } | null = null;
-
-    const mount = () => {
-      const scalar = (window as unknown as { Scalar?: ScalarGlobal }).Scalar;
-      if (!scalar) return;
-      scalarInstance = scalar.createApiReference(container, scalarConfig);
-    };
-
-    // Reuse the loader if the script is already present (e.g. client-side nav).
-    let loader = document.querySelector<HTMLScriptElement>(
-      `script[data-scalar-api-reference]`
-    );
-    if ((window as unknown as { Scalar?: ScalarGlobal }).Scalar) {
-      mount();
-    } else if (loader) {
-      loader.addEventListener("load", mount, { once: true });
-    } else {
-      loader = document.createElement("script");
-      loader.src = SCALAR_SRC;
-      loader.async = true;
-      loader.dataset.scalarApiReference = "true";
-      loader.integrity = SCALAR_SRI;
-      loader.crossOrigin = "anonymous";
-      loader.addEventListener("load", mount, { once: true });
-      document.body.appendChild(loader);
-    }
-
-    return () => {
-      scalarInstance?.destroy();
-      if (container) container.innerHTML = "";
-    };
-  }, []);
 
   return (
     <div className="flex min-h-[100dvh] flex-col bg-surface">
@@ -172,15 +105,17 @@ curl -X POST "${BASE_URL}/grade?format=pdf" \\
         </PageContainer>
       </section>
 
-      <div ref={containerRef} className="min-h-[480px] flex-1 border-t border-border-subtle" />
-      <noscript>
-        <PageContainer>
-          <p className="text-sm text-text-secondary">
-            Enable JavaScript to view the interactive docs, or fetch the raw spec at{" "}
-            <code>/v1/openapi.json</code>.
-          </p>
-        </PageContainer>
-      </noscript>
+      <div className="min-h-[640px] flex-1 border-t border-border-subtle">
+        <Suspense
+          fallback={
+            <PageContainer className="!py-12">
+              <p className="text-sm text-text-secondary">Loading API reference…</p>
+            </PageContainer>
+          }
+        >
+          <ApiReferencePanel />
+        </Suspense>
+      </div>
 
       <SiteFooter />
     </div>
