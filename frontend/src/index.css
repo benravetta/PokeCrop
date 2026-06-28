@@ -34,6 +34,7 @@
 
 /* Layout spacing tokens — mobile first, bumped at sm (640px) */
 :root {
+  --spacing: 0.25rem;
   --page-px: 1rem;
   --page-py: 1.5rem;
   --section-py: 3.5rem;
@@ -83,6 +84,10 @@
 
 .header-h {
   height: var(--header-h);
+}
+
+.header-logo {
+  height: calc(var(--spacing) * 15);
 }
 
 .footer-py-compact {

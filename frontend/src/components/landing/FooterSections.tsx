@@ -1,11 +1,14 @@
 import { Link } from "react-router-dom";
-import { ArrowRight, KeyRound, ShieldCheck, Terminal, Zap } from "lucide-react";
+import { ArrowRight, ArrowUpRight, KeyRound, ShieldCheck, Terminal, Zap } from "lucide-react";
 import { API_SNIPPET } from "./data";
 import { SectionHeading } from "./shared";
 import { ESTIMATE_DISCLAIMER, FOOTER, GRADER_INDEPENDENCE } from "../../lib/marketingCopy";
-import { FOOTER_EXTERNAL_LINKS, FOOTER_NAV_LINKS } from "../../lib/siteNav";
+import {
+  FOOTER_LEGAL_LINKS,
+  FOOTER_NAV_GROUPS,
+  type SiteNavItem,
+} from "../../lib/siteNav";
 import { STAFF_ACCOUNT } from "../../lib/adminAccess";
-import { SiteNavLinks } from "../marketing/SiteNavLinks";
 import { FooterLegalBlock } from "../pageLayout/FooterLegalBlock";
 import { Wordmark } from "./shared";
 import type { Plan } from "../../lib/plans";
@@ -119,36 +122,94 @@ export function HonestSection() {
   return null;
 }
 
+const footerLinkClass =
+  "text-sm text-text-secondary transition-colors hover:text-text-primary";
+
+function FooterNavColumn({ title, links }: { title: string; links: readonly SiteNavItem[] }) {
+  return (
+    <div>
+      <h2 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-text-muted">
+        {title}
+      </h2>
+      <ul className="mt-3 space-y-2.5">
+        {links.map((item) => (
+          <li key={item.href}>
+            {item.external ? (
+              <a
+                href={item.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`inline-flex items-center gap-1 ${footerLinkClass}`}
+              >
+                {item.label}
+                <ArrowUpRight className="h-3.5 w-3.5 shrink-0 opacity-60" aria-hidden />
+              </a>
+            ) : (
+              <Link to={item.href} className={footerLinkClass}>
+                {item.label}
+              </Link>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 export function SiteFooter() {
   return (
     <footer className="border-t border-border-subtle bg-surface-raised/30 footer-py-marketing">
       <div className="mx-auto w-full max-w-6xl page-x">
-        <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-start sm:justify-between">
-          <div className="max-w-sm text-center sm:text-left">
-            <Wordmark className="mx-auto sm:mx-0" />
-            <p className="mt-2 text-xs leading-relaxed text-text-muted">{FOOTER.tagline}</p>
-            <p className="mt-1 text-xs text-text-muted">{FOOTER.location}</p>
+        <div className="grid gap-10 lg:grid-cols-[minmax(0,1.35fr)_repeat(3,minmax(0,1fr))] lg:gap-8 xl:gap-12">
+          <div className="text-center lg:text-left">
+            <Wordmark className="mx-auto lg:mx-0" />
+            <p className="mx-auto mt-3 max-w-sm text-sm leading-relaxed text-text-secondary lg:mx-0">
+              {FOOTER.tagline}
+            </p>
+            <a
+              href="https://getlooky.uk"
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`mt-4 inline-flex items-center gap-1.5 ${footerLinkClass}`}
+            >
+              A Looky Collectibles tool
+              <ArrowUpRight className="h-3.5 w-3.5 shrink-0 opacity-60" aria-hidden />
+            </a>
           </div>
-          <nav
-            className="grid w-full max-w-md grid-cols-2 gap-x-4 gap-y-2.5 sm:max-w-none sm:flex sm:flex-wrap sm:items-center sm:justify-end sm:gap-x-6 sm:gap-y-2"
-            aria-label="Footer navigation"
-          >
-            <SiteNavLinks
-              links={FOOTER_NAV_LINKS}
-              linkClassName="text-sm text-text-secondary transition-colors hover:text-text-primary text-center sm:text-left"
-            />
-            <SiteNavLinks
-              links={FOOTER_EXTERNAL_LINKS}
-              linkClassName="text-sm text-text-secondary transition-colors hover:text-text-primary col-span-2 text-center sm:col-span-1 sm:text-left"
-            />
-          </nav>
+
+          <div className="grid grid-cols-2 gap-8 sm:grid-cols-3 lg:contents">
+            {FOOTER_NAV_GROUPS.map((group) => (
+              <FooterNavColumn key={group.label} title={group.label} links={group.links} />
+            ))}
+          </div>
         </div>
-        <FooterLegalBlock className="mx-auto mt-6 text-center sm:mt-8">
-          {ESTIMATE_DISCLAIMER}
-        </FooterLegalBlock>
-        <FooterLegalBlock className="mx-auto mt-2 text-center">
-          {GRADER_INDEPENDENCE}
-        </FooterLegalBlock>
+
+        <div className="mt-10 space-y-2 border-t border-border-subtle pt-8 lg:mt-12">
+          <FooterLegalBlock className="mx-auto max-w-3xl text-center lg:mx-0 lg:text-left">
+            {ESTIMATE_DISCLAIMER}
+          </FooterLegalBlock>
+          <FooterLegalBlock className="mx-auto max-w-3xl text-center lg:mx-0 lg:text-left">
+            {GRADER_INDEPENDENCE}
+          </FooterLegalBlock>
+        </div>
+
+        <div className="mt-6 flex flex-col items-center gap-3 text-center lg:mt-8 lg:flex-row lg:items-center lg:justify-between lg:text-left">
+          <nav
+            aria-label="Legal"
+            className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 lg:justify-start"
+          >
+            {FOOTER_LEGAL_LINKS.map((item) => (
+              <Link
+                key={item.href}
+                to={item.href}
+                className="text-xs text-text-muted transition-colors hover:text-text-primary"
+              >
+                {item.label}
+              </Link>
+            ))}
+          </nav>
+          <p className="text-xs text-text-muted">{FOOTER.location}</p>
+        </div>
       </div>
     </footer>
   );

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { Menu, X } from "lucide-react";
-import { Wordmark, LOGO_CLASS } from "../landing/shared";
+import { Wordmark } from "../landing/shared";
 import { SiteNavMenu } from "./SiteNavMenu";
 import { HeaderMenuProvider } from "./HeaderMenuContext";
 
@@ -24,7 +24,7 @@ export function SiteHeader({
   homeHref = "/",
   highlightActive = false,
   sticky = false,
-  logoClassName = LOGO_CLASS,
+  logoClassName = "header-logo",
   centerNav,
   actions,
   mobileActions,

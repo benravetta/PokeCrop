@@ -8,13 +8,12 @@ import { SEO } from "../lib/marketingCopy";
 import { usePageSeo } from "../lib/seo";
 
 // Public API documentation. Renders the Scalar API reference against the live
-// OpenAPI spec at /v1/openapi.json. The CDN script is pinned to an exact,
-// immutable version and verified with Subresource Integrity so a CDN or package
-// compromise cannot execute arbitrary JS in our origin.
+// OpenAPI spec at /v1/openapi.json. Load the exact browser bundle (not the
+// package root — jsDelivr minifies that URL and breaks Subresource Integrity).
 const SCALAR_VERSION = "1.60.0";
-const SCALAR_SRC = `https://cdn.jsdelivr.net/npm/@scalar/api-reference@${SCALAR_VERSION}`;
+const SCALAR_SRC = `https://cdn.jsdelivr.net/npm/@scalar/api-reference@${SCALAR_VERSION}/dist/browser/standalone.js`;
 const SCALAR_SRI =
-  "sha384-4BdmZQQTc462+ocGPo+GP3Hi/eQjMQTmNkSU9J5w3FD6hGUEmU2PqNRnbklONt4R";
+  "sha384-3sxnxyp7pbU2/o4+gs4EbvQ4YKyF60pWDL2LW8SoFZNQBTSiPah2xcHpxsndZEgF";
 const SPEC_URL = "/v1/openapi.json";
 const BASE_URL = "https://gemcheck.co.uk/v1";
 
@@ -22,7 +21,7 @@ type ScalarGlobal = {
   createApiReference: (
     el: Element | string,
     config: Record<string, unknown>
-  ) => void;
+  ) => { destroy: () => void };
 };
 
 const scalarConfig = {
@@ -54,14 +53,17 @@ export function DocsPage() {
     const container = containerRef.current;
     if (!container) return;
 
+    let scalarInstance: { destroy: () => void } | null = null;
+
     const mount = () => {
       const scalar = (window as unknown as { Scalar?: ScalarGlobal }).Scalar;
-      if (scalar) scalar.createApiReference(container, scalarConfig);
+      if (!scalar) return;
+      scalarInstance = scalar.createApiReference(container, scalarConfig);
     };
 
     // Reuse the loader if the script is already present (e.g. client-side nav).
     let loader = document.querySelector<HTMLScriptElement>(
-      `script[src="${SCALAR_SRC}"]`
+      `script[data-scalar-api-reference]`
     );
     if ((window as unknown as { Scalar?: ScalarGlobal }).Scalar) {
       mount();
@@ -71,6 +73,7 @@ export function DocsPage() {
       loader = document.createElement("script");
       loader.src = SCALAR_SRC;
       loader.async = true;
+      loader.dataset.scalarApiReference = "true";
       loader.integrity = SCALAR_SRI;
       loader.crossOrigin = "anonymous";
       loader.addEventListener("load", mount, { once: true });
@@ -78,6 +81,7 @@ export function DocsPage() {
     }
 
     return () => {
+      scalarInstance?.destroy();
       if (container) container.innerHTML = "";
     };
   }, []);
@@ -168,7 +172,7 @@ curl -X POST "${BASE_URL}/grade?format=pdf" \\
         </PageContainer>
       </section>
 
-      <div ref={containerRef} className="min-h-0 flex-1" />
+      <div ref={containerRef} className="min-h-[480px] flex-1 border-t border-border-subtle" />
       <noscript>
         <PageContainer>
           <p className="text-sm text-text-secondary">

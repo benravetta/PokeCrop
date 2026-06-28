@@ -68,6 +68,16 @@ export const FOOTER_EXTERNAL_LINKS: SiteNavItem[] = [
   },
 ];
 
+/** Grouped footer navigation — mirrors header menu structure plus resources. */
+export const FOOTER_NAV_GROUPS: SiteNavGroup[] = [
+  ...NAV_MENU_GROUPS,
+  {
+    label: "Resources",
+    links: [...HEADER_RESOURCE_LINKS, ...FOOTER_UTILITY_LINKS],
+  },
+];
+
+/** Flat list — legacy convenience if a simple list is needed. */
 export const FOOTER_NAV_LINKS: SiteNavItem[] = [
   ...HEADER_NAV_LINKS,
   ...HEADER_RESOURCE_LINKS,

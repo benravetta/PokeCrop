@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-/** Standard GemCheck wordmark height — keep in sync across all headers. */
+/** Standard GemCheck wordmark height — site headers use `.header-logo` in index.css. */
 export const LOGO_CLASS = "h-10 sm:h-11";
 
 export function Wordmark({ className = LOGO_CLASS }: { className?: string }) {
