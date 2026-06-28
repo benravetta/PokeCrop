@@ -523,39 +523,48 @@ Straighten helper: `API_STRAIGHTEN_RATE_PER_MIN=30` (successful calls only).
 
 ## How It Works
 
-Upload a card scan or photo. CardCrop automatically:
+Upload a card scan or photo. CardCrop runs a **staged, accuracy-first** pipeline:
 
-1. **Detects** card-like shapes using 5 parallel contour-finding passes (adaptive threshold, Canny, colour segmentation, Otsu, hierarchical)
-2. **Scores** each candidate across 10 weighted criteria to identify the frontmost card (not the wrapper, not the backing card)
-3. **Expands** the detected contour outward to include the full card border (not just the artwork)
-4. **Refines** edges by snapping to the nearest strong gradient
-5. **Cleans** the top edge to remove rear-card remnants (when a backing card is present)
-6. **Masks** with curvature-based rounded corners using 8x supersampled anti-aliasing
-7. **Exports** a transparent PNG with distance-transform alpha feathering
+1. **Assess** (optional GPT-4o-mini) — blocks unusable photos (blurry, multi-card, clipped) before processing
+2. **Localise** — rough ROI from GPT hint + CV evidence
+3. **Detect** — dual-path ensemble: learned segmentation + classical GrabCut/colour; full-bleed scans use inset frame mode
+4. **Validate** — geometry check + confidence tier (`needs_manual` &lt; 0.50, `needs_review` 0.50–0.69, auto ≥ 0.70)
+5. **Warp / orient / alpha / enhance** — perspective-correct crop with rounded corners (skipped when `grading_safe: true`)
+6. **Confirm before quota** — web and collector flows bill the daily crop only after you confirm the detected geometry
 
-Processing typically takes 200-500ms per image.
+Regression fixtures live under `python-service/tests/fixtures/` with CI gates in `tests/test_pipeline.py`.
+
+Processing typically takes 1–3s per image (segmentation model load is amortised).
 
 ---
 
 ## Usage
 
-1. **Upload** — drag-and-drop or click to browse. Accepts JPG, PNG, WEBP, or PDF.
-2. **Auto-process** — processing starts immediately after upload.
-3. **Review** — three panels show the original, detection overlay, and extracted result on a checkerboard.
-4. **Export** — "Web size" (max 1200px) or "Original size" (full resolution).
+1. **Upload** — drag-and-drop or click to browse. Accepts JPG, PNG, WEBP, or PDF. Client-side capture coach warns about blur/resolution.
+2. **Preview** — detection runs without consuming your crop quota.
+3. **Review** — check the **Before** overlay on review-tier results; adjust corners manually when needed.
+4. **Confirm crop** — counts against your plan and unlocks download/export.
+5. **Export** — "Web size" (max 1200px) or "Original size" (full resolution). Optional **Condition-faithful export** in Advanced skips beautification.
+
+### Environment flags (Fly / python-service)
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `CROP_STRICT_GATING` | `1` | Confidence tiers at 0.50 / 0.70 |
+| `CROP_ENSEMBLE` | `1` | Run segmentation + classical paths |
+| `CARD_SEG_MODEL` | `u2netp` | Segmentation model (`isnet-general-use` optional) |
 
 ### Advanced Tools
 
-Click **"Advanced Tools"** in the bottom bar to expand tuning controls. Most images should work well with defaults — these are for edge cases:
+Click **Advanced** in the bottom bar for tuning controls:
 
-| Control | What it does | When to adjust |
-|---------|-------------|----------------|
-| Edge sensitivity | Controls Canny edge detection thresholds | Card not detected → increase to 0.7-0.9 |
-| Contour threshold | Controls adaptive threshold block size | Too many false candidates → increase |
-| Crop padding | Extra transparent pixels around the card (0-40px) | Tight crop cuts border → add 5-15px |
-| Top-edge cleanup | Aggressiveness of rear-card removal at top edge | Rear card visible at top → increase to 0.8-1.0 |
-| Corner radius | Scale the auto-detected corner radius | Corners too round/sharp → adjust (0.5 = auto) |
-| Rotate correction | Straighten slightly tilted cards | Disable if rotation is unwanted |
+| Control | What it does |
+|---------|-------------|
+| Output resolution | Standard (1260px long) or High (1890px) |
+| Condition-faithful export | Grading-safe path without enhance/sharpen |
+| Corner rounding | Match the card's rounded-corner radius |
+| Border padding | Transparent margin around the card (0–100px) |
+| Rotate | Manual 90° orientation nudge |
 
 ---
 

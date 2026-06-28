@@ -5,7 +5,7 @@ import { baseName } from "../lib/mime";
 import { Download, ChevronDown } from "lucide-react";
 
 export function ExportControls() {
-  const { sessionId, resultBase64, filename } = useAppStore();
+  const { sessionId, resultBase64, filename, cropConfirmed } = useAppStore();
   const [menuOpen, setMenuOpen] = useState(false);
   const [downloading, setDownloading] = useState<"original" | "web" | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -24,6 +24,7 @@ export function ExportControls() {
   if (!resultBase64 || !sessionId) return null;
 
   const handleExport = async (size: "original" | "web") => {
+    if (!cropConfirmed) return;
     setMenuOpen(false);
     setDownloading(size);
     try {
@@ -47,7 +48,8 @@ export function ExportControls() {
     <div ref={wrapRef} className="relative inline-flex">
       <button
         onClick={() => handleExport("original")}
-        disabled={downloading !== null}
+        disabled={downloading !== null || !cropConfirmed}
+        title={!cropConfirmed ? "Confirm your crop first" : "Download full-resolution PNG"}
         className="inline-flex items-center gap-1.5 pl-4 pr-3 py-2 text-sm font-medium text-white
                    bg-accent rounded-l-lg hover:bg-accent-hover transition-colors
                    disabled:opacity-60 disabled:cursor-wait"
@@ -57,7 +59,7 @@ export function ExportControls() {
       </button>
       <button
         onClick={() => setMenuOpen((o) => !o)}
-        disabled={downloading !== null}
+        disabled={downloading !== null || !cropConfirmed}
         aria-label="Download options"
         className="inline-flex items-center px-2 py-2 text-white bg-accent rounded-r-lg
                    border-l border-white/15 hover:bg-accent-hover transition-colors

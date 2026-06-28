@@ -9,12 +9,14 @@ import { sendToPython } from "../services/pythonBridge.js";
 import { requireActiveAuth } from "../middleware/auth.js";
 import { validateParams } from "../lib/cropParams.js";
 import {
-  FREE_DAILY_LIMIT,
   getPlan,
-  getUsageToday,
-  incrementUsage,
   type Plan,
 } from "../lib/usage.js";
+import {
+  CropQuotaExceededError,
+  releaseCropQuota,
+  reserveCropQuota,
+} from "../lib/cropQuota.js";
 import { logActivity } from "../lib/activity.js";
 import { logUsageEventAwait } from "../lib/usageEvents.js";
 import { archiveCropAsync, pngDimensions } from "../lib/catalog.js";
@@ -22,7 +24,7 @@ import {
   ADMIN_EFFECTIVE_PLAN,
   isAdminRole,
 } from "../lib/adminAccess.js";
-import { assessCard, CardAssessment } from "../lib/cardVision.js";
+import { assessCard, assessCardBlocking, applySuitabilityTierOverrides, CardAssessment } from "../lib/cardVision.js";
 import { runCropJob } from "../lib/cropPipeline.js";
 import { webRateLimitPeek } from "../middleware/webRateLimit.js";
 import { consumeWebRateLimitSlot } from "../lib/accountRateLimit.js";
@@ -279,6 +281,55 @@ router.post(
   }
 );
 
+async function meterSessionCrop(
+  session: Session,
+  req: Request,
+  meta: Record<string, unknown>,
+  reserved: Awaited<ReturnType<typeof reserveCropQuota>>
+): Promise<void> {
+  const userId = req.user!.id;
+  session.plan = reserved.plan;
+  session.billing = reserved.billing;
+
+  const safeName = sanitizeFilename(session.filename);
+  const webBuf = Buffer.from(session.result!.result_web_png, "base64");
+  const contentHash = crypto.createHash("sha256").update(webBuf).digest("hex");
+  const dims = pngDimensions(webBuf);
+
+  logActivity({
+    userId,
+    action: "crop.web",
+    actorId: userId,
+    actorEmail: req.user!.email ?? null,
+    detail: { filename: safeName },
+  });
+
+  const historyEventId = await logUsageEventAwait({
+    userId,
+    kind: "crop",
+    source: "web",
+    billing: reserved.billing,
+    plan: reserved.plan,
+    window: isAdminRole(req.user!.role) ? null : reserved.plan === "free" ? "day" : null,
+    usedAfter: reserved.incremented ? reserved.usedAfter : null,
+    remainingAfter: reserved.incremented ? reserved.remainingAfter : null,
+    summary: safeName,
+    detail: {
+      filename: safeName,
+      content_hash: contentHash,
+      pipeline_confidence: typeof meta.confidence === "number" ? meta.confidence : null,
+      width: dims?.width ?? null,
+      height: dims?.height ?? null,
+      rotation_deg: meta.rotation_deg,
+      needs_manual: meta.needs_manual,
+      needs_review: meta.needs_review,
+    },
+  });
+  if (historyEventId) session.historyEventId = historyEventId;
+
+  void ensureArchived(session);
+}
+
 router.post("/process", requireActiveAuth, webRateLimitPeek("web:crop_process"), async (req: Request, res: Response) => {
   const { sessionId, params } = req.body;
 
@@ -300,34 +351,9 @@ router.post("/process", requireActiveAuth, webRateLimitPeek("web:crop_process"),
 
   const userId = req.user!.id;
   const admin = isAdminRole(req.user!.role);
-
-  // This crop only counts against the quota the first time a given upload is
-  // successfully extracted; re-processing (crop tweaks, slider changes) is free.
-  const willCount = !session.counted;
   let plan: Plan = session.plan ?? (admin ? ADMIN_EFFECTIVE_PLAN : "free");
 
-  if (willCount && !admin) {
-    try {
-      plan = await getPlan(userId);
-      if (plan === "free") {
-        const used = await getUsageToday(userId);
-        if (used >= FREE_DAILY_LIMIT) {
-          res.status(402).json({
-            error: `You've used all ${FREE_DAILY_LIMIT} free crops today. Upgrade for unlimited crops.`,
-            reason: "limit",
-            plan,
-            remaining: 0,
-            limit: FREE_DAILY_LIMIT,
-          });
-          return;
-        }
-      }
-    } catch (err) {
-      console.error("Quota check failed:", err);
-      res.status(503).json({ error: "Could not verify your plan. Try again shortly." });
-      return;
-    }
-  } else if (!session.plan && !admin) {
+  if (!session.plan && !admin) {
     try {
       plan = await getPlan(userId);
     } catch (err) {
@@ -341,7 +367,7 @@ router.post("/process", requireActiveAuth, webRateLimitPeek("web:crop_process"),
 
   const validatedParams = validateParams(params);
   session.processing = true;
-  if (willCount || !session.plan) {
+  if (!session.plan) {
     session.plan = plan;
     session.billing = admin ? "admin" : plan === "free" ? "free" : "subscription";
   }
@@ -352,6 +378,15 @@ router.post("/process", requireActiveAuth, webRateLimitPeek("web:crop_process"),
       session.assessment = await assessCard(session.filePath, userId).catch(() => null);
     }
     const assessment = session.assessment ?? null;
+    const blocking = assessCardBlocking(assessment);
+    if (blocking.blocked) {
+      res.status(422).json({
+        error: blocking.reasons[0] ?? "Photo not suitable for cropping.",
+        reasons: blocking.reasons,
+        suitability: assessment ?? undefined,
+      });
+      return;
+    }
 
     const crop = await runCropJob({
       filePath: session.filePath,
@@ -375,72 +410,21 @@ router.post("/process", requireActiveAuth, webRateLimitPeek("web:crop_process"),
     }
 
     session.lastParams = validatedParams;
+    const metadata = applySuitabilityTierOverrides(
+      crop.metadata as Record<string, unknown>,
+      blocking
+    );
     session.result = {
       result_web_png: crop.resultWebPng ?? crop.pngBase64,
-      metadata: crop.metadata,
+      metadata,
     };
 
     const result = {
       result_web_png: crop.resultWebPng ?? crop.pngBase64,
       edit_image_jpeg: crop.editImageJpeg,
-      metadata: crop.metadata,
+      metadata,
+      confirmed: Boolean(session.counted),
     };
-
-    // Meter the successful crop exactly once per upload.
-    if (willCount) {
-      let cropCount: number | null = null;
-      try {
-        cropCount = await incrementUsage(userId);
-        session.counted = true;
-      } catch (err) {
-        console.error("Usage increment failed:", err);
-      }
-      const safeName = sanitizeFilename(session.filename);
-      const webBuf = Buffer.from(session.result!.result_web_png, "base64");
-      const contentHash = crypto.createHash("sha256").update(webBuf).digest("hex");
-      const dims = pngDimensions(webBuf);
-      const meta = crop.metadata ?? {};
-
-      logActivity({
-        userId,
-        action: "crop.web",
-        actorId: userId,
-        actorEmail: req.user!.email ?? null,
-        detail: { filename: safeName },
-      });
-
-      const historyEventId = await logUsageEventAwait({
-        userId,
-        kind: "crop",
-        source: "web",
-        billing: admin ? "admin" : plan === "free" ? "free" : "subscription",
-        plan,
-        window: admin ? null : plan === "free" ? "day" : null,
-        usedAfter: admin ? null : plan === "free" ? cropCount : null,
-        remainingAfter: admin
-          ? null
-          : plan === "free" && cropCount != null
-            ? Math.max(0, FREE_DAILY_LIMIT - cropCount)
-            : null,
-        summary: safeName,
-        detail: {
-          filename: safeName,
-          content_hash: contentHash,
-          pipeline_confidence:
-            typeof meta.confidence === "number" ? meta.confidence : null,
-          width: dims?.width ?? null,
-          height: dims?.height ?? null,
-          rotation_deg: meta.rotation_deg,
-          needs_manual: meta.needs_manual,
-        },
-      });
-      if (historyEventId) session.historyEventId = historyEventId;
-
-      session.plan = plan;
-      session.billing = admin ? "admin" : plan === "free" ? "free" : "subscription";
-
-      void ensureArchived(session);
-    }
 
     const webPng = await maybeWatermarkSessionPng(
       session,
@@ -453,6 +437,7 @@ router.post("/process", requireActiveAuth, webRateLimitPeek("web:crop_process"),
       result_web_png: webPng,
       edit_image_jpeg: result.edit_image_jpeg,
       metadata: result.metadata,
+      confirmed: result.confirmed,
       historyEventId: session.historyEventId ?? null,
     });
     await consumeWebRateLimitSlot(userId, "web:crop_process");
@@ -464,11 +449,61 @@ router.post("/process", requireActiveAuth, webRateLimitPeek("web:crop_process"),
   }
 });
 
+router.post("/confirm", requireActiveAuth, webRateLimitPeek("web:crop_process"), async (req: Request, res: Response) => {
+  const { sessionId } = req.body ?? {};
+  if (!sessionId || typeof sessionId !== "string") {
+    res.status(400).json({ error: "Invalid session" });
+    return;
+  }
+
+  const session = getOwnedSession(req, sessionId);
+  if (!session?.result) {
+    res.status(404).json({ error: "No crop preview available" });
+    return;
+  }
+
+  if (session.counted) {
+    res.json({ ok: true, historyEventId: session.historyEventId ?? null, confirmed: true });
+    return;
+  }
+
+  // Claim synchronously so concurrent confirms on the same session only meter once.
+  session.counted = true;
+  let reserved: Awaited<ReturnType<typeof reserveCropQuota>> | null = null;
+
+  try {
+    reserved = await reserveCropQuota({ userId: req.user!.id, role: req.user!.role });
+    await meterSessionCrop(session, req, session.result.metadata ?? {}, reserved);
+    await consumeWebRateLimitSlot(req.user!.id, "web:crop_process");
+    res.json({ ok: true, historyEventId: session.historyEventId ?? null, confirmed: true });
+  } catch (err: unknown) {
+    session.counted = false;
+    if (reserved?.incremented) await releaseCropQuota(req.user!.id);
+    if (err instanceof CropQuotaExceededError) {
+      res.status(402).json({
+        error: err.message,
+        reason: "limit",
+        plan: err.plan,
+        remaining: err.remaining,
+        limit: err.limit,
+      });
+      return;
+    }
+    console.error("Confirm crop failed:", err);
+    res.status(500).json({ error: "Could not confirm crop." });
+  }
+});
+
 router.get("/export/:sessionId", requireActiveAuth, async (req: Request, res: Response) => {
   const session = getOwnedSession(req, req.params.sessionId);
 
   if (!session?.result) {
     res.status(404).json({ error: "No result available" });
+    return;
+  }
+
+  if (!session.counted) {
+    res.status(403).json({ error: "Confirm your crop before downloading." });
     return;
   }
 

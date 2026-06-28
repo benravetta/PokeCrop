@@ -74,6 +74,7 @@ import {
   getLatestUsageEventId,
 } from "../adapters/entitlementAdapter.js";
 import { gradeFromBuffers } from "../adapters/gradingAdapter.js";
+import { getCollectorGradePrefill } from "../application/collectorGradePrefillService.js";
 import { createCollectorGradeCheckout } from "../adapters/paymentAdapter.js";
 import {
   createTradeEnquiry,
@@ -685,6 +686,24 @@ collectorProfilesCustomerRoutes.post(
   }
 );
 
+collectorProfilesCustomerRoutes.get(
+  "/collector/cards/:publicCardId/grade/prefill",
+  requireActiveAuth,
+  requireCollectorProfilesEnabled,
+  requireCollectorGradingEnabled,
+  async (req, res) => {
+    try {
+      const prefill = await getCollectorGradePrefill({
+        publicCardId: req.params.publicCardId!,
+        userId: req.user!.id,
+      });
+      res.json(prefill);
+    } catch (err) {
+      sendCollectorProfileError(res, err);
+    }
+  }
+);
+
 collectorProfilesCustomerRoutes.post(
   "/collector/cards/:publicCardId/grade/options",
   requireActiveAuth,
@@ -786,6 +805,8 @@ collectorProfilesCustomerRoutes.post(
         actorEmail: req.user!.email,
         front: frontBuf,
         back: backBuf ?? undefined,
+        frontMime: "image/png",
+        backMime: backBuf ? "image/png" : undefined,
       });
       const usageId = await getLatestUsageEventId(req.user!.id);
       if (reservationId) {

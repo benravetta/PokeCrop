@@ -75,7 +75,10 @@ COLLECTOR_PROFILE_USERNAME_REDIRECT_DAYS=90
 
 - **Profile**: create username → settings → publish → share `/u/username`
 - **Card (upload-first wizard)**: add card → upload front → GemCheck crop (shared daily quota on confirm) → rich autofill → edit metadata → upload/crop back → sections → publish
-- **Crop quota**: `POST .../process` is preview-only (no quota). `POST .../crop/:role` with confirm bills the same daily allowance as `POST /api/process` (`FREE_DAILY_LIMIT = 3` on free plan). Re-confirming the same side does not double-charge (`crop_usage_counted`).
+- **Crop quota**: `POST .../process` is preview-only (no quota). `POST .../crop/:role` with confirm bills the same daily allowance as `POST /api/confirm` on web (`FREE_DAILY_LIMIT = 3` on free plan). Re-confirming the same side does not double-charge (`crop_usage_counted`).
+- **Suitability blocks** (422, no pipeline): not present, multiple cards, clipped edge, blurry. Glare/sleeve force review tier minimum.
+- **Crop metadata** (stored in `crop_data`): `confidence`, `needs_manual`, `needs_review`, `detection_path` (`segment` | `classical` | `scan` | `ensemble`), `scan_mode`, `working_corners`, `working_size`.
+- **Master PNG**: collector confirm uses `grading_safe: true` (no beautification); showcase JPEGs stay polished via display derivatives.
 - **Identification**: `POST /api/collector/cards/:publicCardId/identify` runs after front crop confirm; back only fills gaps when front confidence &lt; 0.75.
 - **Display security**: public JSON returns HMAC proxy paths (`GET /api/collector/display/:publicCardId/:role?size=display|thumb&t=&exp=`). Set `COLLECTOR_DISPLAY_HMAC_SECRET` in production (required). Full-res processed PNGs are never presigned to browsers.
 - **Owner grading**: entitlement adapter → `executeGrade` → grade link (private until owner publishes)

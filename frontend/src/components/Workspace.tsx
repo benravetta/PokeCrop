@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { StickyFooterBar } from "./pageLayout";
 import {
@@ -54,6 +54,9 @@ export function Workspace() {
     reset,
     setGradePrefill,
     historyEventId,
+    cropConfirmed,
+    confirmBusy,
+    confirmCrop,
   } = useAppStore();
 
   const navigate = useNavigate();
@@ -64,6 +67,11 @@ export function Workspace() {
 
   const busy = processing || uploading;
   const dirty = cropDirty || paramsDiffer(params, appliedParams);
+
+  useEffect(() => {
+    if (!metadata?.needs_manual || busy || !resultBase64) return;
+    setMode("crop");
+  }, [metadata?.needs_manual, busy, resultBase64]);
 
   const applyChanges = async () => {
     setDrawerOpen(false);
@@ -93,7 +101,7 @@ export function Workspace() {
     } catch {
       // keep the web-preview base64 fallback
     }
-    setGradePrefill({ pngBase64, filename: filename ?? "card.png" });
+    setGradePrefill({ front: { pngBase64, filename: filename ?? "card.png" } });
     setSending(false);
     navigate("/grade");
   };
@@ -119,13 +127,21 @@ export function Workspace() {
       {/* Guidance: low-confidence auto-crop or photo-quality tips */}
       {mode === "view" && !busy && metadata && (() => {
         const tips = metadata.suitability?.guidance ?? [];
-        if (!metadata.needs_manual && tips.length === 0) return null;
+        const showGuidance =
+          metadata.needs_manual || metadata.needs_review || tips.length > 0;
+        if (!showGuidance) return null;
         return (
           <div className="mx-4 sm:mx-5 mb-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2">
             {metadata.needs_manual && (
               <p className="text-[12px] text-amber-200 leading-snug">
                 We couldn't clearly see every edge. Tap <span className="font-medium">Adjust crop</span> and
                 drag the corners to line them up with the card.
+              </p>
+            )}
+            {metadata.needs_review && !metadata.needs_manual && (
+              <p className="text-[12px] text-amber-200 leading-snug">
+                Check the detected outline on <span className="font-medium">Before</span>, then confirm the crop
+                when it looks right.
               </p>
             )}
             {tips.length > 0 && (
@@ -215,6 +231,21 @@ export function Workspace() {
                   >
                     <Check className="w-4 h-4" />
                     Apply changes
+                  </button>
+                ) : !cropConfirmed && resultBase64 ? (
+                  <button
+                    onClick={() => void confirmCrop()}
+                    disabled={busy || confirmBusy || metadata?.needs_manual}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white
+                               bg-accent rounded-lg hover:bg-accent-hover transition-colors
+                               disabled:opacity-40"
+                  >
+                    {confirmBusy ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Check className="w-4 h-4" />
+                    )}
+                    Confirm crop
                   </button>
                 ) : (
                   <>

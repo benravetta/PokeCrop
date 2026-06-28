@@ -147,6 +147,22 @@ export async function publishCollectorCard(publicCardId: string) {
   return res.json();
 }
 
+export interface CollectorGradePrefill {
+  cardName: string;
+  front: { base64: string; mime: "image/png"; filename: string };
+  back?: { base64: string; mime: "image/png"; filename: string };
+}
+
+export async function fetchCollectorGradePrefill(
+  publicCardId: string
+): Promise<CollectorGradePrefill> {
+  const res = await apiFetch(
+    `${BASE}/collector/cards/${encodeURIComponent(publicCardId)}/grade/prefill`
+  );
+  if (!res.ok) await fail(res);
+  return res.json();
+}
+
 export interface PublicCardView {
   profile: { username: string; displayName: string };
   card: {

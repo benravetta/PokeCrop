@@ -16,10 +16,7 @@ from typing import List, Optional, Tuple
 import cv2
 import numpy as np
 
-from pipeline.localise import rough_roi
-from pipeline.boundary import card_boundary
-from pipeline.edges import fit_card_quad
-from pipeline.refine_edges import refine_quad
+from pipeline.detect_card import detect_card_quad
 from pipeline.validate import validate_quad
 from pipeline.warp import warp_card, OUTPUT_SIZES
 from pipeline.orientation import orient_upright
@@ -28,7 +25,8 @@ from pipeline.enhance import enhance_clean, glare_fraction
 from pipeline import export as exp
 from utils.geometry import order_corners
 
-CONFIDENCE_MANUAL_THRESHOLD = 0.45
+CONFIDENCE_MANUAL_THRESHOLD = 0.50
+CONFIDENCE_AUTO_THRESHOLD = 0.70
 
 # The manual crop editor works on a straightened ("rectified") preview of the
 # cropped card rather than the raw photo, so adjusting feels like fine-tuning the
@@ -63,6 +61,9 @@ class CropResult:
     rgba: Optional[np.ndarray] = None
     confidence: float = 0.0
     needs_manual: bool = False
+    needs_review: bool = False
+    detection_path: str = ""
+    scan_mode: bool = False
     aspect: float = 0.0
     estimated_radius: float = 0.0
     orientation_deg: int = 0
@@ -70,6 +71,7 @@ class CropResult:
     glare: float = 0.0
     damaged: bool = False
     crop_corners: List[List[float]] = field(default_factory=list)
+    working_corners: List[List[float]] = field(default_factory=list)
     # Straightened preview the manual editor draws on, plus the 3x3 homography
     # (row-major) mapping edit-image pixels back to original-image pixels.
     edit_image: Optional[np.ndarray] = None
@@ -97,6 +99,7 @@ def run_crop(
         quad_full = order_corners(opts.manual_quad_full.astype(np.float32)).astype(np.float64)
         res.confidence = 1.0
         res.needs_manual = False
+        res.needs_review = False
         validation = validate_quad(quad_full, original.shape, [1.0, 1.0, 1.0, 1.0])
         res.aspect = validation.aspect
         damaged = False
@@ -104,51 +107,30 @@ def run_crop(
         quad_full = order_corners(opts.manual_corners.astype(np.float32)).astype(np.float64) * float(scale)
         res.confidence = 1.0
         res.needs_manual = False
+        res.needs_review = False
         validation = validate_quad(quad_full, original.shape, [1.0, 1.0, 1.0, 1.0])
         res.aspect = validation.aspect
         damaged = False
     else:
         t = time.time()
-        roi = rough_roi(working, opts.roi_hint)
-        _t("localise", t)
-
-        t = time.time()
-        boundary = card_boundary(working, roi)
-        _t("boundary", t)
-        if boundary is None:
+        detected = detect_card_quad(working, original, scale, opts.roi_hint)
+        _t("detect", t)
+        if detected is None:
             res.error = "No trading card detected. Make sure the whole card is visible."
             return res
 
-        t = time.time()
-        fit = fit_card_quad(boundary.mask)
-        _t("edges", t)
-        if fit is None:
-            quad_working = _fallback_quad(boundary.mask)
-            support = [0.2, 0.2, 0.2, 0.2]
-        else:
-            quad_working = fit.quad
-            support = fit.support
-        if quad_working is None:
-            res.error = "Could not find the card edges clearly. Try a plainer background."
-            return res
-
-        t = time.time()
-        if boundary.from_segment:
-            # The learned segmentation mask already hugs the true card edge.
-            # Gradient refinement here can snap outward onto background texture
-            # (wood grain), so trust the segmentation-derived quad instead.
-            quad_full = order_corners(quad_working.astype(np.float32)).astype(np.float64) * float(scale)
-        else:
-            quad_full = refine_quad(quad_working, original, scale)
-        _t("refine", t)
-
-        validation = validate_quad(quad_full, original.shape, support, boundary.area_frac)
+        quad_full = detected.quad_full
+        validation = detected.validation
         res.confidence = validation.confidence
         res.aspect = validation.aspect
-        res.reasons = validation.reasons
-        res.needs_manual = (not validation.ok) or validation.confidence < CONFIDENCE_MANUAL_THRESHOLD
-        quad_full = validation.quad
-        damaged = boundary.damaged
+        res.reasons = detected.reasons
+        res.needs_manual = detected.needs_manual
+        res.needs_review = detected.needs_review
+        res.detection_path = detected.detection_path
+        res.scan_mode = detected.scan_mode
+        damaged = detected.damaged
+
+    res.working_corners = (quad_full / float(scale)).astype(np.float64).tolist()
 
     res.damaged = damaged
 
@@ -290,11 +272,3 @@ def _apply_manual_rotation(rgba_or_bgr: np.ndarray, output_rotation: int):
         return cv2.rotate(rgba_or_bgr, cv2.ROTATE_90_COUNTERCLOCKWISE), 270
     return rgba_or_bgr, 0
 
-
-def _fallback_quad(mask: np.ndarray) -> Optional[np.ndarray]:
-    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    if not contours:
-        return None
-    c = max(contours, key=cv2.contourArea)
-    box = cv2.boxPoints(cv2.minAreaRect(c)).astype(np.float32)
-    return order_corners(box).astype(np.float64)

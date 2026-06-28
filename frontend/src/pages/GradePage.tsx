@@ -267,25 +267,28 @@ export function GradePage() {
     }
   }, [isAdmin]);
 
-  // Consume a "Send to grading" hand-off from the crop tool: prefill the front
-  // slot with the already-cropped/straightened card and skip re-straightening.
+  // Consume a hand-off from the crop tool or collector card wizard: prefill
+  // cropped PNGs and skip re-straightening.
   const gradePrefill = useAppStore((s) => s.gradePrefill);
   const clearGradePrefill = useAppStore((s) => s.clearGradePrefill);
   const prefillConsumed = useRef(false);
   useEffect(() => {
     if (prefillConsumed.current || !gradePrefill) return;
     prefillConsumed.current = true;
-    const dataUrl = `data:image/png;base64,${gradePrefill.pngBase64}`;
-    const base = gradePrefill.filename.replace(/\.[^/.]+$/, "") || "card";
-    const file = dataUrlToFile(dataUrl, `${base}.png`);
-    setFiles((prev) => ({ ...prev, front: file }));
-    setPreviews((prev) => {
-      if (prev.front) URL.revokeObjectURL(prev.front);
-      return { ...prev, front: URL.createObjectURL(file) };
-    });
-    // The crop is already straightened, so use it directly for centering and
-    // do not re-run straightenForGrade.
-    setProc((p) => ({ ...p, front: { src: dataUrl, loading: false, failed: false } }));
+
+    const applyPrefill = (slot: CardSlot, payload: { pngBase64: string; filename: string }) => {
+      const dataUrl = `data:image/png;base64,${payload.pngBase64}`;
+      const file = dataUrlToFile(dataUrl, payload.filename);
+      setFiles((prev) => ({ ...prev, [slot]: file }));
+      setPreviews((prev) => {
+        if (prev[slot]) URL.revokeObjectURL(prev[slot]);
+        return { ...prev, [slot]: URL.createObjectURL(file) };
+      });
+      setProc((p) => ({ ...p, [slot]: { src: dataUrl, loading: false, failed: false } }));
+    };
+
+    applyPrefill("front", gradePrefill.front);
+    if (gradePrefill.back) applyPrefill("back", gradePrefill.back);
     clearGradePrefill();
   }, [gradePrefill, clearGradePrefill]);
 

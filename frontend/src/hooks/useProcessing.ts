@@ -2,6 +2,7 @@ import { create } from "zustand";
 import {
   uploadFile,
   processImage,
+  confirmCrop as apiConfirmCrop,
   deleteSession,
   ApiError,
   ProcessParams,
@@ -14,6 +15,11 @@ import {
   toCornerArrays,
 } from "../lib/cropGeometry";
 import { useMe } from "./useMe";
+
+export type GradePrefillPayload = {
+  front: { pngBase64: string; filename: string };
+  back?: { pngBase64: string; filename: string };
+};
 
 export interface AppState {
   sessionId: string | null;
@@ -42,13 +48,16 @@ export interface AppState {
   // UI can tell when the current settings differ and surface an "Apply" action.
   appliedParams: ProcessParams | null;
 
-  // Hand-off payload for "Send to grading": the cropped card (base64 PNG, no
-  // data: prefix) is stashed here and consumed once by the grade page on mount.
-  gradePrefill: { pngBase64: string; filename: string } | null;
+  // Hand-off payload for "Send to grading": cropped card PNGs (no data: prefix),
+  // consumed once by the grade page on mount.
+  gradePrefill: GradePrefillPayload | null;
   historyEventId: number | null;
+  cropConfirmed: boolean;
+  confirmBusy: boolean;
 
   upload: (file: File) => Promise<void>;
   process: () => Promise<void>;
+  confirmCrop: () => Promise<void>;
   setCropCorners: (corners: CropCorners) => void;
   resetCrop: () => void;
   revertCrop: () => void;
@@ -56,7 +65,7 @@ export interface AppState {
   rotateOutput: (deltaDeg: number) => void;
   resetParams: () => void;
   clearLimit: () => void;
-  setGradePrefill: (p: { pngBase64: string; filename: string }) => void;
+  setGradePrefill: (p: GradePrefillPayload) => void;
   clearGradePrefill: () => void;
   reset: () => void;
 }
@@ -109,6 +118,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   appliedParams: null,
   gradePrefill: null,
   historyEventId: null,
+  cropConfirmed: false,
+  confirmBusy: false,
 
   upload: async (file: File) => {
     set({
@@ -124,6 +135,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       editTransform: null,
       cropDirty: false,
       historyEventId: null,
+      cropConfirmed: false,
     });
     try {
       const result = await uploadFile(file);
@@ -174,6 +186,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         cropDirty: false,
         appliedParams: { ...params },
         historyEventId: result.historyEventId ?? get().historyEventId,
+        cropConfirmed: Boolean(result.confirmed),
       });
 
       // Keep the remaining-crops indicator fresh after a metered crop.
@@ -190,6 +203,33 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
       const msg = err instanceof Error ? err.message : "Processing failed";
       set({ processing: false, error: msg });
+    }
+  },
+
+  confirmCrop: async () => {
+    const { sessionId } = get();
+    if (!sessionId || get().confirmBusy) return;
+    set({ confirmBusy: true, error: null });
+    try {
+      const result = await apiConfirmCrop(sessionId);
+      set({
+        confirmBusy: false,
+        cropConfirmed: Boolean(result.confirmed),
+        historyEventId: result.historyEventId ?? get().historyEventId,
+      });
+      void useMe.getState().refresh();
+    } catch (err: unknown) {
+      if (err instanceof ApiError && err.status === 402) {
+        set({
+          confirmBusy: false,
+          limitReached: true,
+          error: err.message,
+        });
+        void useMe.getState().refresh();
+        return;
+      }
+      const msg = err instanceof Error ? err.message : "Could not confirm crop";
+      set({ confirmBusy: false, error: msg });
     }
   },
 
@@ -261,6 +301,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       params: { ...DEFAULT_PARAMS },
       appliedParams: null,
       historyEventId: null,
+      cropConfirmed: false,
     });
   },
 }));

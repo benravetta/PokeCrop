@@ -32,23 +32,25 @@ export async function gradeFromBuffers(opts: {
   frontMime?: string;
   backMime?: string;
 }) {
+  const frontMime = opts.frontMime ?? "image/png";
   const files: FileMap = {
     front: [
       bufferToMulterFile({
         buffer: opts.front,
         fieldname: "front",
-        originalname: "front.jpg",
-        mimetype: opts.frontMime ?? "image/jpeg",
+        originalname: frontMime === "image/png" ? "front.png" : "front.jpg",
+        mimetype: frontMime,
       }),
     ],
   };
   if (opts.back) {
+    const backMime = opts.backMime ?? "image/png";
     files.back = [
       bufferToMulterFile({
         buffer: opts.back,
         fieldname: "back",
-        originalname: "back.jpg",
-        mimetype: opts.backMime ?? "image/jpeg",
+        originalname: backMime === "image/png" ? "back.png" : "back.jpg",
+        mimetype: backMime,
       }),
     ];
   }

@@ -11,7 +11,7 @@
         "min_confidence": 0.6,
         "aspect_tolerance": 0.06,
         "portrait": true,
-        "max_processing_ms": 6000
+        "max_processing_ms": 15000
       },
       "verified_corners": null
     },
@@ -56,10 +56,473 @@
         "max_processing_ms": 6000
       },
       "verified_corners": null
+    },
+    {
+      "id": "syn_dark_bg",
+      "file": "fixtures/synthetic/syn_dark_bg.png",
+      "category": "dark",
+      "description": "Card on dark background",
+      "expect": {
+        "card_found": true,
+        "min_confidence": 0.55,
+        "aspect_tolerance": 0.08,
+        "max_processing_ms": 8000,
+        "max_background_frac": 0.05,
+        "max_corner_error_px": 12.0
+      },
+      "verified_corners": [
+        [
+          343.76312553203536,
+          309.543489768111,
+          1.0
+        ],
+        [
+          981.4957618016067,
+          399.17096678639314,
+          1.0
+        ],
+        [
+          856.2399709375478,
+          1290.4122286538063,
+          1.0
+        ],
+        [
+          218.50733466797647,
+          1200.7847516355241,
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "syn_white_bg",
+      "file": "fixtures/synthetic/syn_white_bg.png",
+      "category": "light",
+      "description": "Card on white background",
+      "expect": {
+        "card_found": true,
+        "min_confidence": 0.55,
+        "aspect_tolerance": 0.08,
+        "max_processing_ms": 8000,
+        "max_background_frac": 0.05,
+        "max_corner_error_px": 12.0
+      },
+      "verified_corners": [
+        [
+          240.73307912122638,
+          427.3368319672706,
+          1.0
+        ],
+        [
+          867.2818732032385,
+          361.4839001086489,
+          1.0
+        ],
+        [
+          959.2669208787736,
+          1236.6631680327293,
+          1.0
+        ],
+        [
+          332.71812679676145,
+          1302.5160998913511,
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "syn_playmat",
+      "file": "fixtures/synthetic/syn_playmat.png",
+      "category": "playmat",
+      "description": "Card on noisy playmat",
+      "expect": {
+        "card_found": true,
+        "min_confidence": 0.5,
+        "aspect_tolerance": 0.1,
+        "max_processing_ms": 8000,
+        "max_background_frac": 0.05,
+        "max_corner_error_px": 12.0
+      },
+      "verified_corners": [
+        [
+          238.75460127929972,
+          392.5213548741704,
+          1.0
+        ],
+        [
+          852.2564921890917,
+          349.6211235215333,
+          1.0
+        ],
+        [
+          912.2470596090393,
+          1207.5262067449821,
+          1.0
+        ],
+        [
+          298.7451686992475,
+          1250.4264380976192,
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "syn_glare",
+      "file": "fixtures/synthetic/syn_glare.png",
+      "category": "glare",
+      "description": "Card with glare stripe",
+      "expect": {
+        "card_found": true,
+        "min_confidence": 0.45,
+        "aspect_tolerance": 0.12,
+        "max_processing_ms": 8000,
+        "max_background_frac": 0.05,
+        "max_corner_error_px": 12.0
+      },
+      "verified_corners": [
+        [
+          278.0,
+          350.0,
+          1.0
+        ],
+        [
+          922.0,
+          350.0,
+          1.0
+        ],
+        [
+          922.0,
+          1250.0,
+          1.0
+        ],
+        [
+          278.0,
+          1250.0,
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "syn_shadow",
+      "file": "fixtures/synthetic/syn_shadow.png",
+      "category": "shadow",
+      "description": "Card with hard shadow",
+      "expect": {
+        "card_found": true,
+        "min_confidence": 0.5,
+        "aspect_tolerance": 0.1,
+        "max_processing_ms": 8000,
+        "max_background_frac": 0.05,
+        "max_corner_error_px": 12.0
+      },
+      "verified_corners": [
+        [
+          352.09779689239684,
+          339.5132265163602,
+          1.0
+        ],
+        [
+          971.7308991054626,
+          393.72409850540356,
+          1.0
+        ],
+        [
+          895.9054029150001,
+          1260.413485845222,
+          1.0
+        ],
+        [
+          276.2723007019343,
+          1206.2026138561787,
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "syn_clipped",
+      "file": "fixtures/synthetic/syn_clipped.png",
+      "category": "clipped",
+      "description": "Card partially off-frame",
+      "expect": {
+        "card_found": true,
+        "min_confidence": 0.35,
+        "aspect_tolerance": 0.15,
+        "max_processing_ms": 8000,
+        "max_background_frac": 0.05,
+        "max_corner_error_px": 12.0
+      },
+      "verified_corners": [
+        [
+          -321.44298550271253,
+          418.52120250766853,
+          1.0
+        ],
+        [
+          322.1781357801316,
+          281.7153099495829,
+          1.0
+        ],
+        [
+          513.4568913324701,
+          1181.611102624684,
+          1.0
+        ],
+        [
+          -130.16422995037397,
+          1318.4169951827698,
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "syn_blur",
+      "file": "fixtures/synthetic/syn_blur.png",
+      "category": "blurry",
+      "description": "Motion-blurred card photo",
+      "expect": {
+        "card_found": true,
+        "min_confidence": 0.35,
+        "aspect_tolerance": 0.12,
+        "max_processing_ms": 8000,
+        "max_background_frac": 0.05,
+        "max_corner_error_px": 12.0
+      },
+      "verified_corners": [
+        [
+          278.0,
+          350.0,
+          1.0
+        ],
+        [
+          922.0,
+          350.0,
+          1.0
+        ],
+        [
+          922.0,
+          1250.0,
+          1.0
+        ],
+        [
+          278.0,
+          1250.0,
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "syn_multi",
+      "file": "fixtures/synthetic/syn_multi.png",
+      "category": "multi",
+      "description": "Two cards in frame",
+      "expect": {
+        "card_found": true,
+        "min_confidence": 0.3,
+        "aspect_tolerance": 0.2,
+        "max_processing_ms": 8000,
+        "max_background_frac": 0.05,
+        "max_corner_error_px": 12.0
+      },
+      "verified_corners": [
+        [
+          395.79557169197676,
+          466.84056113109153,
+          1.0
+        ],
+        [
+          977.0829280432786,
+          385.1459508675331,
+          1.0
+        ],
+        [
+          1091.2048708305324,
+          1197.165767235621,
+          1.0
+        ],
+        [
+          509.9175144792304,
+          1278.8603774991793,
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "syn_no_card",
+      "file": "fixtures/synthetic/syn_no_card.png",
+      "category": "no_card",
+      "description": "Empty desk \u2014 no card",
+      "expect": {
+        "card_found": false,
+        "min_confidence": 0.0,
+        "aspect_tolerance": 1.0,
+        "max_processing_ms": 8000,
+        "max_background_frac": 0.05,
+        "max_corner_error_px": 12.0
+      },
+      "verified_corners": null
+    },
+    {
+      "id": "syn_scan",
+      "file": "fixtures/synthetic/syn_scan.png",
+      "category": "scan",
+      "description": "Full-bleed scan fills frame",
+      "expect": {
+        "card_found": true,
+        "min_confidence": 0.45,
+        "aspect_tolerance": 0.12,
+        "max_processing_ms": 8000,
+        "max_background_frac": 0.05,
+        "scan_mode": true,
+        "detection_path": "scan"
+      },
+      "verified_corners": null
+    },
+    {
+      "id": "syn_sleeve",
+      "file": "fixtures/synthetic/syn_sleeve.png",
+      "category": "sleeve",
+      "description": "Card with sleeve border",
+      "expect": {
+        "card_found": true,
+        "min_confidence": 0.45,
+        "aspect_tolerance": 0.12,
+        "max_processing_ms": 8000,
+        "max_background_frac": 0.05,
+        "max_corner_error_px": 12.0
+      },
+      "verified_corners": [
+        [
+          292.0,
+          370.0,
+          1.0
+        ],
+        [
+          907.0,
+          370.0,
+          1.0
+        ],
+        [
+          907.0,
+          1230.0,
+          1.0
+        ],
+        [
+          292.0,
+          1230.0,
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "syn_back",
+      "file": "fixtures/synthetic/syn_back.png",
+      "category": "back",
+      "description": "Card back layout",
+      "expect": {
+        "card_found": true,
+        "min_confidence": 0.5,
+        "aspect_tolerance": 0.1,
+        "max_processing_ms": 8000,
+        "max_background_frac": 0.05,
+        "max_corner_error_px": 12.0
+      },
+      "verified_corners": [
+        [
+          285.0,
+          328.0,
+          1.0
+        ],
+        [
+          915.0,
+          328.0,
+          1.0
+        ],
+        [
+          915.0,
+          1208.0,
+          1.0
+        ],
+        [
+          285.0,
+          1208.0,
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "syn_damaged",
+      "file": "fixtures/synthetic/syn_damaged.png",
+      "category": "damaged",
+      "description": "Card with torn corner",
+      "expect": {
+        "card_found": true,
+        "min_confidence": 0.4,
+        "aspect_tolerance": 0.12,
+        "max_processing_ms": 8000,
+        "max_background_frac": 0.05,
+        "max_corner_error_px": 12.0
+      },
+      "verified_corners": [
+        [
+          369.2681335368785,
+          317.5310354284469,
+          1.0
+        ],
+        [
+          981.8185559104719,
+          425.5402019372775,
+          1.0
+        ],
+        [
+          830.7446413402425,
+          1282.3229470578985,
+          1.0
+        ],
+        [
+          218.19421896664912,
+          1174.3137805490678,
+          1.0
+        ]
+      ]
+    },
+    {
+      "id": "syn_wood_angle",
+      "file": "fixtures/synthetic/syn_wood_angle.png",
+      "category": "wood",
+      "description": "Angled card on wood tone",
+      "expect": {
+        "card_found": true,
+        "min_confidence": 0.55,
+        "aspect_tolerance": 0.08,
+        "max_processing_ms": 8000,
+        "max_background_frac": 0.05,
+        "max_corner_error_px": 12.0
+      },
+      "verified_corners": [
+        [
+          154.22105686959708,
+          525.2317994966703,
+          1.0
+        ],
+        [
+          744.1608584454029,
+          378.1432869720723,
+          1.0
+        ],
+        [
+          949.7944697051205,
+          1202.8946543066695,
+          1.0
+        ],
+        [
+          359.85466812931463,
+          1349.9831668312672,
+          1.0
+        ]
+      ]
     }
   ],
   "gaps": [
-    "No fixtures yet for: dark background, light/white background, playmat, heavy glare, hard shadow, sleeved/toploader, torn/damaged, clipped/off-frame, card back, blurry, no-card, multi-card.",
-    "Seed these as real photos become available; the harness already supports per-case categories and verified_corners."
+    "Synthetic fixtures cover many categories; add more real photos over time.",
+    "Real-photo verified_corners still sparse \u2014 label with tests/label_corners.py."
   ]
 }

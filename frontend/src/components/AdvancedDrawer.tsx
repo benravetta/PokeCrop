@@ -150,6 +150,25 @@ export function AdvancedDrawer({
 
           <div className="border-t border-border-subtle" />
 
+          <div className="flex flex-col gap-2">
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={Boolean(params.grading_safe)}
+                onChange={(e) => setParam("grading_safe", e.target.checked)}
+                className="mt-1"
+              />
+              <span>
+                <span className="block text-sm text-text-primary">Condition-faithful export</span>
+                <span className="block text-[11px] text-text-muted leading-snug">
+                  Skip beautification so scratches and print lines stay visible for grading handoffs.
+                </span>
+              </span>
+            </label>
+          </div>
+
+          <div className="border-t border-border-subtle" />
+
           <Slider
             label="Corner rounding"
             hint="Match the card's rounded-corner radius."

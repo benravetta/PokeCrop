@@ -1,9 +1,4 @@
-"""Metrics helpers for the crop regression harness.
-
-These quantify crop quality so regressions are caught by general numbers rather
-than per-image hacks: corner error (when ground truth exists), aspect accuracy,
-alpha halo width, background-retained pixels, sharpness, and processing time.
-"""
+"""Metrics helpers for the crop regression harness."""
 
 import time
 from dataclasses import dataclass
@@ -24,6 +19,9 @@ class CropMetrics:
     error: Optional[str]
     confidence: float
     needs_manual: bool
+    needs_review: bool
+    detection_path: str
+    scan_mode: bool
     aspect: float
     aspect_error: float
     portrait: bool
@@ -50,10 +48,23 @@ def compute_metrics(path: str, verified_corners=None, opts=None) -> CropMetrics:
     res, ms = run_pipeline(path, opts)
     if res.error and res.rgba is None:
         return CropMetrics(
-            found=False, error=res.error, confidence=0.0, needs_manual=True,
-            aspect=0.0, aspect_error=1.0, portrait=False, processing_ms=ms,
-            alpha_halo_px=0.0, background_frac=0.0, sharpness=0.0,
-            mean_corner_error=None, max_corner_error=None, corners=[],
+            found=False,
+            error=res.error,
+            confidence=0.0,
+            needs_manual=True,
+            needs_review=False,
+            detection_path="",
+            scan_mode=False,
+            aspect=0.0,
+            aspect_error=1.0,
+            portrait=False,
+            processing_ms=ms,
+            alpha_halo_px=0.0,
+            background_frac=0.0,
+            sharpness=0.0,
+            mean_corner_error=None,
+            max_corner_error=None,
+            corners=[],
         )
 
     rgba = res.rgba
@@ -61,9 +72,10 @@ def compute_metrics(path: str, verified_corners=None, opts=None) -> CropMetrics:
     aspect = min(w, h) / max(w, h) if max(w, h) > 0 else 0.0
 
     mean_err = max_err = None
-    if verified_corners is not None and res.crop_corners:
+    compare = res.working_corners or res.crop_corners
+    if verified_corners is not None and compare:
         gt = np.array(verified_corners, dtype=np.float64)
-        det = np.array(res.crop_corners, dtype=np.float64)
+        det = np.array(compare, dtype=np.float64)
         if gt.shape == det.shape:
             d = np.linalg.norm(gt - det, axis=1)
             mean_err = float(np.mean(d))
@@ -74,6 +86,9 @@ def compute_metrics(path: str, verified_corners=None, opts=None) -> CropMetrics:
         error=None,
         confidence=res.confidence,
         needs_manual=res.needs_manual,
+        needs_review=res.needs_review,
+        detection_path=res.detection_path,
+        scan_mode=res.scan_mode,
         aspect=aspect,
         aspect_error=abs(aspect - CARD_RATIO),
         portrait=h >= w,
@@ -88,13 +103,11 @@ def compute_metrics(path: str, verified_corners=None, opts=None) -> CropMetrics:
 
 
 def _alpha_halo(rgba: np.ndarray) -> float:
-    """Approximate width (px) of the partially-transparent edge ring."""
     alpha = rgba[:, :, 3]
     semi = np.count_nonzero((alpha > 10) & (alpha < 245))
     opaque = np.count_nonzero(alpha > 245)
     if opaque == 0:
         return 0.0
-    # ring area / perimeter estimate (perimeter ~ 2*(w+h) of opaque bbox)
     coords = cv2.findNonZero((alpha > 128).astype(np.uint8))
     if coords is None:
         return 0.0
@@ -104,8 +117,6 @@ def _alpha_halo(rgba: np.ndarray) -> float:
 
 
 def _background_frac(rgba: np.ndarray) -> float:
-    """Fraction of the opaque card that looks like leftover neutral background
-    near the border (proxy for background retained in the crop)."""
     alpha = rgba[:, :, 3]
     opaque = alpha > 200
     n = int(np.count_nonzero(opaque))

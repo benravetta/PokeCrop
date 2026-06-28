@@ -57,6 +57,14 @@ export async function handleCollectorProcess(
     params: req.body?.params ?? req.body?.crop,
   });
 
+  if (crop.blocked) {
+    throw new CollectorProfileError(
+      "COLLECTOR_INVALID_INPUT",
+      crop.blockReasons?.[0] ?? "Photo not suitable for cropping.",
+      422
+    );
+  }
+
   await upsertCardImage(card.id, role, {
     processing_status: crop.needsManual ? "requires_manual_crop" : "processing",
     crop_data: crop.metadata,
@@ -66,8 +74,10 @@ export async function handleCollectorProcess(
   res.json({
     metadata: crop.metadata,
     needsManual: crop.needsManual,
+    needsReview: crop.needsReview,
     previewBase64: crop.previewBase64,
     editImageJpeg: crop.editImageJpeg,
+    suitability: crop.suitability ?? undefined,
   });
 }
 
@@ -102,6 +112,15 @@ export async function handleCropConfirm(
       userId: req.user!.id,
       params: req.body?.crop ?? req.body?.params,
     });
+
+    if (crop.blocked) {
+      if (reserved?.incremented) await releaseCropQuota(req.user!.id);
+      throw new CollectorProfileError(
+        "COLLECTOR_INVALID_INPUT",
+        crop.blockReasons?.[0] ?? "Photo not suitable for cropping.",
+        422
+      );
+    }
 
     const masterBuf = await maybeWatermarkCollectorCrop(req.user!.id, req.user!.role, crop.pngBuffer);
     const processedKey = await putPublicDerivative({

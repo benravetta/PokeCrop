@@ -34,6 +34,7 @@ export interface ProcessParams {
   output_rotation: number;
   // "standard" (1260x1760) or "high" (1890x2640) output resolution.
   output_size?: "standard" | "high";
+  grading_safe?: boolean;
   // Manual crop corners, expressed in the rectified edit-preview's pixel space.
   manual_corners?: number[][];
   // 3x3 row-major homography mapping edit-preview pixels back to the original
@@ -68,6 +69,11 @@ export interface ProcessResult {
     bbox: number[];
     confidence: number;
     needs_manual?: boolean;
+    needs_review?: boolean;
+    working_corners?: number[][];
+    working_size?: [number, number];
+    detection_path?: string;
+    scan_mode?: boolean;
     suitability?: Suitability;
     estimated_corner_radius_px: number;
     rotation_deg: number;
@@ -88,6 +94,7 @@ export interface ProcessResult {
   candidates_found?: number;
   suitability?: Suitability;
   historyEventId?: number | null;
+  confirmed?: boolean;
 }
 
 export async function uploadFile(file: File): Promise<UploadResult> {
@@ -112,6 +119,20 @@ export async function processImage(
     body: JSON.stringify({ sessionId, params }),
   });
   if (!res.ok) await fail(res, "Processing failed");
+  return res.json();
+}
+
+export async function confirmCrop(sessionId: string): Promise<{
+  ok: boolean;
+  confirmed: boolean;
+  historyEventId?: number | null;
+}> {
+  const res = await apiFetch(`${BASE}/confirm`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sessionId }),
+  });
+  if (!res.ok) await fail(res, "Could not confirm crop");
   return res.json();
 }
 

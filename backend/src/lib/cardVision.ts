@@ -47,7 +47,7 @@ Schema:
   "roi": { "x": number, "y": number, "w": number, "h": number } // card bounding box as fractions 0..1 of the image (x,y top-left)
 }`;
 
-function buildGuidance(a: Omit<CardAssessment, "guidance">): string[] {
+export function buildGuidance(a: Omit<CardAssessment, "guidance">): string[] {
   const g: string[] = [];
   if (!a.present) g.push("We couldn't see a card. Place the card flat and fill most of the frame.");
   else {
@@ -136,4 +136,52 @@ export async function assessCard(
   } catch {
     return null;
   }
+}
+
+export interface CardBlockingResult {
+  blocked: boolean;
+  reasons: string[];
+  /** When true, downstream should force at least Review tier even if CV confidence is high. */
+  forceReview: boolean;
+}
+
+/** Hard blocks and soft downgrades for accuracy-first crop gating. */
+export function assessCardBlocking(assessment: CardAssessment | null): CardBlockingResult {
+  if (!assessment) {
+    return { blocked: false, reasons: [], forceReview: false };
+  }
+
+  const reasons: string[] = [];
+  if (!assessment.present) {
+    reasons.push("We couldn't see a card. Place the card flat and fill most of the frame.");
+  }
+  if (!assessment.single) {
+    reasons.push("We see more than one card. Photograph a single card at a time.");
+  }
+  if (assessment.touches_edge && !assessment.fully_visible) {
+    reasons.push("Part of the card is cut off. Include the whole card with a little space around it.");
+  }
+  if (assessment.blurry) {
+    reasons.push("The photo looks blurry. Hold steady and tap to focus, then retake.");
+  }
+
+  const forceReview = assessment.glare || assessment.sleeved;
+  return {
+    blocked: reasons.length > 0,
+    reasons,
+    forceReview,
+  };
+}
+
+export function applySuitabilityTierOverrides(
+  metadata: Record<string, unknown>,
+  blocking: CardBlockingResult
+): Record<string, unknown> {
+  if (!blocking.forceReview) return metadata;
+  if (metadata.needs_manual === true) return metadata;
+  return {
+    ...metadata,
+    needs_review: true,
+    needs_manual: false,
+  };
 }

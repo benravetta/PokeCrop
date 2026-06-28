@@ -27,6 +27,26 @@ class Boundary:
     damaged: bool             # irregular outline (torn / crushed corners)
     area_frac: float          # mask area / image area
     from_segment: bool = False  # mask came from the learned segmentation model
+    scan_mode: bool = False
+
+
+def scan_boundary(image: np.ndarray, inset_frac: float = 0.015) -> Optional[Boundary]:
+    """Full-bleed scan: inset frame quad when the card fills the image."""
+    h, w = image.shape[:2]
+    margin = max(2, int(min(h, w) * inset_frac))
+    if w <= 2 * margin + 20 or h <= 2 * margin + 20:
+        return None
+    mask = np.zeros((h, w), np.uint8)
+    cv2.rectangle(mask, (margin, margin), (w - margin - 1, h - margin - 1), 255, -1)
+    area_frac = float(np.count_nonzero(mask)) / float(h * w)
+    return Boundary(
+        mask=mask,
+        fills_frame=True,
+        damaged=False,
+        area_frac=area_frac,
+        from_segment=False,
+        scan_mode=True,
+    )
 
 
 def card_boundary(image: np.ndarray, roi) -> Optional[Boundary]:
@@ -42,6 +62,12 @@ def card_boundary(image: np.ndarray, roi) -> Optional[Boundary]:
     if seg is not None:
         return seg
 
+    return classical_boundary(image, roi)
+
+
+def classical_boundary(image: np.ndarray, roi) -> Optional[Boundary]:
+    """Classical GrabCut / colour foreground path (no learned segmentation)."""
+    h, w = image.shape[:2]
     rx, ry, rw, rh = roi
     rx2, ry2 = rx + rw, ry + rh
 

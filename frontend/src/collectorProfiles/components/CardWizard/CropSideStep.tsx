@@ -17,11 +17,14 @@ import { CollectorProcessingStage } from "../CollectorProcessingStage";
 type CropMetadata = {
   crop_corners?: number[][];
   corners?: number[][];
+  working_corners?: number[][];
+  working_size?: [number, number];
   edit_image_size?: [number, number];
   edit_transform?: number[];
   estimated_corner_radius_px?: number;
   rotation_deg?: number;
   needs_manual?: boolean;
+  needs_review?: boolean;
 };
 
 type FlowPhase =
@@ -106,6 +109,7 @@ export function CropSideStep({
   const [autoCropCorners, setAutoCropCorners] = useState<CropCorners | null>(null);
   const [cropDirty, setCropDirty] = useState(false);
   const [confirmBusy, setConfirmBusy] = useState(false);
+  const [cropSaved, setCropSaved] = useState(confirmed);
 
   const setCorners = useCallback((corners: CropCorners) => {
     setCropCorners(corners);
@@ -128,6 +132,7 @@ export function CropSideStep({
     const size = meta.edit_image_size ?? null;
     const corners = cornersFromMetadata(meta);
     const needsManual = Boolean(data.needsManual ?? meta.needs_manual);
+    const needsReview = Boolean(data.needsReview ?? meta.needs_review);
 
     setMetadata(meta);
     setEditImageBase64(editImageJpeg);
@@ -137,7 +142,7 @@ export function CropSideStep({
     setAutoCropCorners(corners);
     setCropDirty(false);
 
-    return { needsManual, editImageJpeg, preview, size, corners, meta };
+    return { needsManual, needsReview, editImageJpeg, preview, size, corners, meta };
   };
 
   const confirmCrop = async (opts?: {
@@ -167,6 +172,7 @@ export function CropSideStep({
     const image = data.image as { displayUrl?: string | null } | undefined;
     if (image?.displayUrl) setDisplayUrl(image.displayUrl);
     setCropDirty(false);
+    setCropSaved(true);
     void useMe.getState().refresh();
   };
 
@@ -181,6 +187,7 @@ export function CropSideStep({
     setAutoCropCorners(null);
     setCropDirty(false);
     setError(null);
+    setCropSaved(false);
   };
 
   const replacePhoto = () => {
@@ -219,12 +226,6 @@ export function CropSideStep({
         return;
       }
 
-      setPhase("confirming");
-      await confirmCrop({
-        metadata: processed.meta,
-        corners: processed.corners,
-        cropDirty: false,
-      });
       setPhase("preview");
     } catch (err) {
       if (err instanceof ApiError && err.status === 402) {
@@ -239,6 +240,23 @@ export function CropSideStep({
   const finishManualCrop = async () => {
     setConfirmBusy(true);
     setError(null);
+    try {
+      setPhase("preview");
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 402) {
+        setError(err.message);
+      } else {
+        setError(err instanceof Error ? err.message : "Could not apply crop");
+      }
+      setPhase("manual");
+    } finally {
+      setConfirmBusy(false);
+    }
+  };
+
+  const saveCrop = async () => {
+    setConfirmBusy(true);
+    setError(null);
     setPhase("confirming");
     try {
       await confirmCrop();
@@ -249,7 +267,7 @@ export function CropSideStep({
       } else {
         setError(err instanceof Error ? err.message : "Could not confirm crop");
       }
-      setPhase("manual");
+      setPhase("preview");
     } finally {
       setConfirmBusy(false);
     }
@@ -345,7 +363,7 @@ export function CropSideStep({
             </CollectorButton>
             <CollectorButton loading={confirmBusy} onClick={() => void finishManualCrop()}>
               <Check className="h-4 w-4" />
-              Confirm crop
+              Apply crop
             </CollectorButton>
           </div>
         </>
@@ -353,22 +371,40 @@ export function CropSideStep({
 
       {(phase === "preview" || phase === "confirmed") && (
         <div className="space-y-4">
+          {metadata?.needs_review && previewSrc && metadata.working_corners && metadata.working_size && (
+            <p className="text-sm text-sky-100/90">
+              We detected the card outline — check it looks right before confirming.
+            </p>
+          )}
           {previewSrc ? (
-            <div className="overflow-hidden rounded-xl border border-border-subtle bg-surface-overlay p-4">
+            <div className="relative overflow-hidden rounded-xl border border-border-subtle bg-surface-overlay p-4">
               <p className="mb-3 text-xs font-medium uppercase tracking-wide text-text-muted">
                 {role === "front" ? "Front · showcase preview" : "Back · showcase preview"}
               </p>
-              <img
-                src={previewSrc}
-                alt={`${role} preview`}
-                className="mx-auto max-h-80 object-contain"
-                draggable={false}
-              />
+              <div className="relative mx-auto max-w-md">
+                <img
+                  src={previewSrc}
+                  alt={`${role} preview`}
+                  className="mx-auto max-h-80 object-contain"
+                  draggable={false}
+                />
+              </div>
             </div>
           ) : phase === "confirmed" ? (
             <p className="text-sm text-text-secondary">Photo confirmed for your collection.</p>
           ) : null}
-          {phase === "preview" && (
+          {phase === "preview" && !cropSaved && (
+            <>
+              <p className="text-sm text-text-secondary">
+                Confirm this crop before it counts toward your plan and is saved to your collection.
+              </p>
+              <CollectorButton loading={confirmBusy} onClick={() => void saveCrop()}>
+                <Check className="h-4 w-4" />
+                Confirm crop
+              </CollectorButton>
+            </>
+          )}
+          {phase === "preview" && cropSaved && (
             <>
               <p className="text-sm text-text-secondary">
                 {role === "front"

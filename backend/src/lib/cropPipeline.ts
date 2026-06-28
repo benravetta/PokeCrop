@@ -77,6 +77,9 @@ export function shapeCropMetadata(
   }
   if (typeof m.confidence === "number") out.confidence = m.confidence;
   if (typeof m.needs_manual === "boolean") out.needs_manual = m.needs_manual;
+  if (typeof m.needs_review === "boolean") out.needs_review = m.needs_review;
+  if (typeof m.detection_path === "string") out.detection_path = m.detection_path;
+  if (typeof m.scan_mode === "boolean") out.scan_mode = m.scan_mode;
   if (typeof m.rotation_deg === "number") out.rotation_deg = m.rotation_deg;
   if (typeof m.estimated_corner_radius_px === "number")
     out.corner_radius_px = m.estimated_corner_radius_px;

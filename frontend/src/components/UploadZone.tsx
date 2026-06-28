@@ -1,6 +1,7 @@
-import { useCallback, type ReactNode } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 import { useDropzone } from "react-dropzone";
 import { useAppStore } from "../hooks/useProcessing";
+import { assessCapture } from "../lib/captureCoach";
 import { Upload, FileImage, FileText, Loader2, HelpCircle } from "lucide-react";
 import { SingleGradePromo } from "./SingleGradePromo";
 
@@ -12,10 +13,15 @@ export function UploadZone({
   cropUsage?: ReactNode;
 }) {
   const { upload, uploading, error } = useAppStore();
+  const [coachTips, setCoachTips] = useState<string[]>([]);
 
   const onDrop = useCallback(
-    (accepted: File[]) => {
-      if (accepted.length > 0) upload(accepted[0]);
+    async (accepted: File[]) => {
+      if (accepted.length === 0) return;
+      const file = accepted[0];
+      const tips = await assessCapture(file).catch(() => []);
+      setCoachTips(tips.map((t) => t.message));
+      upload(file);
     },
     [upload]
   );
@@ -106,6 +112,18 @@ export function UploadZone({
         {error && (
           <div className="mt-4 p-3 rounded-lg bg-error/10 border border-error/20 text-error text-sm text-center">
             {error}
+          </div>
+        )}
+
+        {coachTips.length > 0 && !uploading && (
+          <div className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2">
+            <ul className="list-disc pl-4 space-y-1">
+              {coachTips.map((tip, i) => (
+                <li key={i} className="text-xs text-amber-200/90 leading-snug">
+                  {tip}
+                </li>
+              ))}
+            </ul>
           </div>
         )}
 

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, ArrowRight, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, CheckCircle2, ScanSearch } from "lucide-react";
 import {
   createCollectorCard,
   fetchCollectorCard,
@@ -16,6 +16,9 @@ import { SectionsStep } from "./SectionsStep";
 import { ReviewStep } from "./ReviewStep";
 import { CollectorButton, CollectorLoading, CollectorPageHeader } from "../ui";
 import { StickyFooterBar } from "../../../components/pageLayout";
+import { useCollectorProfilesConfig } from "../../hooks/useCollectorProfilesConfig";
+import { sendCollectorCardToGrade } from "../../lib/sendCollectorCardToGrade";
+import { useAppStore } from "../../../hooks/useProcessing";
 
 const STEPS: WizardStep[] = ["front", "metadata", "back", "sections", "review"];
 
@@ -157,6 +160,9 @@ function draftToPatch(draft: CollectorCardDraft): Record<string, unknown> {
 export function CardWizard() {
   const { publicCardId: routeCardId } = useParams<{ publicCardId?: string }>();
   const navigate = useNavigate();
+  const setGradePrefill = useAppStore((s) => s.setGradePrefill);
+  const { config: collectorConfig } = useCollectorProfilesConfig();
+  const gradingEnabled = Boolean(collectorConfig?.gradingEnabled);
   const isNew = !routeCardId;
   const [step, setStep] = useState<WizardStep>("front");
   const [draft, setDraft] = useState<CollectorCardDraft | null>(
@@ -169,6 +175,7 @@ export function CardWizard() {
   const [loading, setLoading] = useState(!isNew);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [gradingHandoff, setGradingHandoff] = useState(false);
   const [identifying, setIdentifying] = useState(false);
   const identifyBaselineRef = useRef<CollectorCardDraft | null>(null);
   const draftRef = useRef(draft);
@@ -321,6 +328,25 @@ export function CardWizard() {
     }
   };
 
+  const startPreGrade = async () => {
+    if (!draft?.frontConfirmed || gradingHandoff) return;
+    setGradingHandoff(true);
+    setError(null);
+    try {
+      await sendCollectorCardToGrade({
+        publicCardId: draft.publicId,
+        setGradePrefill,
+        navigate,
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not open pre-grade");
+    } finally {
+      setGradingHandoff(false);
+    }
+  };
+
+  const canPreGrade = gradingEnabled && Boolean(draft?.frontConfirmed);
+
   const lowConfidenceFields = useMemo(() => {
     if ((draft?.identificationConfidence ?? 1) >= 0.5) return new Set<string>();
     return new Set(["cardName", "setName", "cardNumber", "rarity"]);
@@ -423,24 +449,40 @@ export function CardWizard() {
         <StickyFooterBar className="mt-4">
           <div className="flex flex-wrap gap-2">
             {step !== "metadata" && (
-              <CollectorButton variant="secondary" onClick={goBack} disabled={busy}>
+              <CollectorButton variant="secondary" onClick={goBack} disabled={busy || gradingHandoff}>
                 <ArrowLeft className="h-4 w-4" />
                 Back
               </CollectorButton>
             )}
+            {canPreGrade && (
+              <CollectorButton
+                variant="secondary"
+                loading={gradingHandoff}
+                disabled={busy}
+                onClick={() => void startPreGrade()}
+              >
+                <ScanSearch className="h-4 w-4" />
+                Pre-grade card
+              </CollectorButton>
+            )}
             {(step === "metadata" || step === "sections") && (
-              <CollectorButton loading={busy} onClick={() => void goNext()}>
+              <CollectorButton loading={busy} disabled={gradingHandoff} onClick={() => void goNext()}>
                 Continue
                 <ArrowRight className="h-4 w-4" />
               </CollectorButton>
             )}
             {step === "review" && (
-              <CollectorButton loading={busy} onClick={() => void publish()}>
+              <CollectorButton loading={busy} disabled={gradingHandoff} onClick={() => void publish()}>
                 <CheckCircle2 className="h-4 w-4" />
                 Publish card
               </CollectorButton>
             )}
           </div>
+          {canPreGrade && (
+            <p className="mt-3 text-xs text-text-muted">
+              Uses your GemCheck cropped photos — no need to upload again on the pre-grade page.
+            </p>
+          )}
         </StickyFooterBar>
       )}
     </div>
