@@ -129,16 +129,19 @@ export function SiteFooter() {
             <p className="mt-2 text-xs leading-relaxed text-text-muted">{FOOTER.tagline}</p>
             <p className="mt-1 text-xs text-text-muted">{FOOTER.location}</p>
           </div>
-          <div className="flex flex-col items-center gap-y-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:gap-x-6 sm:gap-y-2">
+          <nav
+            className="grid w-full max-w-md grid-cols-2 gap-x-4 gap-y-2.5 sm:max-w-none sm:flex sm:flex-wrap sm:items-center sm:justify-end sm:gap-x-6 sm:gap-y-2"
+            aria-label="Footer navigation"
+          >
             <SiteNavLinks
               links={FOOTER_NAV_LINKS}
-              linkClassName="text-sm text-text-secondary transition-colors hover:text-text-primary"
+              linkClassName="text-sm text-text-secondary transition-colors hover:text-text-primary text-center sm:text-left"
             />
             <SiteNavLinks
               links={FOOTER_EXTERNAL_LINKS}
-              linkClassName="text-sm text-text-secondary transition-colors hover:text-text-primary"
+              linkClassName="text-sm text-text-secondary transition-colors hover:text-text-primary col-span-2 text-center sm:col-span-1 sm:text-left"
             />
-          </div>
+          </nav>
         </div>
         <FooterLegalBlock className="mx-auto mt-6 text-center sm:mt-8">
           {ESTIMATE_DISCLAIMER}

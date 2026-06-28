@@ -8,7 +8,7 @@ import {
 describe("gemcheckEmail", () => {
   it("wraps content in the shared GemCheck layout", () => {
     const html = wrapGemCheckEmail("<p>Hello</p>", "Preview text");
-    expect(html).toContain("gemcheck-logo.png");
+    expect(html).toContain("gemcheck-logo-dark.png");
     expect(html).toContain("Know the grade before you submit");
     expect(html).toContain("GemCheck by Looky Collectibles");
     expect(html).toContain("Preview text");

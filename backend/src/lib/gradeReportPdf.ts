@@ -62,7 +62,7 @@ function moneyRange(low: number, high: number, currency: string): string {
 
 function logoDataUrl(): string | null {
   try {
-    return `data:image/png;base64,${fs.readFileSync(resolveAsset("gemcheck-logo.png")).toString("base64")}`;
+    return `data:image/png;base64,${fs.readFileSync(resolveAsset("gemcheck-logo-dark.png")).toString("base64")}`;
   } catch {
     return null;
   }
@@ -77,37 +77,35 @@ function drawReportHeader(
 ): number {
   doc.setFillColor(ACCENT[0], ACCENT[1], ACCENT[2]);
   doc.rect(0, 0, PAGE_W, 2.5, "F");
-  let y = M + 1;
+  let y = M + 2;
   const logo = logoDataUrl();
+
   if (logo) {
-    const logoW = 32;
-    const logoH = 10;
-    doc.addImage(logo, "PNG", M, y, logoW, logoH);
-    setColor(INK);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(14);
-    doc.text("Pre-Grade Report", M + logoW + 4, y + 4);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8.5);
-    setColor(MUTE);
-    doc.text(
-      new Date().toLocaleDateString("en-GB", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      }),
-      M + logoW + 4,
-      y + 9
-    );
-    y += logoH + 2;
-  } else {
-    setColor(INK);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(16);
-    doc.text("Card Condition Pre-Grade Report", M, y + 4);
-    y += 8;
+    const logoW = 52;
+    const logoH = logoW * 0.31;
+    doc.addImage(logo, "PNG", (PAGE_W - logoW) / 2, y, logoW, logoH);
+    y += logoH + 4;
   }
-  y += 1;
+
+  setColor(INK);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(14);
+  doc.text("Pre-Grade Report", PAGE_W / 2, y, { align: "center" });
+  y += 5;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8.5);
+  setColor(MUTE);
+  doc.text(
+    new Date().toLocaleDateString("en-GB", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    }),
+    PAGE_W / 2,
+    y,
+    { align: "center" }
+  );
+  y += 5;
   rule();
   return y + 2;
 }
@@ -147,7 +145,7 @@ export async function buildGradeReportPdfBuffer(
 
   const setColor = (c: readonly [number, number, number]) => doc.setTextColor(c[0], c[1], c[2]);
   const ensure = (h: number) => {
-    if (y + h > PAGE_H - M) {
+    if (y + h > PAGE_H - M - 8) {
       doc.addPage();
       y = M;
     }
@@ -403,11 +401,46 @@ export async function buildGradeReportPdfBuffer(
   const pricing = asObj(result.pricing);
   const rawPricing = asObj(pricing.raw);
   if (typeof rawPricing.low === "number" && typeof rawPricing.high === "number") {
-    heading("Estimated value (rough)");
+    const ebaySold = asObj(pricing.ebaySold);
+    const valuation = asObj(ebaySold.valuation);
+    const sales = asArr(ebaySold.sales).map(asObj);
+    const avg =
+      typeof valuation.averageSoldPriceGbp === "number" ? valuation.averageSoldPriceGbp : null;
+    const salesUsed =
+      typeof valuation.salesUsed === "number"
+        ? valuation.salesUsed
+        : typeof pricing.compCount === "number"
+          ? pricing.compCount
+          : 0;
+    const pricingTitle =
+      sales.length >= 3
+        ? "Last 3 verified eBay sales"
+        : sales.length
+          ? "Comparable eBay sales"
+          : "Estimated value (rough)";
+    heading(pricingTitle);
+
+    for (const sale of sales) {
+      const priceGbp = asNum(sale.priceGbp);
+      const price =
+        priceGbp != null ? moneyRange(priceGbp, priceGbp, "GBP") : "—";
+      const titleRaw = asStr(sale.title);
+      const title = titleRaw.length > 72 ? `${titleRaw.slice(0, 69)}…` : titleRaw;
+      para(`${asStr(sale.soldDate) || "—"} · ${price} · ${title}`, {
+        size: 8.8,
+        color: INK,
+        gap: 0,
+      });
+    }
+    if (sales.length) y += 1;
+
     para(
       `Raw / ungraded: ${moneyRange(rawPricing.low, rawPricing.high, asStr(pricing.currency) || "GBP")}`,
       { color: INK }
     );
+    if (avg != null) {
+      para(`Average sold price: ${moneyRange(avg, avg, "GBP")}`, { color: INK, size: 10 });
+    }
     for (const g of asArr(pricing.graded).map(asObj)) {
       if (typeof g.low !== "number" || typeof g.high !== "number") continue;
       para(
@@ -415,10 +448,20 @@ export async function buildGradeReportPdfBuffer(
         { size: 9, gap: 0 }
       );
     }
+    const rangeSpread = asNum(valuation.priceRangeGbp);
+    if (rangeSpread != null && rangeSpread > 0) {
+      const low = asNum(valuation.lowestSoldPriceGbp) ?? rawPricing.low;
+      const high = asNum(valuation.highestSoldPriceGbp) ?? rawPricing.high;
+      para(
+        `Range: ${moneyRange(low, high, "GBP")}${salesUsed ? ` · ${salesUsed} verified sale${salesUsed === 1 ? "" : "s"}` : ""}`,
+        { size: 8.5, color: MUTE }
+      );
+    }
     para(
       `Confidence: ${asStr(pricing.confidence)}${asStr(pricing.source) ? ` · ${asStr(pricing.source)}` : ""}${asStr(pricing.asOf) ? ` · ${asStr(pricing.asOf)}` : ""}${asStr(pricing.note) ? ` — ${asStr(pricing.note)}` : ""}`,
       { size: 8, color: MUTE }
     );
+    para("Sold prices vary with condition and timing. Postage excluded.", { size: 7.5, color: MUTE });
   }
 
   const blockers = asObj(result.grade_blockers);
