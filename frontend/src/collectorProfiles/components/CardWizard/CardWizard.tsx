@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, ArrowRight, CheckCircle2 } from "lucide-react";
 import {
@@ -9,6 +9,7 @@ import {
   publishCollectorCard,
 } from "../../api";
 import { EMPTY_DRAFT, type CollectorCardDraft, type WizardStep } from "./types";
+import { AutofillPreviewStep } from "./AutofillPreviewStep";
 import { CropSideStep } from "./CropSideStep";
 import { MetadataStep } from "./MetadataStep";
 import { SectionsStep } from "./SectionsStep";
@@ -66,6 +67,50 @@ function cardToDraft(card: Record<string, unknown>, sections: string[]): Collect
     frontConfirmed: false,
     backConfirmed: false,
   };
+}
+
+const AUTOFILL_KEYS = [
+  "cardName",
+  "cardGame",
+  "setName",
+  "setCode",
+  "cardNumber",
+  "releaseYear",
+  "language",
+  "variant",
+  "rarity",
+  "finishType",
+  "edition",
+  "identifiers",
+  "identificationConfidence",
+  "identificationExtra",
+] as const satisfies readonly (keyof CollectorCardDraft)[];
+
+function valuesDiffer(current: unknown, baseline: unknown): boolean {
+  if (Array.isArray(current) || Array.isArray(baseline)) {
+    return JSON.stringify(current) !== JSON.stringify(baseline);
+  }
+  if (
+    current &&
+    baseline &&
+    typeof current === "object" &&
+    typeof baseline === "object"
+  ) {
+    return JSON.stringify(current) !== JSON.stringify(baseline);
+  }
+  return current !== baseline;
+}
+
+function mergeIdentifiedDraft(
+  current: CollectorCardDraft,
+  baseline: CollectorCardDraft,
+  identified: CollectorCardDraft
+): CollectorCardDraft {
+  const merged = { ...current };
+  for (const key of AUTOFILL_KEYS) {
+    merged[key] = valuesDiffer(current[key], baseline[key]) ? current[key] : identified[key];
+  }
+  return merged;
 }
 
 function draftToPatch(draft: CollectorCardDraft): Record<string, unknown> {
@@ -126,6 +171,9 @@ export function CardWizard() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [identifying, setIdentifying] = useState(false);
+  const identifyBaselineRef = useRef<CollectorCardDraft | null>(null);
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
 
   const stepIndex = STEPS.indexOf(step);
 
@@ -172,23 +220,32 @@ export function CardWizard() {
 
   const runIdentify = async (publicId: string, role: "front" | "back") => {
     setIdentifying(true);
+    identifyBaselineRef.current = draftRef.current;
     try {
       await identifyCollectorCard(publicId, role);
       const refreshed = await fetchCollectorCard(publicId);
-      setDraft((prev) =>
-        prev
-          ? {
-              ...cardToDraft(refreshed.card as Record<string, unknown>, refreshed.sections ?? prev.sections),
-              publicId: prev.publicId,
-              frontConfirmed: prev.frontConfirmed,
-              backConfirmed: prev.backConfirmed,
-              sections: prev.sections,
-            }
-          : prev
-      );
+      const baseline = identifyBaselineRef.current;
+      setDraft((prev) => {
+        if (!prev) return prev;
+        const identified = cardToDraft(
+          refreshed.card as Record<string, unknown>,
+          refreshed.sections ?? prev.sections
+        );
+        const merged = baseline
+          ? mergeIdentifiedDraft(prev, baseline, identified)
+          : identified;
+        return {
+          ...merged,
+          publicId: prev.publicId,
+          frontConfirmed: prev.frontConfirmed,
+          backConfirmed: prev.backConfirmed,
+          sections: prev.sections,
+        };
+      });
     } catch {
       /* identification is best-effort */
     } finally {
+      identifyBaselineRef.current = null;
       setIdentifying(false);
     }
   };
@@ -196,13 +253,13 @@ export function CardWizard() {
   const onFrontConfirmed = async () => {
     if (!draft) return;
     patchDraft({ frontConfirmed: true });
+    setStep("metadata");
     const refreshed = await fetchCollectorCard(draft.publicId);
     const front = (refreshed.images ?? []).find(
       (i: { image_role: string }) => i.image_role === "front"
     ) as { displayUrl?: string | null } | undefined;
     setImagePaths((p) => ({ ...p, frontDisplayUrl: front?.displayUrl ?? null }));
     await runIdentify(draft.publicId, "front");
-    setStep("metadata");
   };
 
   const onBackConfirmed = async () => {
@@ -286,7 +343,7 @@ export function CardWizard() {
 
       <CollectorPageHeader
         title={isNew ? "Add a card" : "Edit card"}
-        description="Upload photos, crop with GemCheck, review autofill, then publish."
+        description="Drop your photos — we crop them for your showcase. Review autofill, then publish."
       />
 
       <div className="flex flex-wrap gap-2">
@@ -319,9 +376,10 @@ export function CardWizard() {
           publicCardId={draft.publicId}
           role="front"
           title="Front photo"
-          description="Upload and crop the front. Confirming uses your shared daily crop allowance."
+          description="Upload the front — GemCheck crops it for your showcase (uses your daily crop allowance)."
           required
           confirmed={draft.frontConfirmed}
+          existingDisplayUrl={imagePaths.frontDisplayUrl}
           onConfirmed={() => void onFrontConfirmed()}
           onUnconfirm={() => patchDraft({ frontConfirmed: false })}
         />
@@ -329,7 +387,11 @@ export function CardWizard() {
 
       {step === "metadata" && draft && (
         <>
-          {identifying && <p className="text-sm text-text-muted">Reading card details…</p>}
+          <AutofillPreviewStep
+            draft={draft}
+            imagePaths={imagePaths}
+            identifying={identifying}
+          />
           <MetadataStep draft={draft} onChange={patchDraft} lowConfidenceFields={lowConfidenceFields} />
         </>
       )}
@@ -339,9 +401,10 @@ export function CardWizard() {
           publicCardId={draft.publicId}
           role="back"
           title="Back photo"
-          description="Required before publishing owned cards."
+          description="Upload the back — required before publishing owned cards."
           required
           confirmed={draft.backConfirmed}
+          existingDisplayUrl={imagePaths.backDisplayUrl}
           onConfirmed={() => void onBackConfirmed()}
           onUnconfirm={() => patchDraft({ backConfirmed: false })}
         />

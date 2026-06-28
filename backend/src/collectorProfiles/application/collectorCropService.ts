@@ -179,7 +179,13 @@ export async function handleCropConfirm(
     });
   } catch (err) {
     if (reserved?.incremented) await releaseCropQuota(req.user!.id);
-    throw err;
+    if (err instanceof CollectorProfileError) throw err;
+    console.error("[collectorProfiles] crop confirm failed:", err);
+    throw new CollectorProfileError(
+      "COLLECTOR_CROP_FAILED",
+      "Could not finish cropping this card.",
+      422
+    );
   }
 }
 

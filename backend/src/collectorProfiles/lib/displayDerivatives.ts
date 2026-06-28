@@ -7,7 +7,7 @@ import { shouldWatermarkCrop } from "../../lib/cropWatermark.js";
 const DISPLAY_MAX = 1200;
 const THUMB_MAX = 400;
 
-async function resizeLongEdge(buf: Buffer, maxEdge: number): Promise<Buffer> {
+async function resizeLongEdge(buf: Buffer, maxEdge: number, mime: "image/jpeg" | "image/png"): Promise<Buffer> {
   const img = await Jimp.read(buf);
   const w = img.width ?? 0;
   const h = img.height ?? 0;
@@ -16,7 +16,7 @@ async function resizeLongEdge(buf: Buffer, maxEdge: number): Promise<Buffer> {
   if (long <= maxEdge) return buf;
   const scale = maxEdge / long;
   await img.scaleToFit({ w: Math.round(w * scale), h: Math.round(h * scale) });
-  return Buffer.from(await img.getBuffer("image/jpeg"));
+  return Buffer.from(await img.getBuffer(mime));
 }
 
 export async function buildDisplayDerivatives(opts: {
@@ -25,8 +25,8 @@ export async function buildDisplayDerivatives(opts: {
   plan: Plan | null | undefined;
   billing: "free" | "subscription" | "one_off" | "admin";
 }): Promise<{ display: Buffer; thumbnail: Buffer }> {
-  let display = await resizeLongEdge(opts.masterPng, DISPLAY_MAX);
-  let thumb = await resizeLongEdge(opts.masterPng, THUMB_MAX);
+  let display = await resizeLongEdge(opts.masterPng, DISPLAY_MAX, "image/jpeg");
+  let thumb = await resizeLongEdge(opts.masterPng, THUMB_MAX, "image/jpeg");
 
   if (
     shouldWatermarkCrop({
@@ -35,9 +35,11 @@ export async function buildDisplayDerivatives(opts: {
       billing: opts.billing === "admin" ? "free" : opts.billing,
     })
   ) {
-    display = await applyCropWatermark(display);
-    thumb = await applyCropWatermark(thumb);
+    const markedDisplay = await applyCropWatermark(display);
+    const markedThumb = await applyCropWatermark(thumb);
+    display = await resizeLongEdge(markedDisplay, DISPLAY_MAX, "image/jpeg");
+    thumb = await resizeLongEdge(markedThumb, THUMB_MAX, "image/jpeg");
   }
 
-  return { display, thumbnail };
+  return { display, thumbnail: thumb };
 }
