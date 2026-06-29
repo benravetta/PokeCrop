@@ -27,15 +27,20 @@ export const TRUST_STRIP = [
 ] as const;
 
 export const HERO = {
-  eyebrow: "For Pokémon, sports card and TCG collectors",
+  eyebrow: "AI pre-grade for collectors",
   h1: "Know before you grade",
-  body: `Upload clear front and back photos to see how your card may grade with ${SUPPORTED_GRADERS}. Get clear reasons behind each estimate before you pay to submit.`,
+  subhead: `Compare likely grades from ${SUPPORTED_GRADERS_SHORT} before you pay to submit.`,
+  bullets: [
+    "Five grader estimates in one report",
+    "Front and back analysed from your photos",
+    "Your card stays with you",
+  ] as const,
   primaryCtaGuest: "Check a card free",
   primaryCtaLoggedIn: "Check a card",
-  secondaryCta: "View a sample report",
-  supportGuest: `${FREE_GRADES_PER_MONTH} free card checks every month. Extra reports from ${SINGLE_REPORT_PRICE}. No subscription.`,
+  secondaryCta: "View sample report",
+  supportGuest: `${FREE_GRADES_PER_MONTH} free checks per month · extra reports from ${SINGLE_REPORT_PRICE}`,
   supportFreePlan: (singlePrice: string) =>
-    `Free plan: ${FREE_GRADES_PER_MONTH} card checks per month, plus 3 crop sessions a day. Extra reports from ${singlePrice}.`,
+    `${FREE_GRADES_PER_MONTH} checks per month on Free · extra reports from ${singlePrice}`,
   qualification: ESTIMATE_DISCLAIMER,
 } as const;
 
