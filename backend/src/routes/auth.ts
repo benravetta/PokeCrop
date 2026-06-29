@@ -423,9 +423,38 @@ authRoutes.post("/auth/exchange", async (req, res) => {
     });
     return;
   }
-  setSessionCookies(res, data.session.access_token, data.session.refresh_token);
+
+  const inviteToken =
+    typeof req.body?.inviteToken === "string" ? req.body.inviteToken.trim() : undefined;
+  const beta = await finalizeBetaAccess({
+    userId: data.user.id,
+    email: data.user.email ?? "",
+    inviteToken,
+  });
+  if (!beta.ok) {
+    try {
+      await getAuthClient().auth.signOut();
+    } catch {
+      /* ignore */
+    }
+    res.status(403).json({ error: beta.error });
+    return;
+  }
+
+  let session = data.session;
+  let user = data.user;
+  if (beta.role === "admin") {
+    const refreshed = await getAuthClient().auth.refreshSession({
+      refresh_token: data.session.refresh_token,
+    });
+    if (refreshed.data.session) session = refreshed.data.session;
+    const fresh = await loadFreshUser(data.user.id);
+    if (fresh) user = fresh;
+  }
+
+  setSessionCookies(res, session.access_token, session.refresh_token);
   const csrf = issueCsrfToken();
   setCsrfCookie(res, csrf);
-  const fresh = await loadFreshUser(data.user.id);
-  res.json({ user: serializeUser(fresh ?? data.user), csrfToken: csrf });
+  const fresh = await loadFreshUser(user.id);
+  res.json({ user: serializeUser(fresh ?? user), csrfToken: csrf });
 });

@@ -184,15 +184,28 @@ export async function consumePendingInviteForEmail(
   const normalized = normalizeInviteEmail(email);
   if (!normalized) return null;
 
-  const { data, error } = await getServiceClient()
+  const sb = getServiceClient();
+  const now = new Date().toISOString();
+
+  const { data: pending, error: findError } = await sb
     .from("invites")
-    .update({
-      accepted_at: new Date().toISOString(),
-      accepted_by: userId,
-    })
+    .select("id, role")
     .eq("email", normalized)
     .is("accepted_at", null)
-    .gt("expires_at", new Date().toISOString())
+    .gt("expires_at", now)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (findError || !pending) return null;
+
+  const { data, error } = await sb
+    .from("invites")
+    .update({
+      accepted_at: now,
+      accepted_by: userId,
+    })
+    .eq("id", pending.id)
+    .is("accepted_at", null)
     .select("role")
     .maybeSingle();
   if (error || !data) return null;
