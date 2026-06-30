@@ -4,10 +4,36 @@ import { lookupEbaySoldPrices } from "./ebaySold/lookup.js";
 import type { EbaySoldValuation } from "./ebaySold/types.js";
 
 export function mapValuationToCardPricing(valuation: EbaySoldValuation): CardPricing | null {
-  if (!valuation.sales.length) return null;
+  if (!valuation.sales.length) {
+    return {
+      currency: "GBP",
+      raw: { low: 0, high: 0 },
+      graded: [],
+      confidence: "low",
+      note: "Insufficient verified sales for a reliable valuation.",
+      source: "ebay",
+      rawSource: "ebay",
+      asOf: valuation.searchMetadata.searchedAt.slice(0, 10),
+      compCount: 0,
+      ebaySold: valuation,
+    };
+  }
 
   const prices = valuation.sales.map((s) => s.priceGbp!).filter(Number.isFinite);
-  if (!prices.length) return null;
+  if (!prices.length) {
+    return {
+      currency: "GBP",
+      raw: { low: 0, high: 0 },
+      graded: [],
+      confidence: "low",
+      note: "Insufficient verified sales for a reliable valuation.",
+      source: "ebay",
+      rawSource: "ebay",
+      asOf: valuation.searchMetadata.searchedAt.slice(0, 10),
+      compCount: 0,
+      ebaySold: valuation,
+    };
+  }
 
   const low = valuation.valuation.lowestSoldPriceGbp ?? Math.min(...prices);
   const high = valuation.valuation.highestSoldPriceGbp ?? Math.max(...prices);

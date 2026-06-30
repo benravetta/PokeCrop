@@ -65,6 +65,26 @@ function containsWord(text: string, word: string): boolean {
   return new RegExp(`\\b${word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(text);
 }
 
+function tokenSet(s: string): Set<string> {
+  return new Set(
+    normaliseText(s)
+      .split(" ")
+      .map((x) => x.trim())
+      .filter((x) => x.length > 1)
+  );
+}
+
+function tokenSimilarity(a: string, b: string): number {
+  const sa = tokenSet(a);
+  const sb = tokenSet(b);
+  if (sa.size === 0 || sb.size === 0) return 0;
+  let overlap = 0;
+  for (const t of sa) {
+    if (sb.has(t)) overlap++;
+  }
+  return overlap / Math.max(sa.size, sb.size);
+}
+
 function titleHasGrader(text: string): string | null {
   const t = normaliseText(text);
   for (const g of GRADERS) {
@@ -179,7 +199,9 @@ export function scoreListingMatch(
   const n = identity.normalised;
   let score = 0;
 
+  const nameSimilarity = tokenSimilarity(n.cardName, t);
   if (n.cardName && t.includes(n.cardName)) score += 20;
+  else if (nameSimilarity >= 0.72) score += Math.round(20 * nameSimilarity);
   else return { score: 0, accepted: false, fatalReason: "Card name not found", warnings };
 
   if (n.cardNumberParts.num) {
@@ -223,7 +245,7 @@ export function scoreListingMatch(
   }
 
   const accepted =
-    score >= 85 &&
+    score >= 80 &&
     (!n.cardNumberParts.num || cardNumberVariants(identity.cardNumber ?? "").some((v) => t.includes(v))) &&
     (!identity.edition || t.includes(n.edition) || (n.edition === "first edition" && t.includes("1st")));
 

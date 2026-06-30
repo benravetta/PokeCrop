@@ -303,6 +303,41 @@ export const components = {
           description: "Defect-by-defect prep recommendations with regions.",
           additionalProperties: true,
         },
+        category_explanations: {
+          type: "object",
+          description: "Per-category explainability payload (corners, edges, surface, presentation).",
+          additionalProperties: true,
+        },
+        why_this_grade: {
+          type: "object",
+          description: "Deterministic narrative explaining why the predicted grade range was assigned.",
+          additionalProperties: true,
+        },
+        why_not_higher: {
+          type: "object",
+          description: "Primary and secondary defects preventing higher tiers.",
+          additionalProperties: true,
+        },
+        grade_ceiling_analysis: {
+          type: "object",
+          description: "Tier-by-tier reasons why Gem Mint / Mint / Near Mint are or are not reachable.",
+          additionalProperties: true,
+        },
+        company_comparison_explanation: { type: "string" },
+        overall_prediction_confidence: {
+          type: "object",
+          description: "Overall confidence score derived from capture quality and identification certainty.",
+          additionalProperties: true,
+        },
+        strengths: {
+          type: "array",
+          items: { type: "string" },
+        },
+        smart_recommendation: {
+          type: "object",
+          description: "Value-aware recommendation with suitability and downside guidance.",
+          additionalProperties: true,
+        },
         summary: { type: "string" },
         disclaimer: { type: "string" },
         not_a_card: { type: "boolean", description: "True when upload was not a trading card." },

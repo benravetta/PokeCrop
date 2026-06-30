@@ -21,6 +21,7 @@ import { assessCaptureQuality, type CaptureImageInput } from "./captureQuality.j
 import { sendToPython, transcodeViaPython } from "../services/pythonBridge.js";
 import { validateParams } from "./cropParams.js";
 import { sanitizeBorderSide } from "./centeringInput.js";
+import { buildReportIntelligence } from "./reportIntelligence/index.js";
 
 export type FileMap = Record<string, Express.Multer.File[]>;
 
@@ -354,6 +355,26 @@ export async function executeGrade(opts: {
   }
 
   resultRec.capture_quality = captureQA;
+  if (process.env.REPORT_V2_EXPLAINABILITY !== "0") {
+    const intelligence = buildReportIntelligence({
+      findings: resultRec,
+      decision: resultRec,
+      companyEstimates: Array.isArray(resultRec.company_estimates)
+        ? (resultRec.company_estimates as {
+            company: string;
+            low: string;
+            likely: string;
+            high: string;
+          }[])
+        : [],
+      captureQuality: captureQA as unknown as Record<string, unknown>,
+      pricing:
+        resultRec.pricing && typeof resultRec.pricing === "object"
+          ? (resultRec.pricing as Record<string, unknown>)
+          : null,
+    });
+    Object.assign(resultRec, intelligence);
+  }
 
   const { summary, detail } = summariseGrade(resultRec);
   let billing: "free" | "subscription" | "one_off" | "admin";

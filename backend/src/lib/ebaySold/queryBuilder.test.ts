@@ -22,4 +22,20 @@ describe("ebaySearchQueryBuilder", () => {
     expect(queries[0]).toMatch(/12\/102/);
     expect(queries[0]).toMatch(/1st Edition/);
   });
+
+  it("generates multi-alias query set for exhaustive sold search", () => {
+    const queries = buildSearchQueries({
+      game: "Pokemon",
+      cardName: "Pikachu",
+      setName: "Wizards Black Star Promos",
+      cardNumber: "27",
+      edition: "Unlimited",
+      finish: "Holo",
+      language: "English",
+      conditionType: "raw",
+    });
+    expect(queries.length).toBeGreaterThan(6);
+    expect(queries.some((q) => /raw|ungraded/i.test(q))).toBe(true);
+    expect(queries.some((q) => /PSA|BGS|CGC/.test(q))).toBe(true);
+  });
 });

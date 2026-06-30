@@ -44,6 +44,9 @@ function emptyValuationFields(): EbaySoldValuation["valuation"] {
     highestSoldPriceGbp: null,
     priceRangeGbp: null,
     percentageSpread: null,
+    trendDirection: "unknown",
+    sampleFrom: null,
+    sampleTo: null,
     currency: "GBP",
     evidenceMode: "insufficient_sales",
     directSalesCount: 0,
@@ -69,6 +72,7 @@ function emptySearchMeta(
     source: "eBay public sold-listing pages",
     playwrightUsed: false,
     parserStrategy: "none",
+    aliasesSearched: 0,
     ...partial,
   };
 }
@@ -107,6 +111,7 @@ async function searchDirectEbaySales(
     candidatesExamined: number;
     playwrightUsed: boolean;
     parserStrategy: string;
+    aliasesSearched: number;
   };
   blocked?: EbaySoldValuation;
 }> {
@@ -140,11 +145,19 @@ async function searchDirectEbaySales(
           direct,
           excluded,
           rawCandidates,
-          meta: { queryUsed, fallbackQueries, candidatesExamined, playwrightUsed, parserStrategy },
+          meta: {
+            queryUsed,
+            fallbackQueries,
+            candidatesExamined,
+            playwrightUsed,
+            parserStrategy,
+            aliasesSearched: queries.length,
+          },
           blocked: errorValuation(card, fetch.errorCode, fetch.message ?? "", {
             queryUsed,
             fallbackQueriesUsed: fallbackQueries,
             playwrightUsed,
+            aliasesSearched: queries.length,
           }),
         };
       }
@@ -192,7 +205,14 @@ async function searchDirectEbaySales(
     direct,
     excluded,
     rawCandidates,
-    meta: { queryUsed, fallbackQueries, candidatesExamined, playwrightUsed, parserStrategy },
+    meta: {
+      queryUsed,
+      fallbackQueries,
+      candidatesExamined,
+      playwrightUsed,
+      parserStrategy,
+      aliasesSearched: queries.length,
+    },
   };
 }
 
@@ -320,6 +340,7 @@ export async function lookupEbaySoldPrices(
     archivedSalesFound: archived.length,
     playwrightUsed: ebaySearch.meta.playwrightUsed,
     parserStrategy: ebaySearch.meta.parserStrategy,
+    aliasesSearched: ebaySearch.meta.aliasesSearched,
   });
 
   if (!withOutliers.length) {

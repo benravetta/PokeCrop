@@ -76,6 +76,8 @@ export function mergeAndSelectSales(
 
 export function sortSalesPreferDirect(sales: VerifiedSale[]): VerifiedSale[] {
   return [...sales].sort((a, b) => {
+    const scoreDiff = (b.matchScore ?? 0) - (a.matchScore ?? 0);
+    if (Math.abs(scoreDiff) >= 0.1) return scoreDiff;
     const d = b.soldDate.localeCompare(a.soldDate);
     if (d !== 0) return d;
     if (a.evidenceLevel === "direct" && b.evidenceLevel === "archived") return -1;

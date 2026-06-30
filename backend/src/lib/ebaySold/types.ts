@@ -90,6 +90,7 @@ export interface VerifiedSale {
   exchangeRateToGbp: number | null;
   priceGbp: number | null;
   matchScore: number;
+  matchConfidence?: number;
   possibleOutlier: boolean;
   evidenceLevel: EvidenceLevel;
   verificationStatus: VerificationStatus;
@@ -145,6 +146,9 @@ export interface EbaySoldValuation {
     highestSoldPriceGbp: number | null;
     priceRangeGbp: number | null;
     percentageSpread: number | null;
+    trendDirection?: "up" | "down" | "flat" | "unknown";
+    sampleFrom?: string | null;
+    sampleTo?: string | null;
     currency: "GBP";
     evidenceMode: EvidenceMode;
     directSalesCount: number;
@@ -173,6 +177,7 @@ export interface EbaySoldValuation {
     source: string;
     playwrightUsed: boolean;
     parserStrategy: string;
+    aliasesSearched?: number;
   };
   rawCandidates?: ListingCandidate[];
 }

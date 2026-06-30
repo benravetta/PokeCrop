@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   Loader2,
@@ -808,9 +808,16 @@ function PriceEstimate({ pricing }: { pricing?: CardPricing }) {
   const ebay = pricing.ebaySold;
   const avg = ebay?.valuation.averageSoldPriceGbp;
   const salesUsed = ebay?.valuation.salesUsed ?? pricing.compCount ?? 0;
+  const median = ebay?.valuation.medianSoldPriceGbp;
+  const low = ebay?.valuation.lowestSoldPriceGbp;
+  const high = ebay?.valuation.highestSoldPriceGbp;
+  const trend = ebay?.valuation.trendDirection;
+  const sampleFrom = ebay?.valuation.sampleFrom;
+  const sampleTo = ebay?.valuation.sampleTo;
   const evidenceMode = ebay?.valuation.evidenceMode;
   const allDirect = evidenceMode === "direct_only" && (ebay?.sales.length ?? 0) >= 3;
   const heading = allDirect ? "Last 3 verified eBay sales" : "Last 3 comparable eBay sales";
+  const insufficient = salesUsed < 1;
 
   return (
     <div className="rounded-xl border border-border-subtle bg-surface-raised p-5">
@@ -839,7 +846,11 @@ function PriceEstimate({ pricing }: { pricing?: CardPricing }) {
         </p>
       ) : null}
 
-      {ebay?.sales?.length ? (
+      {insufficient ? (
+        <p className="text-sm text-amber-200/90 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2 mb-3">
+          Insufficient verified sales for a reliable valuation.
+        </p>
+      ) : ebay?.sales?.length ? (
         <ul className="space-y-3 border-b border-border-subtle pb-3">
           {ebay.sales.map((sale) => {
             const isDirect = sale.evidenceLevel === "direct";
@@ -861,6 +872,11 @@ function PriceEstimate({ pricing }: { pricing?: CardPricing }) {
                 </div>
                 <div className="flex items-baseline justify-between gap-2 mt-1">
                   <span className="text-text-secondary">{sale.soldDate}</span>
+                  {sale.matchConfidence != null && (
+                    <span className="text-[10px] text-text-muted">
+                      {Math.round(sale.matchConfidence)}% match
+                    </span>
+                  )}
                 </div>
                 <p className="text-[11px] text-text-muted mt-0.5 line-clamp-2">{sale.title}</p>
                 <p className="text-[10px] text-text-muted mt-0.5">
@@ -917,6 +933,20 @@ function PriceEstimate({ pricing }: { pricing?: CardPricing }) {
           <span className="text-lg font-semibold text-text-primary">{fmtMoney(avg, "GBP")}</span>
         </div>
       )}
+      {median != null && (
+        <div className="mt-1 flex items-baseline justify-between">
+          <span className="text-sm text-text-secondary">Median</span>
+          <span className="text-sm font-medium text-text-primary">{fmtMoney(median, "GBP")}</span>
+        </div>
+      )}
+      {low != null && high != null && (
+        <div className="mt-1 flex items-baseline justify-between">
+          <span className="text-sm text-text-secondary">High / low</span>
+          <span className="text-sm font-medium text-text-primary">
+            {fmtMoney(high, "GBP")} / {fmtMoney(low, "GBP")}
+          </span>
+        </div>
+      )}
 
       {ebay?.valuation.priceRangeGbp != null && ebay.valuation.priceRangeGbp > 0 && (
         <p className="mt-1 text-[11px] text-text-muted">
@@ -927,6 +957,12 @@ function PriceEstimate({ pricing }: { pricing?: CardPricing }) {
           {ebay.valuation.directSalesCount != null && ebay.valuation.archivedSalesCount != null
             ? ` (${ebay.valuation.directSalesCount} direct, ${ebay.valuation.archivedSalesCount} archived)`
             : ""}
+        </p>
+      )}
+      {(sampleFrom || sampleTo || trend) && (
+        <p className="mt-1 text-[11px] text-text-muted">
+          {sampleFrom && sampleTo ? `Sample period: ${sampleFrom} → ${sampleTo}` : ""}
+          {trend ? ` · Trend: ${trend}` : ""}
         </p>
       )}
 
@@ -948,8 +984,16 @@ function GradeReport({
 }) {
   const rec = asObj(result.submission_recommendation);
   const confidence = asObj(result.confidence);
+  const reportConfidence = asObj(result.overall_prediction_confidence);
   const blockers = asObj(result.grade_blockers);
   const caps = asArr(result.hard_grade_caps);
+  const categoryExplanations = asObj(result.category_explanations);
+  const whyThisGrade = asObj(result.why_this_grade);
+  const whyNotHigher = asObj(result.why_not_higher);
+  const gradeCeiling = asObj(result.grade_ceiling_analysis);
+  const smartRecommendation = asObj(result.smart_recommendation);
+  const strengths = asArr(result.strengths).map((x) => asStr(x)).filter(Boolean);
+  const companyComparison = asStr(result.company_comparison_explanation);
   const ident = asObj(result.card_identification);
   const recVerdict = asStr(rec.verdict);
   const companies = asArr(result.company_estimates);
@@ -970,6 +1014,8 @@ function GradeReport({
   const bgsTier = asStr(bgsInsight.tier);
   const bgsLabel = asStr(bgsInsight.label);
   const bgsDetail = asStr(bgsInsight.detail);
+  const confidenceScore = asNum(reportConfidence.score);
+  const confidenceWarning = asStr(reportConfidence.warning);
 
   return (
     <div className="mt-8 animate-[fade-in_0.25s_ease-out]">
@@ -1088,34 +1134,75 @@ function GradeReport({
             </div>
           )}
 
+          {companyComparison && (
+            <InfoSection title="Why company grades differ" tone="muted">
+              <p>{companyComparison}</p>
+            </InfoSection>
+          )}
+
+          {Object.keys(whyThisGrade).length > 0 && (
+            <InfoSection title="Why this grade?" tone="muted">
+              {asArr(whyThisGrade.reasoning).map((line, i) => (
+                <p key={i} className="mb-1.5 last:mb-0">
+                  {asStr(line)}
+                </p>
+              ))}
+            </InfoSection>
+          )}
+
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <ScoreCard label="Corners" obj={result.corners} />
-            <ScoreCard label="Edges" obj={result.edges} />
-            <ScoreCard label="Surface" obj={result.surface} />
-            <ScoreCard label="Eye appeal" obj={result.eye_appeal} />
+            <ScoreCard
+              label="Corners"
+              obj={result.corners}
+              explanation={asObj(categoryExplanations.corners)}
+            />
+            <ScoreCard
+              label="Edges"
+              obj={result.edges}
+              explanation={asObj(categoryExplanations.edges)}
+            />
+            <ScoreCard
+              label="Surface"
+              obj={result.surface}
+              explanation={asObj(categoryExplanations.surface)}
+            />
+            <ScoreCard
+              label="Presentation"
+              obj={result.eye_appeal}
+              explanation={asObj(categoryExplanations.presentation)}
+            />
           </div>
 
           <div className="grid sm:grid-cols-3 gap-3">
-            <BlockerList title="Blocks gem mint" items={asArr(blockers.gem_mint)} tone="red" />
-            <BlockerList title="Blocks mint (≈9)" items={asArr(blockers.mint)} tone="amber" />
-            <BlockerList title="Blocks near-mint (≈8)" items={asArr(blockers.near_mint)} tone="muted" />
+            <BlockerList title="Gem Mint (10)" items={asArr(asObj(gradeCeiling.gem_mint).prevented_by)} tone="red" />
+            <BlockerList title="Mint (9)" items={asArr(asObj(gradeCeiling.mint).prevented_by)} tone="amber" />
+            <BlockerList title="Near Mint (8)" items={asArr(asObj(gradeCeiling.near_mint).prevented_by)} tone="muted" />
           </div>
 
-          {caps.length > 0 && (
-            <div className="rounded-xl border border-border-subtle bg-surface-raised p-5">
-              <h3 className="text-sm font-medium text-text-primary mb-2">Hard caps applied</h3>
-              <ul className="space-y-1.5">
-                {caps.map((c, i) => {
-                  const o = asObj(c);
+          {Object.keys(whyNotHigher).length > 0 && (
+            <InfoSection title="Why not higher?" tone="muted">
+              <ul className="list-disc pl-5 space-y-1.5">
+                {asArr(whyNotHigher.primary_limiting_defects).map((item, i) => {
+                  const o = asObj(item);
                   return (
-                    <li key={i} className="text-sm text-text-secondary">
-                      <span className="text-text-primary">{asStr(o.cap)}</span>
-                      {asStr(o.reason) ? ` — ${asStr(o.reason)}` : ""}
+                    <li key={i}>
+                      <span className="text-text-primary">{asStr(o.defect)}</span>
+                      {asStr(o.explanation) ? ` — ${asStr(o.explanation)}` : ""}
                     </li>
                   );
                 })}
               </ul>
-            </div>
+            </InfoSection>
+          )}
+
+          {strengths.length > 0 && (
+            <InfoSection title="Strengths" tone="green">
+              <ul className="list-disc pl-5 space-y-1">
+                {strengths.map((s, i) => (
+                  <li key={i}>{s}</li>
+                ))}
+              </ul>
+            </InfoSection>
           )}
 
           <InspectionNotes result={result} />
@@ -1123,9 +1210,22 @@ function GradeReport({
           <PreparationSection preparation={result.preparation as Preparation | undefined} images={images} />
 
           <div className="rounded-xl border border-border-subtle bg-surface-raised p-5">
-            <h3 className="text-sm font-medium text-text-primary mb-2">
-              Confidence: <span className="capitalize text-text-primary">{asStr(confidence.rating) || "—"}</span>
+            <h3 className="text-sm font-medium text-text-primary mb-2 flex items-center justify-between gap-2">
+              <span>
+                Overall prediction confidence:{" "}
+                <span className="capitalize text-text-primary">{asStr(reportConfidence.level) || asStr(confidence.rating) || "—"}</span>
+              </span>
+              {confidenceScore != null && (
+                <span className="rounded-full bg-accent/15 text-accent text-xs font-semibold px-2.5 py-1">
+                  {Math.round(confidenceScore)}%
+                </span>
+              )}
             </h3>
+            {confidenceWarning && (
+              <p className="mb-2 text-xs text-amber-200 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
+                {confidenceWarning}
+              </p>
+            )}
             {asArr(confidence.improve_with).length > 0 && (
               <ul className="text-sm text-text-secondary list-disc list-inside space-y-1">
                 {asArr(confidence.improve_with).map((x, i) => (
@@ -1134,6 +1234,18 @@ function GradeReport({
               </ul>
             )}
           </div>
+
+          {Object.keys(smartRecommendation).length > 0 && (
+            <InfoSection title="Recommended action" tone="muted">
+              <p className="font-medium text-text-primary">{asStr(smartRecommendation.action)}</p>
+              <p className="mt-1">{asStr(smartRecommendation.worth_grading_if)}</p>
+              {asArr(smartRecommendation.not_recommended_for).length > 0 && (
+                <p className="mt-1 text-text-muted">
+                  Not ideal for: {asArr(smartRecommendation.not_recommended_for).map((x) => asStr(x)).filter(Boolean).join(", ")}
+                </p>
+              )}
+            </InfoSection>
+          )}
 
           {asStr(result.summary) && (
             <p className="text-sm text-text-secondary border-l-2 border-accent/40 pl-4">
@@ -1291,7 +1403,15 @@ function PrepCard({ item, shot }: { item: PrepItem; shot?: string }) {
   );
 }
 
-function ScoreCard({ label, obj }: { label: string; obj: unknown }) {
+function ScoreCard({
+  label,
+  obj,
+  explanation,
+}: {
+  label: string;
+  obj: unknown;
+  explanation?: Record<string, unknown>;
+}) {
   const o = asObj(obj);
   const score = asNum(o.score);
   const pct = score != null ? Math.max(0, Math.min(100, score * 10)) : 0;
@@ -1309,6 +1429,18 @@ function ScoreCard({ label, obj }: { label: string; obj: unknown }) {
       </div>
       {asStr(o.verdict) && (
         <p className="mt-2 text-[11px] leading-tight text-text-muted">{asStr(o.verdict)}</p>
+      )}
+      {explanation && asArr(explanation.detected).length > 0 && (
+        <p className="mt-2 text-[11px] leading-tight text-text-secondary">
+          {asArr(explanation.detected)
+            .map((x) => asStr(x))
+            .filter(Boolean)
+            .slice(0, 2)
+            .join("; ")}
+        </p>
+      )}
+      {explanation && asStr(explanation.impact) && (
+        <p className="mt-1 text-[11px] leading-tight text-text-muted">{asStr(explanation.impact)}</p>
       )}
     </div>
   );
@@ -1337,6 +1469,27 @@ function BlockerList({
           ))}
         </ul>
       )}
+    </div>
+  );
+}
+
+function InfoSection({
+  title,
+  children,
+  tone = "muted",
+}: {
+  title: string;
+  children: ReactNode;
+  tone?: "muted" | "green";
+}) {
+  const toneClass =
+    tone === "green"
+      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-100/90"
+      : "border-border-subtle bg-surface-raised text-text-secondary";
+  return (
+    <div className={`rounded-xl border p-5 ${toneClass}`}>
+      <h3 className="text-sm font-medium text-text-primary mb-2">{title}</h3>
+      <div className="text-sm leading-relaxed">{children}</div>
     </div>
   );
 }

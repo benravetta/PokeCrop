@@ -905,6 +905,7 @@ export interface EbayVerifiedSale {
   exchangeRateToGbp: number | null;
   priceGbp: number | null;
   matchScore: number;
+  matchConfidence?: number;
   possibleOutlier: boolean;
   evidenceLevel: "direct" | "archived";
   verificationStatus: "fully_verified" | "historically_indexed";
@@ -928,6 +929,9 @@ export interface EbaySoldValuation {
     highestSoldPriceGbp: number | null;
     priceRangeGbp: number | null;
     percentageSpread: number | null;
+    trendDirection?: "up" | "down" | "flat" | "unknown";
+    sampleFrom?: string | null;
+    sampleTo?: string | null;
     currency: string;
     evidenceMode?: "direct_only" | "mixed_evidence" | "archived_only" | "insufficient_sales";
     directSalesCount?: number;
@@ -942,6 +946,7 @@ export interface EbaySoldValuation {
     directEbaySalesFound?: number;
     archivedSalesFound?: number;
     archiveSourcesChecked?: string[];
+    aliasesSearched?: number;
   };
 }
 

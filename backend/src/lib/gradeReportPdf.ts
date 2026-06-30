@@ -268,6 +268,14 @@ export async function buildGradeReportPdfBuffer(
     if (asStr(rec.reason)) para(asStr(rec.reason));
   }
 
+  const whyThis = asObj(result.why_this_grade);
+  if (Object.keys(whyThis).length) {
+    heading("Why this grade?");
+    for (const line of asArr(whyThis.reasoning)) {
+      para(asStr(line), { size: 8.8, color: INK, gap: 0.5 });
+    }
+  }
+
   const bgsInsight = asObj(result.bgs_insight);
   const bgsTier = asStr(bgsInsight.tier);
   const bgsLabel = asStr(bgsInsight.label);
@@ -383,7 +391,7 @@ export async function buildGradeReportPdfBuffer(
   scoreRow("Corners", result.corners);
   scoreRow("Edges", result.edges);
   scoreRow("Surface", result.surface);
-  scoreRow("Eye appeal", result.eye_appeal);
+  scoreRow("Presentation", result.eye_appeal);
 
   const cent = asObj(result.centering);
   const centBits = [
@@ -419,6 +427,11 @@ export async function buildGradeReportPdfBuffer(
           ? "Comparable eBay sales"
           : "Estimated value (rough)";
     heading(pricingTitle);
+    const compCount = typeof pricing.compCount === "number" ? pricing.compCount : sales.length;
+    if (compCount < 1) {
+      para("Insufficient verified sales for a reliable valuation.", { color: AMBER });
+      if (asStr(pricing.note)) para(asStr(pricing.note), { size: 8, color: MUTE });
+    } else {
 
     for (const sale of sales) {
       const priceGbp = asNum(sale.priceGbp);
@@ -462,6 +475,7 @@ export async function buildGradeReportPdfBuffer(
       { size: 8, color: MUTE }
     );
     para("Sold prices vary with condition and timing. Postage excluded.", { size: 7.5, color: MUTE });
+    }
   }
 
   const blockers = asObj(result.grade_blockers);
@@ -478,13 +492,17 @@ export async function buildGradeReportPdfBuffer(
       para(`•  ${asStr(it)}`, { size: 8.8, gap: 0, x: M + 2, w: CONTENT_W - 2 });
     y += 1.5;
   };
+  const gradeCeiling = asObj(result.grade_ceiling_analysis);
   if (
     caps.length ||
+    asArr(asObj(gradeCeiling.gem_mint).prevented_by).length ||
+    asArr(asObj(gradeCeiling.mint).prevented_by).length ||
+    asArr(asObj(gradeCeiling.near_mint).prevented_by).length ||
     asArr(blockers.gem_mint).length ||
     asArr(blockers.mint).length ||
     asArr(blockers.near_mint).length
   ) {
-    heading("What limits the grade");
+    heading("Grade ceiling analysis");
     if (caps.length) {
       ensure(8);
       setColor(RED);
@@ -500,9 +518,57 @@ export async function buildGradeReportPdfBuffer(
       }
       y += 1.5;
     }
-    listBlock("Blocks gem mint", asArr(blockers.gem_mint));
-    listBlock("Blocks mint (~9)", asArr(blockers.mint));
-    listBlock("Blocks near-mint (~8)", asArr(blockers.near_mint));
+    listBlock("Gem Mint (10) prevented by", asArr(asObj(gradeCeiling.gem_mint).prevented_by).length ? asArr(asObj(gradeCeiling.gem_mint).prevented_by) : asArr(blockers.gem_mint));
+    listBlock("Mint (9) prevented by", asArr(asObj(gradeCeiling.mint).prevented_by).length ? asArr(asObj(gradeCeiling.mint).prevented_by) : asArr(blockers.mint));
+    listBlock("Near Mint (8) prevented by", asArr(asObj(gradeCeiling.near_mint).prevented_by).length ? asArr(asObj(gradeCeiling.near_mint).prevented_by) : asArr(blockers.near_mint));
+  }
+
+  const whyNotHigher = asObj(result.why_not_higher);
+  if (Object.keys(whyNotHigher).length) {
+    heading("Why not higher?");
+    for (const it of asArr(whyNotHigher.primary_limiting_defects)) {
+      const o = asObj(it);
+      para(`•  ${asStr(o.defect)}${asStr(o.explanation) ? ` — ${asStr(o.explanation)}` : ""}`, {
+        size: 8.8,
+        color: INK,
+        gap: 0,
+      });
+    }
+  }
+
+  const strengths = asArr(result.strengths).map((x) => asStr(x)).filter(Boolean);
+  if (strengths.length) {
+    heading("Strengths");
+    for (const s of strengths) para(`•  ${s}`, { size: 8.8, color: INK, gap: 0 });
+  }
+
+  const confidence = asObj(result.overall_prediction_confidence);
+  if (Object.keys(confidence).length) {
+    heading("Overall prediction confidence");
+    const score = asNum(confidence.score);
+    para(
+      `Confidence: ${score != null ? `${Math.round(score)}%` : "—"}${asStr(confidence.level) ? ` (${asStr(confidence.level)})` : ""}`,
+      { size: 9, color: INK }
+    );
+    if (asStr(confidence.warning)) para(asStr(confidence.warning), { size: 8.2, color: AMBER });
+  }
+
+  const smartRecommendation = asObj(result.smart_recommendation);
+  if (Object.keys(smartRecommendation).length) {
+    heading("Recommended action");
+    para(asStr(smartRecommendation.action), { size: 9.2, color: INK });
+    if (asStr(smartRecommendation.worth_grading_if)) {
+      para(`Worth grading if: ${asStr(smartRecommendation.worth_grading_if)}`, { size: 8.6 });
+    }
+    if (asArr(smartRecommendation.not_recommended_for).length) {
+      para(
+        `Not recommended for: ${asArr(smartRecommendation.not_recommended_for)
+          .map((x) => asStr(x))
+          .filter(Boolean)
+          .join(", ")}`,
+        { size: 8.2, color: MUTE }
+      );
+    }
   }
 
   const structural = asArr(result.structural_damage).map(asObj);

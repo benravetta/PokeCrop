@@ -8,6 +8,9 @@ export interface PriceStats {
   highestSoldPriceGbp: number | null;
   priceRangeGbp: number | null;
   percentageSpread: number | null;
+  trendDirection: "up" | "down" | "flat" | "unknown";
+  sampleFrom: string | null;
+  sampleTo: string | null;
   evidenceMode: EvidenceMode;
   directSalesCount: number;
   archivedSalesCount: number;
@@ -60,6 +63,11 @@ export function calculateSoldPriceStats(sales: VerifiedSale[]): PriceStats {
   const directSalesCount = sales.filter((s) => s.evidenceLevel === "direct").length;
   const archivedSalesCount = sales.filter((s) => s.evidenceLevel === "archived").length;
   const evidenceMode = computeEvidenceMode(sales);
+  const dated = [...withGbp]
+    .filter((s) => s.soldDate)
+    .sort((a, b) => a.soldDate.localeCompare(b.soldDate));
+  const sampleFrom = dated[0]?.soldDate ?? null;
+  const sampleTo = dated[dated.length - 1]?.soldDate ?? null;
 
   if (n === 0) {
     return {
@@ -70,6 +78,9 @@ export function calculateSoldPriceStats(sales: VerifiedSale[]): PriceStats {
       highestSoldPriceGbp: null,
       priceRangeGbp: null,
       percentageSpread: null,
+      trendDirection: "unknown",
+      sampleFrom,
+      sampleTo,
       evidenceMode: "insufficient_sales",
       directSalesCount: 0,
       archivedSalesCount: 0,
@@ -100,6 +111,18 @@ export function calculateSoldPriceStats(sales: VerifiedSale[]): PriceStats {
       ? Math.round(((highest - lowest) / average) * 10000) / 100
       : null;
 
+  let trendDirection: "up" | "down" | "flat" | "unknown" = "unknown";
+  if (dated.length >= 3) {
+    const first = dated[0]?.priceGbp ?? null;
+    const last = dated[dated.length - 1]?.priceGbp ?? null;
+    if (first != null && last != null && first > 0) {
+      const delta = (last - first) / first;
+      if (delta > 0.08) trendDirection = "up";
+      else if (delta < -0.08) trendDirection = "down";
+      else trendDirection = "flat";
+    }
+  }
+
   return {
     salesUsed: n >= 3 ? 3 : n,
     averageSoldPriceGbp: average,
@@ -108,6 +131,9 @@ export function calculateSoldPriceStats(sales: VerifiedSale[]): PriceStats {
     highestSoldPriceGbp: Math.round(highest * 100) / 100,
     priceRangeGbp: range,
     percentageSpread: spread,
+    trendDirection,
+    sampleFrom,
+    sampleTo,
     evidenceMode,
     directSalesCount,
     archivedSalesCount,

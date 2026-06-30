@@ -11,6 +11,7 @@ import {
   markOutliers,
   selectTopRecentSales,
 } from "./soldPriceCalculator.js";
+import { sortSalesPreferDirect } from "./historical/historicalSaleDeduplicator.js";
 import { calculateValuationConfidence } from "./valuationConfidenceCalculator.js";
 import { convertToGbp, resetExchangeRatesForTests } from "./currencyConverter.js";
 import type { VerifiedSale } from "./types.js";
@@ -165,6 +166,8 @@ describe("soldPriceCalculator", () => {
     const stats = calculateSoldPriceStats(top);
     expect(stats.salesUsed).toBe(3);
     expect(stats.averageSoldPriceGbp).toBeCloseTo(130, 2);
+    expect(stats.sampleFrom).toBe("2026-06-18");
+    expect(stats.sampleTo).toBe("2026-06-24");
   });
 
   it("labels two-sale limited average", () => {
@@ -181,6 +184,14 @@ describe("soldPriceCalculator", () => {
     ];
     const outlierSales = markOutliers(spreadSales);
     expect(outlierSales.some((s) => s.possibleOutlier)).toBe(true);
+  });
+
+  it("ranks higher-confidence matches first", () => {
+    const ranked = sortSalesPreferDirect([
+      saleFixture({ ebayItemId: "1", soldDate: "2026-06-24", priceOriginal: 100, priceGbp: 100, matchScore: 82 }),
+      saleFixture({ ebayItemId: "2", soldDate: "2026-06-20", priceOriginal: 110, priceGbp: 110, matchScore: 97 }),
+    ]);
+    expect(ranked[0]?.ebayItemId).toBe("2");
   });
 });
 

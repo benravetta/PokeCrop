@@ -3,6 +3,7 @@ import { buildPreparation } from "./preparation.js";
 import { estimateMarketPrices } from "./marketPricing.js";
 import { scoreGrades } from "./gradeScoring.js";
 import { centeringAnalysisForApi } from "./centeringEngine.js";
+import { buildReportIntelligence } from "./reportIntelligence/index.js";
 
 // Strict, anti-hype PSA-style pre-grader. Two passes:
 //   1) inspection — vision model reports structured condition findings, no grade
@@ -159,7 +160,8 @@ Weighting and consistency:
 - For each company: low = worst plausible, likely = most probable, high = best plausible, and low <= likely <= high on that company's scale. "likely" must respect every hard cap.
 - grade_blockers: gem_mint = what blocks the top gem grade on a strict grader (≈ PSA 10 / BGS 9.5+ / CGC Pristine), mint = what blocks a ~9, near_mint = what blocks a ~8. If a tier has no visible blocker, say so but note it is limited by photo quality.
 - submission_recommendation.best_for = which grader makes most sense and why (e.g. BGS/ACE/TAG when subgrades add value or the card is borderline; PSA for resale liquidity on a clean gem candidate; "none — sell raw" when grading isn't worth it). For a torn/ripped/altered card, recommend "do_not_grade".
-- Never inflate any grade due to card value or rarity.`;
+- Never inflate any grade due to card value or rarity.
+- Use defect-specific language only: do not use vague placeholders like "visible wear" without naming the defect and location.`;
 
 // Loosely-typed structured result; the model returns the shapes above.
 export type GradeResult = Record<string, unknown>;
@@ -373,9 +375,21 @@ export async function gradeCard(
     : "Not an official grade from PSA, Beckett, CGC, TAG, ACE or any grader. " +
       "No verified eBay sold comps were found for this exact card — value estimate omitted.";
 
+  const explainabilityEnabled = process.env.REPORT_V2_EXPLAINABILITY !== "0";
+  const intelligence = explainabilityEnabled
+    ? buildReportIntelligence({
+        findings: findings as Record<string, unknown>,
+        decision: mergedDecision,
+        companyEstimates: scored.company_estimates,
+        captureQuality: undefined,
+        pricing: pricing as unknown as Record<string, unknown> | null,
+      })
+    : {};
+
   return {
     ...findings,
     ...mergedDecision,
+    ...intelligence,
     ...(scored.centering_analysis
       ? {
           centering_analysis: centeringAnalysisForApi(scored.centering_analysis),

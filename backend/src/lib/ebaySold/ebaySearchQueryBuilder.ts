@@ -1,4 +1,5 @@
 import type { CardIdentity } from "./types.js";
+import { generateSearchAliases } from "./searchAliasGenerator.js";
 
 function part(v: string | null | undefined): string {
   return (v ?? "").trim();
@@ -39,7 +40,13 @@ export function buildSearchQueries(card: CardIdentity): string[] {
     if (!queries.includes(q4)) queries.push(q4);
   }
 
-  return [...new Set(queries)].slice(0, 4);
+  if (process.env.REPORT_V2_MARKET_ENGINE !== "0") {
+    for (const alias of generateSearchAliases(card)) {
+      if (!queries.includes(alias)) queries.push(alias);
+    }
+  }
+  const maxQueries = process.env.REPORT_V2_MARKET_ENGINE !== "0" ? 30 : 4;
+  return [...new Set(queries)].slice(0, maxQueries);
 }
 
 export function buildEbaySoldSearchUrl(query: string): string {

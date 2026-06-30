@@ -115,6 +115,7 @@ export function verifyListingCandidate(
     exchangeRateToGbp: conversion.rate,
     priceGbp: conversion.gbp,
     matchScore: match.score,
+    matchConfidence: match.score,
     possibleOutlier: false,
     evidenceLevel: "direct",
     verificationStatus: "fully_verified",
