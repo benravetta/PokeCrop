@@ -6,7 +6,11 @@ import { ESTIMATE_DISCLAIMER_SHORT, HERO, NAV } from "../../lib/marketingCopy";
 import { EXPERT_REVIEW } from "../../humanPregrade/landing/expertReviewCopy";
 import { STAFF_ACCOUNT } from "../../lib/adminAccess";
 import { PLAN_LABELS, type Plan } from "../../lib/plans";
-import { guestPrimaryCtaLabel, guestSignupPath, useInviteRequired } from "../../hooks/useInviteRequired";
+import {
+  guestIntentPath,
+  guestPrimaryCtaLabel,
+  useInviteRequired,
+} from "../../hooks/useInviteRequired";
 import { scrollToSection } from "../../lib/scrollToSection";
 
 export function HeroSection({
@@ -20,12 +24,9 @@ export function HeroSection({
 }) {
   const navigate = useNavigate();
   const { inviteRequired } = useInviteRequired();
-  const primary = loggedIn
-    ? { to: "/grade", label: HERO.primaryCtaLoggedIn }
-    : {
-        to: guestSignupPath(inviteRequired),
-        label: guestPrimaryCtaLabel(inviteRequired),
-      };
+  const gradePath = loggedIn ? "/grade" : guestIntentPath(inviteRequired, "grade");
+  const cropPath = loggedIn ? "/crop" : guestIntentPath(inviteRequired, "crop");
+  const guestPrimaryLabel = guestPrimaryCtaLabel(inviteRequired);
 
   const supportLine = isAdmin
     ? STAFF_ACCOUNT.heroSupport
@@ -67,15 +68,21 @@ export function HeroSection({
 
             <div className="mt-8 flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:justify-center lg:justify-start">
               <Link
-                to={primary.to}
+                to={gradePath}
                 className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-6 py-3.5 text-sm font-semibold text-white shadow-lg shadow-accent/25 transition-all hover:bg-accent-hover sm:w-auto"
               >
                 <Upload className="h-4 w-4" aria-hidden />
-                {primary.label}
+                {loggedIn ? "Grade this card" : `${guestPrimaryLabel}`}
+              </Link>
+              <Link
+                to={cropPath}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-border-strong bg-surface-raised/60 px-6 py-3.5 text-sm font-semibold text-text-primary transition-colors hover:bg-surface-overlay sm:w-auto"
+              >
+                Just crop image
               </Link>
               {!loggedIn && inviteRequired ? (
                 <Link
-                  to="/login"
+                  to="/login?intent=grade"
                   className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-border-strong bg-surface-raised/60 px-6 py-3.5 text-sm font-semibold text-text-primary transition-colors hover:bg-surface-overlay sm:w-auto"
                 >
                   {NAV.signIn}

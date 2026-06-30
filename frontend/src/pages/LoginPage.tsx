@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { useTurnstileToken } from "../hooks/useTurnstile";
 import { TurnstileField } from "../components/TurnstileWidget";
@@ -11,12 +11,15 @@ import {
 } from "../components/auth/AuthLayout";
 import { AUTH } from "../lib/marketingCopy";
 import { GuestPrimaryCtaLink } from "../components/marketing/GuestPrimaryCtaLink";
+import { intentTargetPath, type ToolIntent } from "../hooks/useInviteRequired";
 
 export function LoginPage() {
   const { signIn } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const from = (location.state as { from?: string } | null)?.from ?? "/crop";
+  const [searchParams] = useSearchParams();
+  const intent = (searchParams.get("intent") as ToolIntent | null) ?? null;
+  const from = (location.state as { from?: string } | null)?.from ?? intentTargetPath(intent);
   const turnstile = useTurnstileToken();
 
   const [email, setEmail] = useState("");
@@ -52,6 +55,7 @@ export function LoginPage() {
           {AUTH.noAccount}{" "}
           <GuestPrimaryCtaLink
             registerLabel="Create an account"
+            intent={intent ?? undefined}
             className="text-accent hover:text-accent-hover font-medium"
           />
         </>

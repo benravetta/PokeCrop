@@ -56,7 +56,7 @@ function StepBadge({
       >
         {done ? <CheckCircle2 className="w-3.5 h-3.5" /> : n}
       </span>
-      <span className="text-sm font-medium truncate hidden sm:inline">{label}</span>
+      <span className="text-xs sm:text-sm font-medium truncate">{label}</span>
     </div>
   );
 }

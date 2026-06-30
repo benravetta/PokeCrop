@@ -1,5 +1,5 @@
 import { useEffect, type ReactNode } from "react";
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "./hooks/useAuth";
 import { Layout } from "./components/Layout";
@@ -66,6 +66,7 @@ import {
   AdminCollectorTradesPage,
   AdminCollectorConversationPage,
 } from "./collectorProfiles/admin/AdminCollectorModerationPage";
+import { intentTargetPath, type ToolIntent } from "./hooks/useInviteRequired";
 
 function FullScreenLoader() {
   return (
@@ -78,8 +79,10 @@ function FullScreenLoader() {
 // Routes only an unauthenticated visitor should see (login/register/forgot).
 function PublicOnly({ children }: { children: ReactNode }) {
   const { session, initializing } = useAuth();
+  const location = useLocation();
+  const intent = new URLSearchParams(location.search).get("intent") as ToolIntent | null;
   if (initializing) return <FullScreenLoader />;
-  if (session) return <Navigate to="/crop" replace />;
+  if (session) return <Navigate to={intentTargetPath(intent)} replace />;
   return <>{children}</>;
 }
 

@@ -13,11 +13,13 @@ import {
 import { AUTH } from "../lib/marketingCopy";
 import { RegisterBenefitsPanel } from "../components/auth/RegisterBenefitsPanel";
 import { validateInviteToken, getAuthConfig } from "../lib/api";
+import { intentTargetPath, type ToolIntent } from "../hooks/useInviteRequired";
 
 export function RegisterPage() {
   const { signUp } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const intent = (searchParams.get("intent") as ToolIntent | null) ?? null;
   const turnstile = useTurnstileToken();
   const inviteParam = searchParams.get("invite")?.trim() ?? "";
 
@@ -97,7 +99,7 @@ export function RegisterPage() {
       if (needsConfirmation) {
         setSentTo(email);
       } else {
-        navigate("/crop", { replace: true });
+        navigate(intentTargetPath(intent), { replace: true });
       }
     } catch (err) {
       turnstile.reset();
@@ -112,7 +114,10 @@ export function RegisterPage() {
       <AuthLayout
         title="Confirm your email"
         footer={
-          <Link to="/login" className="text-accent hover:text-accent-hover font-medium">
+          <Link
+            to={intent ? `/login?intent=${intent}` : "/login"}
+            className="text-accent hover:text-accent-hover font-medium"
+          >
             Back to sign in
           </Link>
         }
@@ -149,7 +154,10 @@ export function RegisterPage() {
         footer={
           <>
             Already have an account?{" "}
-            <Link to="/login" className="text-accent hover:text-accent-hover font-medium">
+            <Link
+              to={intent ? `/login?intent=${intent}` : "/login"}
+              className="text-accent hover:text-accent-hover font-medium"
+            >
               Sign in
             </Link>
           </>
@@ -181,7 +189,10 @@ export function RegisterPage() {
       footer={
         <>
           {AUTH.alreadyHaveAccount}{" "}
-          <Link to="/login" className="text-accent hover:text-accent-hover font-medium">
+          <Link
+            to={intent ? `/login?intent=${intent}` : "/login"}
+            className="text-accent hover:text-accent-hover font-medium"
+          >
             Sign in
           </Link>
         </>

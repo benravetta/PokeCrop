@@ -1,11 +1,17 @@
 import { Link, type LinkProps } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
-import { guestPrimaryCtaLabel, guestSignupPath, useInviteRequired } from "../../hooks/useInviteRequired";
+import {
+  guestPrimaryCtaLabel,
+  guestSignupPath,
+  type ToolIntent,
+  useInviteRequired,
+} from "../../hooks/useInviteRequired";
 
 type Props = Omit<LinkProps, "to"> & {
   registerLabel?: string;
   waitlistLabel?: string;
   showArrow?: boolean;
+  intent?: ToolIntent;
 };
 
 /** Guest signup CTA — `/register` or waitlist when invite-only. */
@@ -14,11 +20,13 @@ export function GuestPrimaryCtaLink({
   registerLabel = "Check a card free",
   waitlistLabel,
   showArrow = false,
+  intent,
   className,
   ...props
 }: Props) {
   const { inviteRequired } = useInviteRequired();
-  const to = guestSignupPath(inviteRequired);
+  const base = guestSignupPath(inviteRequired);
+  const to = intent ? `${base}${base.includes("?") ? "&" : "?"}intent=${intent}` : base;
   const label =
     children ??
     (inviteRequired

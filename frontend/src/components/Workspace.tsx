@@ -272,9 +272,7 @@ export function Workspace() {
                       )}
                       Send to grading
                     </button>
-                    <div className="hidden sm:inline-flex">
-                      <ExportControls />
-                    </div>
+                    <ExportControls />
                   </>
                 )}
               </div>

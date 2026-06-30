@@ -8,7 +8,7 @@ import {
 } from "./marketingCopy";
 
 export const GRADE_UPLOAD = {
-  pageHeading: "Check your card",
+  pageHeading: "Grade this card",
   intro:
     "Upload clear photos of both sides. We will check the image quality before building your report.",
   frontLabel: "Front of card",
@@ -19,8 +19,8 @@ export const GRADE_UPLOAD = {
   backButton: "Add back photo",
   readyState: "Both photos added",
   checkPhotos: "Check my photos",
-  runCheck: "Run check",
-  buyOne: `Buy 1 check (${SINGLE_REPORT_PRICE})`,
+  runCheck: "Run grade check",
+  buyOne: `Buy 1 grade check (${SINGLE_REPORT_PRICE})`,
   noCredits: "No checks left",
   checking: "Checking…",
 } as const;
