@@ -108,7 +108,7 @@ export function Workspace() {
   };
 
   return (
-    <div className="flex-1 flex flex-col min-h-0">
+    <div className="flex-1 flex flex-col min-h-0 overflow-y-auto pb-24 sm:pb-28">
       {/* Stage header */}
       <div className="flex items-center gap-3 page-x pt-3 sm:pt-4 pb-2.5 sm:pb-3">
         <h2 className="text-sm font-semibold text-text-primary">
@@ -189,51 +189,53 @@ export function Workspace() {
       )}
 
       <StickyFooterBar className="mt-3 sm:mt-4">
-        <div className="flex w-full items-center gap-2">
+        <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center">
           {mode === "view" ? (
             <>
-              <button
-                onClick={reset}
-                title="Start over with a new file"
-                className="inline-flex items-center gap-1.5 px-3 py-2 text-sm text-text-secondary
-                           bg-surface-overlay rounded-lg hover:bg-border-subtle transition-colors"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                <span className="hidden sm:inline">New file</span>
-              </button>
+              <div className="flex items-center gap-2 overflow-x-auto pb-0.5 sm:pb-0">
+                <button
+                  onClick={reset}
+                  title="Start over with a new file"
+                  className="inline-flex items-center gap-1.5 px-3 py-2 text-sm text-text-secondary
+                             bg-surface-overlay rounded-lg hover:bg-border-subtle transition-colors whitespace-nowrap"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  New file
+                </button>
 
-              <button
-                onClick={enterCrop}
-                disabled={busy || !resultBase64}
-                title="Fine-tune the crop by hand"
-                className="inline-flex items-center gap-1.5 px-3 py-2 text-sm text-text-primary
-                           bg-surface-overlay rounded-lg hover:bg-border-subtle transition-colors
-                           disabled:opacity-40"
-              >
-                <Crop className="w-4 h-4" />
-                <span className="hidden sm:inline">Adjust crop</span>
-              </button>
+                <button
+                  onClick={enterCrop}
+                  disabled={busy || !resultBase64}
+                  title="Fine-tune the crop by hand"
+                  className="inline-flex items-center gap-1.5 px-3 py-2 text-sm text-text-primary
+                             bg-surface-overlay rounded-lg hover:bg-border-subtle transition-colors
+                             disabled:opacity-40 whitespace-nowrap"
+                >
+                  <Crop className="w-4 h-4" />
+                  Adjust crop
+                </button>
 
-              <button
-                onClick={() => setDrawerOpen(true)}
-                disabled={busy}
-                title="Advanced clean-up settings"
-                className="inline-flex items-center gap-1.5 px-3 py-2 text-sm text-text-secondary
-                           bg-surface-overlay rounded-lg hover:bg-border-subtle transition-colors
-                           disabled:opacity-40"
-              >
-                <SlidersHorizontal className="w-4 h-4" />
-                <span className="hidden sm:inline">Advanced</span>
-              </button>
+                <button
+                  onClick={() => setDrawerOpen(true)}
+                  disabled={busy}
+                  title="Advanced clean-up settings"
+                  className="inline-flex items-center gap-1.5 px-3 py-2 text-sm text-text-secondary
+                             bg-surface-overlay rounded-lg hover:bg-border-subtle transition-colors
+                             disabled:opacity-40 whitespace-nowrap"
+                >
+                  <SlidersHorizontal className="w-4 h-4" />
+                  Advanced
+                </button>
+              </div>
 
-              <div className="ml-auto flex items-center gap-2">
+              <div className="flex w-full items-center gap-2 sm:ml-auto sm:w-auto">
                 {dirty ? (
                   <button
                     onClick={applyChanges}
                     disabled={busy}
                     className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white
                                bg-accent rounded-lg hover:bg-accent-hover transition-colors anim-fade
-                               disabled:opacity-40"
+                               disabled:opacity-40 w-full sm:w-auto justify-center"
                   >
                     <Check className="w-4 h-4" />
                     Apply changes
@@ -244,7 +246,7 @@ export function Workspace() {
                     disabled={busy || confirmBusy || metadata?.needs_manual}
                     className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white
                                bg-accent rounded-lg hover:bg-accent-hover transition-colors
-                               disabled:opacity-40"
+                               disabled:opacity-40 w-full sm:w-auto justify-center"
                   >
                     {confirmBusy ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
@@ -259,53 +261,57 @@ export function Workspace() {
                       onClick={sendToGrading}
                       disabled={busy || sending || !resultBase64 || !sessionId}
                       title="Send this cropped card to the AI pre-grader"
-                      className="inline-flex items-center gap-1.5 px-3 py-2 text-sm text-text-primary
-                                 bg-surface-overlay rounded-lg hover:bg-border-subtle transition-colors
-                                 disabled:opacity-40"
+                      className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white
+                                 bg-accent rounded-lg hover:bg-accent-hover transition-colors
+                                 disabled:opacity-40 w-full sm:w-auto justify-center"
                     >
                       {sending ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
                       ) : (
                         <ShieldCheck className="w-4 h-4" />
                       )}
-                      <span className="hidden sm:inline">Send to grading</span>
+                      Send to grading
                     </button>
-                    <ExportControls />
+                    <div className="hidden sm:inline-flex">
+                      <ExportControls />
+                    </div>
                   </>
                 )}
               </div>
             </>
           ) : (
             <>
-              <button
-                onClick={cancelCrop}
-                disabled={busy}
-                title="Discard manual edits"
-                className="inline-flex items-center gap-1.5 px-3 py-2 text-sm text-text-secondary
-                           bg-surface-overlay rounded-lg hover:bg-border-subtle transition-colors
-                           disabled:opacity-40"
-              >
-                <X className="w-4 h-4" />
-                <span className="hidden sm:inline">Cancel</span>
-              </button>
-              <button
-                onClick={resetCrop}
-                disabled={busy}
-                title="Restore the auto-detected crop"
-                className="inline-flex items-center gap-1.5 px-3 py-2 text-sm text-text-secondary
-                           bg-surface-overlay rounded-lg hover:bg-border-subtle transition-colors
-                           disabled:opacity-40"
-              >
-                <RotateCcw className="w-4 h-4" />
-                <span className="hidden sm:inline">Reset to auto</span>
-              </button>
+              <div className="flex items-center gap-2 overflow-x-auto pb-0.5 sm:pb-0">
+                <button
+                  onClick={cancelCrop}
+                  disabled={busy}
+                  title="Discard manual edits"
+                  className="inline-flex items-center gap-1.5 px-3 py-2 text-sm text-text-secondary
+                             bg-surface-overlay rounded-lg hover:bg-border-subtle transition-colors
+                             disabled:opacity-40 whitespace-nowrap"
+                >
+                  <X className="w-4 h-4" />
+                  Cancel
+                </button>
+                <button
+                  onClick={resetCrop}
+                  disabled={busy}
+                  title="Restore the auto-detected crop"
+                  className="inline-flex items-center gap-1.5 px-3 py-2 text-sm text-text-secondary
+                             bg-surface-overlay rounded-lg hover:bg-border-subtle transition-colors
+                             disabled:opacity-40 whitespace-nowrap"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  Reset to auto
+                </button>
+              </div>
 
               <button
                 onClick={applyChanges}
                 disabled={busy || !cropDirty}
-                className="ml-auto inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white
                            bg-accent rounded-lg hover:bg-accent-hover transition-colors
-                           disabled:opacity-40 disabled:cursor-not-allowed"
+                           disabled:opacity-40 disabled:cursor-not-allowed w-full sm:w-auto sm:ml-auto justify-center"
               >
                 <Check className="w-4 h-4" />
                 Apply changes

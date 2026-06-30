@@ -228,6 +228,25 @@ function GuideSidebar() {
   );
 }
 
+function MobileGuideDisclosure() {
+  return (
+    <details className="xl:hidden rounded-xl border border-border-subtle bg-surface-raised overflow-hidden">
+      <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium text-text-primary border-b border-border-subtle/80 bg-surface-overlay/40">
+        Need help with photos and centring?
+      </summary>
+      <div className="p-4 space-y-5">
+        <GuideTips />
+        <div className="border-t border-border-subtle pt-4">
+          <GuideCentering />
+        </div>
+        <div className="border-t border-border-subtle pt-4">
+          <GuideGraders />
+        </div>
+      </div>
+    </details>
+  );
+}
+
 function GuideTips() {
   const tips = [
     { icon: Camera, t: "Full resolution", d: "Camera originals only — no screenshots or re-shared images." },
@@ -525,7 +544,7 @@ export function GradeUploadWorkspace({
   const straightening = proc.front.loading || proc.back.loading;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 pb-24 sm:pb-28">
       {/* Hero */}
       <div className="relative overflow-hidden rounded-2xl border border-border-subtle anim-rise">
         <div className="absolute inset-0 bg-gradient-to-br from-accent/12 via-surface-raised to-surface-raised" />
@@ -685,13 +704,17 @@ export function GradeUploadWorkspace({
               )}
             </div>
           )}
+
+          <MobileGuideDisclosure />
         </div>
 
-        <GuideSidebar />
+        <div className="hidden xl:block">
+          <GuideSidebar />
+        </div>
       </div>
 
       <StickyFooterBar>
-        <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3">
+        <div className="mx-auto flex w-full max-w-6xl flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3">
           <div className="text-xs text-text-muted min-w-0">
             {straightening ? (
               <span className="inline-flex items-center gap-1.5">
@@ -710,12 +733,12 @@ export function GradeUploadWorkspace({
               "Upload a front image to continue."
             )}
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex w-full sm:w-auto flex-col-reverse sm:flex-row flex-wrap items-stretch sm:items-center gap-2">
             {outOfQuota && (
               <button
                 onClick={buyGrade}
                 disabled={buyBusy}
-                className="inline-flex items-center gap-2 rounded-xl border border-accent/40 bg-accent/10 px-4 py-2.5 text-sm font-medium text-accent hover:bg-accent/20 disabled:opacity-50 transition-colors"
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-accent/40 bg-accent/10 px-4 py-2.5 text-sm font-medium text-accent hover:bg-accent/20 disabled:opacity-50 transition-colors w-full sm:w-auto"
               >
                 {buyBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <CreditCard className="w-4 h-4" />}
                 {GRADE_UPLOAD.buyOne}
@@ -724,7 +747,7 @@ export function GradeUploadWorkspace({
             <button
               onClick={run}
               disabled={!hasFront || running || outOfQuota}
-              className="inline-flex items-center gap-2 rounded-xl bg-accent px-6 py-2.5 text-sm font-semibold text-white shadow-[0_4px_24px_-6px_var(--color-accent)] hover:bg-accent-hover disabled:opacity-50 disabled:shadow-none disabled:cursor-not-allowed transition-all"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-6 py-2.5 text-sm font-semibold text-white shadow-[0_4px_24px_-6px_var(--color-accent)] hover:bg-accent-hover disabled:opacity-50 disabled:shadow-none disabled:cursor-not-allowed transition-all w-full sm:w-auto"
             >
               {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <ScanSearch className="w-4 h-4" />}
               {running ? GRADE_UPLOAD.checking : outOfQuota ? GRADE_UPLOAD.noCredits : GRADE_UPLOAD.runCheck}

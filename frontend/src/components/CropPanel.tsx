@@ -19,7 +19,7 @@ export function CropPanel() {
     editImageSize[1] > 0;
 
   return (
-    <div className="relative flex-1 min-h-0 w-full rounded-2xl bg-surface-overlay overflow-hidden">
+    <div className="relative flex-1 min-h-[56vh] sm:min-h-0 w-full rounded-2xl bg-surface-overlay overflow-hidden">
       {error && !canEdit ? (
         <div className="h-full flex items-center justify-center p-6">
           <p className="text-error text-sm text-center">{error}</p>
