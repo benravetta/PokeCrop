@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Crosshair, AlertTriangle } from "lucide-react";
 import {
   type CardSide,
@@ -39,6 +39,7 @@ export function CenteringTool({
   const wrapRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const drag = useRef<{ box: BoxId; edge: Edge } | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
   const autoDone = useRef(false);
   const lastImageSrc = useRef(imageSrc);
 
@@ -70,6 +71,26 @@ export function CenteringTool({
   }, [imageSrc, outer, inner, outerHint]);
 
   useEffect(() => {
+    if (!isDragging) return;
+    const prevOverflow = document.body.style.overflow;
+    const prevOverscroll = document.body.style.overscrollBehavior;
+    const prevTouchAction = document.body.style.touchAction;
+    document.body.style.overflow = "hidden";
+    document.body.style.overscrollBehavior = "none";
+    document.body.style.touchAction = "none";
+    const preventTouchMove = (e: TouchEvent) => {
+      e.preventDefault();
+    };
+    window.addEventListener("touchmove", preventTouchMove, { passive: false });
+    return () => {
+      window.removeEventListener("touchmove", preventTouchMove);
+      document.body.style.overflow = prevOverflow;
+      document.body.style.overscrollBehavior = prevOverscroll;
+      document.body.style.touchAction = prevTouchAction;
+    };
+  }, [isDragging]);
+
+  useEffect(() => {
     const move = (e: PointerEvent) => {
       const d = drag.current;
       const el = wrapRef.current;
@@ -93,12 +114,17 @@ export function CenteringTool({
         onInner(i);
       }
     };
-    const up = () => (drag.current = null);
+    const up = () => {
+      drag.current = null;
+      setIsDragging(false);
+    };
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", up);
     return () => {
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", up);
     };
   }, [outer, inner, onOuter, onInner]);
 
@@ -109,7 +135,9 @@ export function CenteringTool({
   const startDrag = (box: BoxId, edge: Edge) => (e: React.PointerEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    e.currentTarget.setPointerCapture?.(e.pointerId);
     drag.current = { box, edge };
+    setIsDragging(true);
   };
 
   const edgeBars = (box: BoxId, b: Box, colour: string) => (
