@@ -25,6 +25,59 @@ export const GRADE_UPLOAD = {
   checking: "Checking…",
 } as const;
 
+/** Per-step copy for the mobile guided grade wizard. */
+export const GRADE_WIZARD = {
+  front: {
+    label: "Front photo",
+    title: "Add the front of your card",
+    subtitle:
+      "This is the only required photo. Use a full-resolution, square-on shot in bright, even light — no sleeve or toploader.",
+  },
+  frontCentring: {
+    label: "Front centring",
+    title: "Confirm the front centring",
+    subtitle:
+      "We straightened your card. Drag the dashed box to the card edge and the solid box to where the artwork starts.",
+    straightening: "Straightening your card…",
+  },
+  extras: {
+    label: "More photos",
+    title: "Add more photos (optional)",
+    subtitle:
+      "These sharpen the read but aren't required. Add the back for gem-grade confidence and subgrades, angled shots for holo shine, or close-ups of specific flaws.",
+    skip: "Skip for now",
+  },
+  backCentring: {
+    label: "Back centring",
+    title: "Confirm the back centring",
+    subtitle:
+      "Same again for the back — line the dashed box up with the card edge and the solid box with the artwork border.",
+    straightening: "Straightening the back…",
+  },
+  review: {
+    label: "Review",
+    title: "Review & run your check",
+    subtitle:
+      "Here's what we'll analyse. Tap any item to change it, then run your pre-grade check.",
+  },
+} as const;
+
+/** Short captions for the mobile guided crop flow. */
+export const CROP_WIZARD = {
+  review: {
+    label: "Review",
+    caption: "We lifted the card off its background and straightened it. Happy with it?",
+  },
+  adjust: {
+    label: "Adjust",
+    caption: "Drag the corner brackets onto each card corner, then apply.",
+  },
+  done: {
+    label: "Done",
+    caption: "Your clean crop is ready. Send it to the grader or download it.",
+  },
+} as const;
+
 export const PROCESSING_STAGES = [
   "Checking image quality",
   "Identifying the card",

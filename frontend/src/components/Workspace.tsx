@@ -20,9 +20,11 @@ import { CropCentringPanel } from "./CropCentringPanel";
 import { SingleGradePromo } from "./SingleGradePromo";
 import { useAppStore, paramsDiffer } from "../hooks/useProcessing";
 import { useMe } from "../hooks/useMe";
+import { useIsMobile } from "../hooks/useIsMobile";
 import { PlanUsageStrip } from "./plan/PlanUsageCard";
 import { fetchExport } from "../lib/api";
 import { boxFromFrac } from "../lib/centering";
+import { CROP_WIZARD } from "../lib/gradeUploadCopy";
 
 // Read a Blob back as raw base64 (no data: prefix), matching the store's
 // resultBase64 format.
@@ -62,6 +64,7 @@ export function Workspace() {
 
   const navigate = useNavigate();
   const me = useMe((s) => s.me);
+  const isMobile = useIsMobile();
   const [mode, setMode] = useState<Mode>("view");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [sending, setSending] = useState(false);
@@ -106,6 +109,165 @@ export function Workspace() {
     setSending(false);
     navigate("/grade");
   };
+
+  if (isMobile) {
+    const stepIndex = mode === "crop" ? 0 : !cropConfirmed ? 1 : 2;
+    const stepLabels = ["Adjust", "Confirm", "Send"];
+    const pct = ((stepIndex + 1) / stepLabels.length) * 100;
+    const caption =
+      mode === "crop"
+        ? CROP_WIZARD.adjust.caption
+        : cropConfirmed
+          ? CROP_WIZARD.done.caption
+          : CROP_WIZARD.review.caption;
+
+    return (
+      <div className="flex-1 flex flex-col min-h-0">
+        {/* Progress header */}
+        <div className="page-x pt-3 pb-2 border-b border-border-subtle">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] font-medium uppercase tracking-wide text-text-muted">
+              Step {stepIndex + 1} of {stepLabels.length}
+            </span>
+            <span className="text-[11px] text-text-muted" aria-current="step">
+              {stepLabels[stepIndex]}
+            </span>
+          </div>
+          <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-surface-overlay">
+            <div
+              className="h-full rounded-full bg-accent transition-[width] duration-300 ease-out"
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+        </div>
+
+        <PlanUsageStrip me={me} />
+
+        {/* Stage */}
+        <div className="flex-1 min-h-0 overflow-y-auto page-x pt-3 pb-6 flex flex-col gap-3">
+          {!busy && (
+            <p className="text-sm text-text-secondary leading-relaxed anim-rise">{caption}</p>
+          )}
+          {busy ? (
+            <ProcessingStage phase={uploading ? "uploading" : "processing"} />
+          ) : mode === "crop" ? (
+            <CropPanel />
+          ) : (
+            <>
+              <ResultStage />
+              {mode === "view" && !cropConfirmed && metadata?.needs_manual && (
+                <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[12px] text-amber-200 leading-snug">
+                  We couldn't clearly see every edge. Tap{" "}
+                  <span className="font-medium">Adjust crop</span> and line the corners up with the
+                  card.
+                </p>
+              )}
+              {resultBase64 && (
+                <CropCentringPanel
+                  imageSrc={`data:image/png;base64,${resultBase64}`}
+                  historyEventId={historyEventId}
+                  outerHint={
+                    metadata?.card_outer_frac ? boxFromFrac(metadata.card_outer_frac) : null
+                  }
+                />
+              )}
+            </>
+          )}
+          {error && !busy && resultBase64 && (
+            <p className="pt-1 text-xs text-error">{error}</p>
+          )}
+        </div>
+
+        {/* Footer actions */}
+        <StickyFooterBar>
+          <div className="flex w-full items-center gap-2">
+            {mode === "crop" ? (
+              <>
+                <button
+                  onClick={cancelCrop}
+                  disabled={busy}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-border-strong px-3 py-2.5 text-sm text-text-secondary hover:bg-surface-overlay transition-colors disabled:opacity-40"
+                >
+                  <X className="w-4 h-4" />
+                  Cancel
+                </button>
+                <button
+                  onClick={resetCrop}
+                  disabled={busy}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-border-strong px-3 py-2.5 text-sm text-text-secondary hover:bg-surface-overlay transition-colors disabled:opacity-40"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  Reset
+                </button>
+                <button
+                  onClick={applyChanges}
+                  disabled={busy || !cropDirty}
+                  className="ml-auto inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-accent px-5 py-2.5 text-sm font-semibold text-white shadow-[0_4px_24px_-6px_var(--color-accent)] hover:bg-accent-hover disabled:opacity-50 disabled:shadow-none disabled:cursor-not-allowed transition-all sm:flex-none sm:min-w-[10rem]"
+                >
+                  <Check className="w-4 h-4" />
+                  Apply changes
+                </button>
+              </>
+            ) : dirty ? (
+              <button
+                onClick={applyChanges}
+                disabled={busy}
+                className="ml-auto inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-accent px-5 py-2.5 text-sm font-semibold text-white shadow-[0_4px_24px_-6px_var(--color-accent)] hover:bg-accent-hover disabled:opacity-50 transition-all"
+              >
+                <Check className="w-4 h-4" />
+                Apply changes
+              </button>
+            ) : !cropConfirmed && resultBase64 ? (
+              <>
+                <button
+                  onClick={enterCrop}
+                  disabled={busy}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-border-strong px-3 py-2.5 text-sm text-text-secondary hover:bg-surface-overlay transition-colors disabled:opacity-40"
+                >
+                  <Crop className="w-4 h-4" />
+                  Adjust crop
+                </button>
+                <button
+                  onClick={() => void confirmCrop()}
+                  disabled={busy || confirmBusy || metadata?.needs_manual}
+                  className="ml-auto inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-accent px-5 py-2.5 text-sm font-semibold text-white shadow-[0_4px_24px_-6px_var(--color-accent)] hover:bg-accent-hover disabled:opacity-50 disabled:shadow-none disabled:cursor-not-allowed transition-all"
+                >
+                  {confirmBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                  Confirm crop
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={reset}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-border-strong px-3 py-2.5 text-sm text-text-secondary hover:bg-surface-overlay transition-colors"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  New
+                </button>
+                <ExportControls />
+                <button
+                  onClick={sendToGrading}
+                  disabled={busy || sending || !resultBase64 || !sessionId}
+                  className="ml-auto inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-accent px-5 py-2.5 text-sm font-semibold text-white shadow-[0_4px_24px_-6px_var(--color-accent)] hover:bg-accent-hover disabled:opacity-50 transition-all sm:flex-none"
+                >
+                  {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
+                  Send to grading
+                </button>
+              </>
+            )}
+          </div>
+        </StickyFooterBar>
+
+        <AdvancedDrawer
+          open={drawerOpen}
+          onClose={() => setDrawerOpen(false)}
+          dirty={dirty}
+          onApply={applyChanges}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-y-auto pb-24 sm:pb-28">

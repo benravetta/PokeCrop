@@ -3,3 +3,4 @@ export { PageHeader } from "./PageHeader";
 export { Stack } from "./Stack";
 export { StickyFooterBar } from "./StickyFooterBar";
 export { FooterLegalBlock } from "./FooterLegalBlock";
+export { MobileStepFlow } from "./MobileStepFlow";

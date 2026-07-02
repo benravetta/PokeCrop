@@ -39,6 +39,8 @@ import {
 import { useMe } from "../hooks/useMe";
 import { GradeProgress } from "../components/grade/GradeProgress";
 import { GradeUploadWorkspace } from "../components/grade/GradeUploadWorkspace";
+import { GradeMobileWizard } from "../components/grade/GradeMobileWizard";
+import { useIsMobile } from "../hooks/useIsMobile";
 import { HumanPregradePromo } from "../humanPregrade/components/HumanPregradePromo";
 import { borderRatios, sideMeasurementMeta, type Box } from "../lib/centering";
 import { SUBGRADE_KEYS, subgradeLabel, CENTRING_SECTION_TITLE } from "../lib/displayLabels";
@@ -164,6 +166,8 @@ export function GradePage() {
     back: null,
   });
   const [centeringPreview, setCenteringPreview] = useState<CenteringPreview | null>(null);
+  const [prefilled, setPrefilled] = useState(false);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     getGradeQuota()
@@ -289,6 +293,7 @@ export function GradePage() {
 
     applyPrefill("front", gradePrefill.front);
     if (gradePrefill.back) applyPrefill("back", gradePrefill.back);
+    setPrefilled(true);
     clearGradePrefill();
   }, [gradePrefill, clearGradePrefill]);
 
@@ -551,37 +556,72 @@ export function GradePage() {
       )}
 
       {!result && !running && (
-        <GradeUploadWorkspace
-          quotaLabel={quotaLabel}
-          purchaseBanner={purchaseBanner}
-          files={files}
-          previews={previews}
-          setSlot={setSlot}
-          showAdvanced={showAdvanced}
-          setShowAdvanced={setShowAdvanced}
-          closeups={closeups}
-          closeupPreviews={closeupPreviews}
-          addCloseup={addCloseup}
-          removeCloseup={removeCloseup}
-          proc={proc}
-          outers={outers}
-          inners={inners}
-          skip={skip}
-          setOuters={setOuters}
-          setInners={setInners}
-          setSkip={setSkip}
-          onCenteringAutoDetect={onCenteringAutoDetect}
-          centeringPreview={centeringPreview}
-          localCaptureHints={localCaptureHints}
-          centeringMeasured={centeringMeasured}
-          error={error}
-          captureBlockers={captureBlockers}
-          outOfQuota={outOfQuota}
-          buyBusy={buyBusy}
-          buyGrade={buyGrade}
-          running={running}
-          run={run}
-        />
+        isMobile ? (
+          <GradeMobileWizard
+            quotaLabel={quotaLabel}
+            purchaseBanner={purchaseBanner}
+            files={files}
+            previews={previews}
+            setSlot={setSlot}
+            showAdvanced={showAdvanced}
+            setShowAdvanced={setShowAdvanced}
+            closeups={closeups}
+            closeupPreviews={closeupPreviews}
+            addCloseup={addCloseup}
+            removeCloseup={removeCloseup}
+            proc={proc}
+            outers={outers}
+            inners={inners}
+            skip={skip}
+            setOuters={setOuters}
+            setInners={setInners}
+            setSkip={setSkip}
+            onCenteringAutoDetect={onCenteringAutoDetect}
+            centeringPreview={centeringPreview}
+            localCaptureHints={localCaptureHints}
+            centeringMeasured={centeringMeasured}
+            error={error}
+            captureBlockers={captureBlockers}
+            outOfQuota={outOfQuota}
+            buyBusy={buyBusy}
+            buyGrade={buyGrade}
+            running={running}
+            run={run}
+            prefilled={prefilled}
+          />
+        ) : (
+          <GradeUploadWorkspace
+            quotaLabel={quotaLabel}
+            purchaseBanner={purchaseBanner}
+            files={files}
+            previews={previews}
+            setSlot={setSlot}
+            showAdvanced={showAdvanced}
+            setShowAdvanced={setShowAdvanced}
+            closeups={closeups}
+            closeupPreviews={closeupPreviews}
+            addCloseup={addCloseup}
+            removeCloseup={removeCloseup}
+            proc={proc}
+            outers={outers}
+            inners={inners}
+            skip={skip}
+            setOuters={setOuters}
+            setInners={setInners}
+            setSkip={setSkip}
+            onCenteringAutoDetect={onCenteringAutoDetect}
+            centeringPreview={centeringPreview}
+            localCaptureHints={localCaptureHints}
+            centeringMeasured={centeringMeasured}
+            error={error}
+            captureBlockers={captureBlockers}
+            outOfQuota={outOfQuota}
+            buyBusy={buyBusy}
+            buyGrade={buyGrade}
+            running={running}
+            run={run}
+          />
+        )
       )}
 
       {result && result.not_a_card === true && (
