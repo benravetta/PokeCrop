@@ -142,16 +142,16 @@ export function CenteringTool({
 
   const edgeBars = (box: BoxId, b: Box, colour: string) => (
     <>
-      <div onPointerDown={startDrag(box, "x0")} className="absolute top-0 bottom-0 w-3 -ml-1.5 cursor-ew-resize z-10" style={{ left: pct(b.x0) }}>
+      <div onPointerDown={startDrag(box, "x0")} className="absolute top-0 bottom-0 w-6 -ml-3 cursor-ew-resize z-10 touch-none" style={{ left: pct(b.x0) }}>
         <div className={`absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 ${colour}`} />
       </div>
-      <div onPointerDown={startDrag(box, "x1")} className="absolute top-0 bottom-0 w-3 -ml-1.5 cursor-ew-resize z-10" style={{ left: pct(b.x1) }}>
+      <div onPointerDown={startDrag(box, "x1")} className="absolute top-0 bottom-0 w-6 -ml-3 cursor-ew-resize z-10 touch-none" style={{ left: pct(b.x1) }}>
         <div className={`absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 ${colour}`} />
       </div>
-      <div onPointerDown={startDrag(box, "y0")} className="absolute left-0 right-0 h-3 -mt-1.5 cursor-ns-resize z-10" style={{ top: pct(b.y0) }}>
+      <div onPointerDown={startDrag(box, "y0")} className="absolute left-0 right-0 h-6 -mt-3 cursor-ns-resize z-10 touch-none" style={{ top: pct(b.y0) }}>
         <div className={`absolute inset-x-0 top-1/2 h-0.5 -translate-y-1/2 ${colour}`} />
       </div>
-      <div onPointerDown={startDrag(box, "y1")} className="absolute left-0 right-0 h-3 -mt-1.5 cursor-ns-resize z-10" style={{ top: pct(b.y1) }}>
+      <div onPointerDown={startDrag(box, "y1")} className="absolute left-0 right-0 h-6 -mt-3 cursor-ns-resize z-10 touch-none" style={{ top: pct(b.y1) }}>
         <div className={`absolute inset-x-0 top-1/2 h-0.5 -translate-y-1/2 ${colour}`} />
       </div>
     </>

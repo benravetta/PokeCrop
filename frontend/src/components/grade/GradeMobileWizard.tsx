@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useMemo } from "react";
 import {
   ChevronRight,
   CreditCard,
@@ -94,15 +94,13 @@ export function GradeMobileWizard({
     initialStepId: prefilled ? "front-centring" : "front",
   });
 
-  // After the front straightens, move the user straight into centring.
-  const prevFrontLoading = useRef(proc.front.loading);
-  useEffect(() => {
-    const finished = prevFrontLoading.current && !proc.front.loading;
-    prevFrontLoading.current = proc.front.loading;
-    if (finished && wizard.step.id === "front" && hasFront) {
-      wizard.next();
-    }
-  }, [proc.front.loading, hasFront, wizard]);
+  // Jump straight into the centring step the moment a front photo is picked so
+  // the user sees the straighten progress and only the finished result — never
+  // the raw upload sitting idle with no feedback.
+  const pickFront = (f: File) => {
+    setSlot("front", f);
+    wizard.goTo("front-centring");
+  };
 
   const stepId = wizard.step.id as StepId;
 
@@ -184,7 +182,7 @@ export function GradeMobileWizard({
               label={GRADE_UPLOAD.frontLabel}
               required
               preview={previews.front}
-              onPick={(f) => setSlot("front", f)}
+              onPick={pickFront}
               onClear={() => setSlot("front", null)}
             />
           </div>
@@ -201,27 +199,30 @@ export function GradeMobileWizard({
         </div>
       )}
 
-      {stepId === "front-centring" && (
-        <div className="space-y-4">
-          <CenteringPanel
-            side="front"
-            label="Front"
-            proc={proc.front}
-            displaySrc={proc.front.src ?? previews.front}
-            outer={outers.front}
-            inner={inners.front}
-            onOuter={(b) => setOuters((prev) => ({ ...prev, front: b }))}
-            onInner={(b) => setInners((prev) => ({ ...prev, front: b }))}
-            skip={skip.front}
-            onSkip={(v) => setSkip((s) => ({ ...s, front: v }))}
-            onAutoDetect={onCenteringAutoDetect}
-          />
-          {centeringPreview && <CenteringPreviewPanel preview={centeringPreview} />}
-          <div className="rounded-xl border border-border-subtle bg-surface-raised p-4">
-            <GuideCentering />
+      {stepId === "front-centring" &&
+        (proc.front.loading ? (
+          <StraightenProgress label={GRADE_WIZARD.frontCentring.straightening} />
+        ) : (
+          <div className="space-y-4">
+            <CenteringPanel
+              side="front"
+              label="Front"
+              proc={proc.front}
+              displaySrc={proc.front.src ?? previews.front}
+              outer={outers.front}
+              inner={inners.front}
+              onOuter={(b) => setOuters((prev) => ({ ...prev, front: b }))}
+              onInner={(b) => setInners((prev) => ({ ...prev, front: b }))}
+              skip={skip.front}
+              onSkip={(v) => setSkip((s) => ({ ...s, front: v }))}
+              onAutoDetect={onCenteringAutoDetect}
+            />
+            {centeringPreview && <CenteringPreviewPanel preview={centeringPreview} />}
+            <div className="rounded-xl border border-border-subtle bg-surface-raised p-4">
+              <GuideCentering />
+            </div>
           </div>
-        </div>
-      )}
+        ))}
 
       {stepId === "extras" && (
         <div className="space-y-5">
@@ -282,27 +283,30 @@ export function GradeMobileWizard({
         </div>
       )}
 
-      {stepId === "back-centring" && (
-        <div className="space-y-4">
-          <CenteringPanel
-            side="back"
-            label="Back"
-            proc={proc.back}
-            displaySrc={proc.back.src ?? previews.back}
-            outer={outers.back}
-            inner={inners.back}
-            onOuter={(b) => setOuters((prev) => ({ ...prev, back: b }))}
-            onInner={(b) => setInners((prev) => ({ ...prev, back: b }))}
-            skip={skip.back}
-            onSkip={(v) => setSkip((s) => ({ ...s, back: v }))}
-            onAutoDetect={onCenteringAutoDetect}
-          />
-          {centeringPreview && <CenteringPreviewPanel preview={centeringPreview} />}
-          <div className="rounded-xl border border-border-subtle bg-surface-raised p-4">
-            <GuideCentering />
+      {stepId === "back-centring" &&
+        (proc.back.loading ? (
+          <StraightenProgress label={GRADE_WIZARD.backCentring.straightening} />
+        ) : (
+          <div className="space-y-4">
+            <CenteringPanel
+              side="back"
+              label="Back"
+              proc={proc.back}
+              displaySrc={proc.back.src ?? previews.back}
+              outer={outers.back}
+              inner={inners.back}
+              onOuter={(b) => setOuters((prev) => ({ ...prev, back: b }))}
+              onInner={(b) => setInners((prev) => ({ ...prev, back: b }))}
+              skip={skip.back}
+              onSkip={(v) => setSkip((s) => ({ ...s, back: v }))}
+              onAutoDetect={onCenteringAutoDetect}
+            />
+            {centeringPreview && <CenteringPreviewPanel preview={centeringPreview} />}
+            <div className="rounded-xl border border-border-subtle bg-surface-raised p-4">
+              <GuideCentering />
+            </div>
           </div>
-        </div>
-      )}
+        ))}
 
       {isReview && (
         <div className="space-y-4">
@@ -359,6 +363,23 @@ export function GradeMobileWizard({
         </div>
       )}
     </MobileStepFlow>
+  );
+}
+
+function StraightenProgress({ label }: { label: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center gap-4 rounded-2xl border border-border-subtle bg-surface-raised px-6 py-16 text-center anim-rise">
+      <div className="relative">
+        <div className="h-14 w-14 rounded-2xl bg-accent/10" />
+        <Loader2 className="absolute inset-0 m-auto h-7 w-7 animate-spin text-accent" />
+      </div>
+      <div>
+        <p className="text-sm font-medium text-text-primary">{label}</p>
+        <p className="mt-1 text-xs text-text-secondary">
+          Detecting the card edges and correcting the angle — this only takes a moment.
+        </p>
+      </div>
+    </div>
   );
 }
 

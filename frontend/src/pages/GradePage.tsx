@@ -38,7 +38,7 @@ import {
 } from "../lib/api";
 import { useMe } from "../hooks/useMe";
 import { GradeProgress } from "../components/grade/GradeProgress";
-import { GradeUploadWorkspace } from "../components/grade/GradeUploadWorkspace";
+import { GradeUploadWorkspace, type GradeUploadWorkspaceProps } from "../components/grade/GradeUploadWorkspace";
 import { GradeMobileWizard } from "../components/grade/GradeMobileWizard";
 import { useIsMobile } from "../hooks/useIsMobile";
 import { HumanPregradePromo } from "../humanPregrade/components/HumanPregradePromo";
@@ -546,6 +546,45 @@ export function GradePage() {
       </div>
     ) : null;
 
+  const workspaceProps: GradeUploadWorkspaceProps = {
+    quotaLabel,
+    purchaseBanner,
+    files,
+    previews,
+    setSlot,
+    showAdvanced,
+    setShowAdvanced,
+    closeups,
+    closeupPreviews,
+    addCloseup,
+    removeCloseup,
+    proc,
+    outers,
+    inners,
+    skip,
+    setOuters,
+    setInners,
+    setSkip,
+    onCenteringAutoDetect,
+    centeringPreview,
+    localCaptureHints,
+    centeringMeasured,
+    error,
+    captureBlockers,
+    outOfQuota,
+    buyBusy,
+    buyGrade,
+    running,
+    run,
+  };
+
+  // Mobile wizard owns the full viewport: render it directly under the app
+  // shell's bounded flex column (not inside the scrolling PageContainer) so its
+  // internal scroll region works and the sticky footer never overlaps content.
+  if (isMobile && !result && !running) {
+    return <GradeMobileWizard {...workspaceProps} prefilled={prefilled} />;
+  }
+
   return (
     <div className="flex-1 min-h-0 overflow-y-auto">
     <PageContainer width="wide" className={`w-full ${result ? "xl:max-w-7xl" : ""}`}>
@@ -555,74 +594,7 @@ export function GradePage() {
         </div>
       )}
 
-      {!result && !running && (
-        isMobile ? (
-          <GradeMobileWizard
-            quotaLabel={quotaLabel}
-            purchaseBanner={purchaseBanner}
-            files={files}
-            previews={previews}
-            setSlot={setSlot}
-            showAdvanced={showAdvanced}
-            setShowAdvanced={setShowAdvanced}
-            closeups={closeups}
-            closeupPreviews={closeupPreviews}
-            addCloseup={addCloseup}
-            removeCloseup={removeCloseup}
-            proc={proc}
-            outers={outers}
-            inners={inners}
-            skip={skip}
-            setOuters={setOuters}
-            setInners={setInners}
-            setSkip={setSkip}
-            onCenteringAutoDetect={onCenteringAutoDetect}
-            centeringPreview={centeringPreview}
-            localCaptureHints={localCaptureHints}
-            centeringMeasured={centeringMeasured}
-            error={error}
-            captureBlockers={captureBlockers}
-            outOfQuota={outOfQuota}
-            buyBusy={buyBusy}
-            buyGrade={buyGrade}
-            running={running}
-            run={run}
-            prefilled={prefilled}
-          />
-        ) : (
-          <GradeUploadWorkspace
-            quotaLabel={quotaLabel}
-            purchaseBanner={purchaseBanner}
-            files={files}
-            previews={previews}
-            setSlot={setSlot}
-            showAdvanced={showAdvanced}
-            setShowAdvanced={setShowAdvanced}
-            closeups={closeups}
-            closeupPreviews={closeupPreviews}
-            addCloseup={addCloseup}
-            removeCloseup={removeCloseup}
-            proc={proc}
-            outers={outers}
-            inners={inners}
-            skip={skip}
-            setOuters={setOuters}
-            setInners={setInners}
-            setSkip={setSkip}
-            onCenteringAutoDetect={onCenteringAutoDetect}
-            centeringPreview={centeringPreview}
-            localCaptureHints={localCaptureHints}
-            centeringMeasured={centeringMeasured}
-            error={error}
-            captureBlockers={captureBlockers}
-            outOfQuota={outOfQuota}
-            buyBusy={buyBusy}
-            buyGrade={buyGrade}
-            running={running}
-            run={run}
-          />
-        )
-      )}
+      {!result && !running && <GradeUploadWorkspace {...workspaceProps} />}
 
       {result && result.not_a_card === true && (
         <div className="max-w-xl mx-auto text-center rounded-2xl border border-border-subtle bg-surface-raised p-8 animate-[fade-in_0.25s_ease-out]">
